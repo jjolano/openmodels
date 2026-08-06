@@ -34,13 +34,24 @@ class PublishError(RuntimeError):
   pass
 
 
-def _gh(*args: str, check: bool = True) -> str:
+def _gh(*args: str) -> str:
   if shutil.which("gh") is None:
     raise PublishError("the gh CLI is required to publish (it handles auth and multipart upload)")
   result = subprocess.run(["gh", *args], capture_output=True, text=True)
-  if check and result.returncode != 0:
+  if result.returncode != 0:
     raise PublishError(f"gh {' '.join(args)}: {result.stderr.strip()}")
   return result.stdout
+
+
+def _gh_ok(*args: str) -> bool:
+  """Whether a gh command succeeded.
+
+  Must be judged by exit code: `gh api` writes its error body to *stdout* on a 404, so testing
+  output for truthiness reports every missing release as present.
+  """
+  if shutil.which("gh") is None:
+    raise PublishError("the gh CLI is required to publish")
+  return subprocess.run(["gh", *args], capture_output=True, text=True).returncode == 0
 
 
 def existing_assets(repo: str) -> dict[str, str]:
@@ -65,7 +76,7 @@ def existing_assets(repo: str) -> dict[str, str]:
 
 
 def ensure_release(repo: str, tag: str) -> None:
-  if _gh("api", f"repos/{repo}/releases/tags/{tag}", check=False).strip():
+  if _gh_ok("api", f"repos/{repo}/releases/tags/{tag}"):
     return
   _gh("release", "create", tag, "--repo", repo, "--title", f"Model blobs {tag}",
       "--notes", "Model weights mirrored from commaai/openpilot. Filenames are their sha256 "
