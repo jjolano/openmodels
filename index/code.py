@@ -100,6 +100,14 @@ def encode(selection: dict[str, str]) -> str:
 def decode(code: str) -> tuple[dict[str, str], str]:
   """A code -> ({role: oid_prefix}, checksum_hex). Prefixes still need resolving."""
   cleaned = code.strip().upper().replace(" ", "").replace("-", "")
+  # Read off a screen and thumbed into a car, a code loses characters to lookalikes. These four
+  # are safe to repair because the digit is not in base32's alphabet at all, so accepting it can
+  # never collide with a legitimate code.
+  #
+  # 2/Z, 5/S, 6/G and 7/T are NOT repairable — both members are valid base32 — so a misread
+  # there produces a prefix that resolves to nothing. That fails loudly, which is the property
+  # worth protecting; it costs a retry, not a wrong model.
+  cleaned = cleaned.translate(str.maketrans({"0": "O", "1": "I", "8": "B"}))
   # The prefix is for human recognition, not for the format — accept a code without it so
   # nobody has to thumb in three extra characters on a touchscreen. The version/shape byte and
   # the length check still reject anything that isn't one of ours.

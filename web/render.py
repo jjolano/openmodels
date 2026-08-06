@@ -26,7 +26,7 @@ CSS = """
 :root{
   --bg:#fbfbfa; --panel:#fff; --ink:#16150f; --muted:#6b6a63; --line:#e3e2dc;
   --accent:#3d5a3d; --warn:#8a5a1f; --danger:#8f3232; --code:#f4f4f1;
-  --radius:10px; --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  --radius:10px; --mono:ui-monospace,SFMono-Regular,Menlo,monospace;\n  --code-font:"JetBrains Mono","IBM Plex Mono","Roboto Mono","DejaVu Sans Mono",\n              ui-monospace,SFMono-Regular,Menlo,monospace;
 }
 @media (prefers-color-scheme:dark){:root{
   --bg:#131311; --panel:#1b1b18; --ink:#eceae2; --muted:#9b998f; --line:#2e2e29;
@@ -77,7 +77,10 @@ section{background:var(--panel);border:1px solid var(--line);border-radius:var(-
   padding:18px 20px;margin-bottom:16px}
 section h2{margin:0 0 12px;font-size:15px;letter-spacing:-.01em}
 section h2 .sub{font-weight:400;color:var(--muted);font-size:13px;margin-left:8px}
-.required{border-left:3px solid var(--accent)}\n.note.ok{border-left-color:var(--accent)}\n.note.warn{border-left-color:var(--warn)}\nbutton{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font:inherit;font-size:14px;cursor:pointer}
+.required{border-left:3px solid var(--accent)}
+#out{font-family:var(--code-font);font-size:26px;letter-spacing:.16em;text-align:center;
+  padding:20px 14px;font-variant-ligatures:none;font-feature-settings:"ss01","zero","calt" 0;
+  word-break:break-all;line-height:1.4}\n.note.ok{border-left-color:var(--accent)}\n.note.warn{border-left-color:var(--warn)}\nbutton{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font:inherit;font-size:14px;cursor:pointer}
 footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);
   color:var(--muted);font-size:13px}
 .empty{color:var(--muted);padding:28px 0}

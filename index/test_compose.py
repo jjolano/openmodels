@@ -286,6 +286,44 @@ def test_code_matches_the_browser_implementation():
     "OM2-IBXM-6KD7-4USR-2"
 
 
+def test_lookalike_digits_are_repaired_on_input():
+  """Read off a screen, thumbed into a car: O becomes 0, I becomes 1, B becomes 8."""
+  from index.code import encode, resolve
+  sel = {"vision": "a" * 64, "on_policy": "b" * 64}
+  code, oids = encode(sel), ["a" * 64, "b" * 64]
+
+  typed = code.replace("O", "0").replace("I", "1").replace("B", "8")
+  assert resolve(typed, oids) == sel, typed
+  # and the repair must not depend on case either
+  assert resolve(typed.lower(), oids) == sel
+
+
+def test_unrepairable_lookalikes_fail_loudly():
+  """2/Z, 5/S, 6/G, 7/T are both valid base32, so a misread cannot be repaired.
+
+  It must therefore fail to resolve rather than silently naming other weights -- a retry, not a
+  wrong model.
+  """
+  from index.code import CodeError, encode, resolve
+  sel = {"vision": "a" * 64, "on_policy": "b" * 64}
+  code, oids = encode(sel), ["a" * 64, "b" * 64]
+  body = code.split("-", 1)[1]
+
+  swaps = {"2": "Z", "Z": "2", "5": "S", "S": "5", "6": "G", "G": "6", "7": "T", "T": "7"}
+  tried = 0
+  for i, char in enumerate(body):
+    if char not in swaps:
+      continue
+    tried += 1
+    mangled = body[:i] + swaps[char] + body[i + 1:]
+    try:
+      got = resolve(mangled, oids)
+      assert got != sel, f"misread {char}->{swaps[char]} silently resolved to the same selection"
+    except CodeError:
+      pass          # the expected outcome: a clean failure
+  assert tried, "this code contained no confusable characters to test"
+
+
 if __name__ == "__main__":
   tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
   for test in tests:

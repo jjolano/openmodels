@@ -172,6 +172,11 @@ would matter on a device.
   merely detectable.
 - **The `OM2-` prefix is optional on input.** It exists for human recognition, not for the
   format; nobody should thumb in three extra characters.
+- **Lookalike repair is one-directional and deliberate.** `0→O`, `1→I`, `8→B` are safe because
+  those digits are not in base32's alphabet, so accepting them can never collide with a valid
+  code. `2/Z`, `5/S`, `6/G` and `7/T` are **not** repairable — both members are valid — so a
+  misread there fails to resolve. That is the intended outcome: a retry, not a wrong model. Do
+  not "fix" it by guessing.
 - **The encoder exists twice** — Python in `index/code.py`, JavaScript in `web/render.py`'s
   `COMPOSE_JS`, because the compose page is static and must work without the API. Golden vectors
   in `index/test_compose.py` pin both; they were verified equal by driving the page's JS under
