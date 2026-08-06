@@ -1,0 +1,90 @@
+name: index
+
+# The public instance's scheduler. Actions is the sole writer to Releases and gh-pages, so the
+# indexer container is not deployed there — the API container only serves what this publishes.
+# That is what keeps the catalog fresh and the mirror current even if the API host dies.
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: index
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  index:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Pointers only. A full clone with LFS would pull ~8GB we never need: the oid and size
+      # are already in the 133-byte pointer, so blobs are fetched selectively later.
+      - name: Clone openpilot (blobless, no LFS)
+        env:
+          GIT_LFS_SKIP_SMUDGE: "1"
+        run: |
+          git clone --filter=blob:none --no-checkout \
+            https://github.com/commaai/openpilot upstream
+          cd upstream
+          # Unmerged PR heads carry models that never landed, and force-pushes erase them.
+          git fetch --filter=blob:none origin '+refs/pull/*/head:refs/remotes/pr/*' || true
+          git fetch --filter=blob:none origin '+refs/heads/*:refs/remotes/origin/*'
+
+      - name: Self-check
+        run: python index/test_metadata.py
+
+      - name: Index
+        run: python -m index.indexer --repo upstream --head origin/master --out data/index.json
+
+      # Mirrors blobs comma may GC, and writes each file's release shard back into the index.
+      # Blobs are fetched on demand and deleted after upload, so the runner never holds the
+      # ~8GB archive. UPLOAD_LIMIT spreads the initial backfill across runs; steady state moves
+      # only what upstream actually added.
+      - name: Mirror blobs to releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python -m index.publish \
+            --index data/index.json \
+            --cache "${RUNNER_TEMP}/blobs" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --limit "${UPLOAD_LIMIT:-40}"
+        continue-on-error: true
+
+      # After publishing, so the rendered pages and the mirrored index.json carry release tags.
+      - name: Render site
+        run: python web/render.py --index data/index.json --out data/public
+
+      - name: Publish site to gh-pages
+        # Fully generated, so publishing is a clean overwrite — no merge, no conflicts.
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: data/public
+          force_orphan: true
+
+      - name: Summary
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          d = json.load(open("data/index.json"))
+          mirrored = d.get("mirrored_count", 0)
+          total = d["file_count"]
+          print(f"## openmodels index\n")
+          print(f"- bundles: **{d['bundle_count']}**")
+          print(f"- distinct files: **{total}**")
+          print(f"- mirrored to releases: **{mirrored}/{total}**")
+          print(f"- total: **{sum(f['size'] for f in d['files'])/2**30:.2f} GB**")
+          print(f"- upstream head: `{d['upstream_head'][:12]}`")
+          if mirrored < total:
+            print(f"\n> Backfill in progress: {total - mirrored} blobs still to mirror.")
+          PY
