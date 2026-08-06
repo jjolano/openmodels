@@ -166,6 +166,25 @@ def test_bundle_id_is_content_addressed_and_order_free():
   assert bundle_id(a["files"]) == a["bundle_id"]
 
 
+def test_seam_width_resolves_negative_slice_bounds():
+  """output_slices are real Python slices, so a bound may count from the end."""
+  from index.compose import _seam_width
+  # hidden_state: [1064, -120] against a 1576-wide output -> 1576-120-1064 = 392
+  meta = {"output_slices": {"hidden_state": [1064, -120, None]},
+          "output_shapes": {"outputs": [1, 1576]}}
+  assert _seam_width(meta) == 392, _seam_width(meta)
+
+  # plain positive bounds are unaffected
+  assert _seam_width({"output_slices": {"hidden_state": [1064, 1576, None]},
+                      "output_shapes": {"outputs": [1, 1576]}}) == 512
+
+  # unknown output length -> unverifiable, never a fabricated width
+  assert _seam_width({"output_slices": {"hidden_state": [1064, -120, None]}}) is None
+  # a slice that resolves to nothing is not a seam
+  assert _seam_width({"output_slices": {"hidden_state": [500, 100, None]},
+                      "output_shapes": {"outputs": [1, 1576]}}) is None
+
+
 if __name__ == "__main__":
   tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
   for test in tests:

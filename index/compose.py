@@ -79,11 +79,28 @@ def partners_of(checkpoint: str, pairings: list[list[str]]) -> dict[str, list[st
 
 
 def _seam_width(metadata: dict[str, Any]) -> int | None:
-  slices = metadata.get("output_slices") or {}
-  bounds = slices.get(SEAM_KEY)
-  if not bounds or bounds[0] is None or bounds[1] is None or bounds[0] < 0:
+  """Width of the vision→policy seam, resolving Python slice semantics.
+
+  These are real `slice` objects, so a bound may be negative and count from the end
+  (`hidden_state: [1064, -120]`). Subtracting the raw numbers yields nonsense, so negative
+  bounds are resolved against the model's declared output length. Returns None when the length
+  is unknown rather than guessing — an unverifiable seam is a caution, not a fabricated width.
+  """
+  bounds = (metadata.get("output_slices") or {}).get(SEAM_KEY)
+  if not bounds or bounds[0] is None or bounds[1] is None:
     return None
-  return bounds[1] - bounds[0]
+
+  start, stop = bounds[0], bounds[1]
+  if start < 0 or stop < 0:
+    shapes = metadata.get("output_shapes") or {}
+    total = next((s[-1] for s in shapes.values() if s and isinstance(s[-1], int)), None)
+    if total is None:
+      return None
+    start = start + total if start < 0 else start
+    stop = stop + total if stop < 0 else stop
+
+  width = stop - start
+  return width if width > 0 else None
 
 
 def _buffer_shape(metadata: dict[str, Any]) -> list[int] | None:
