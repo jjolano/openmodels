@@ -18,6 +18,7 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
 
+from index import code as codes
 from index import compose
 from fastapi.responses import RedirectResponse
 
@@ -214,7 +215,28 @@ def compose_bundle(selection: dict[str, str]) -> dict[str, Any]:
     manifest = compose.compose(selection, files_by_oid, index.get("attested_pairings", []))
   except compose.ComposeError as exc:
     raise HTTPException(422, str(exc)) from exc
-  return manifest
+  return {**manifest, "code": codes.encode(selection)}
+
+
+@app.get("/v1/compose/{code}")
+def resolve_code(code: str) -> dict[str, Any]:
+  """Redeem a shareable code into a full composed manifest.
+
+  The code carries truncated oids, so this resolves them against the catalog and re-runs every
+  check. Redemption is where validation happens — the code itself asserts nothing, which is why
+  a damaged one fails here instead of quietly naming different weights.
+  """
+  index = load_index()
+  files_by_oid = {f["oid"]: f for f in index["files"]}
+  try:
+    selection = codes.resolve(code, list(files_by_oid))
+  except codes.CodeError as exc:
+    raise HTTPException(422, f"{exc}") from exc
+  try:
+    manifest = compose.compose(selection, files_by_oid, index.get("attested_pairings", []))
+  except compose.ComposeError as exc:
+    raise HTTPException(422, str(exc)) from exc
+  return {**manifest, "code": code}
 
 
 @app.get("/v1/lineage/{checkpoint:path}")

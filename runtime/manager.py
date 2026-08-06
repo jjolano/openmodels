@@ -286,6 +286,24 @@ class ModelStore:
     shutil.rmtree(self.path_for(bundle_id), ignore_errors=True)
 
 
+def redeem_code(code: str, catalog: Catalog) -> dict[str, Any]:
+  """Turn a shared code into a composed manifest, validating as it goes.
+
+  Works offline against a cached catalog: the code resolves locally and the checks run locally,
+  so a picker can accept a code from a friend without the API being reachable.
+  """
+  from index import code as codes
+  from index.compose import compose as compose_bundle
+
+  oids = [f["oid"] for f in catalog.data.get("files", [])]
+  if not oids:
+    # A /v1/models listing carries no file table; only the full index does.
+    raise CatalogUnavailable("this catalog has no file list; load the full index to redeem codes")
+  selection = codes.resolve(code, oids)
+  files_by_oid = {f["oid"]: f for f in catalog.data["files"]}
+  return compose_bundle(selection, files_by_oid, catalog.data.get("attested_pairings", []))
+
+
 def download_bundle(catalog: Catalog, bundle_id: str, store: ModelStore,
                     on_progress: ProgressFn | None = None,
                     api: str | None = None) -> dict[str, Any]:
@@ -295,7 +313,9 @@ def download_bundle(catalog: Catalog, bundle_id: str, store: ModelStore,
   so an interrupted download can never leave a half-installed bundle that looks usable.
   """
   api = api or catalog.api
-  record = catalog.provenance(bundle_id)
+  # A composed manifest has no server-side record to fetch; accept it directly.
+  record = bundle_id if isinstance(bundle_id, dict) else catalog.provenance(bundle_id)
+  bundle_id = record.get("bundle_id", bundle_id) if isinstance(record, dict) else bundle_id
   files = record["files"]
   total = sum(f["size"] for f in files)
 

@@ -185,6 +185,90 @@ def test_seam_width_resolves_negative_slice_bounds():
                       "output_shapes": {"outputs": [1, 1576]}}) is None
 
 
+# --- shareable codes ------------------------------------------------------------------------
+
+def test_code_round_trips():
+  from index.code import encode, resolve
+  sel = {"vision": "a" * 64, "on_policy": "b" * 64}
+  code = resolve(encode(sel), ["a" * 64, "b" * 64, "c" * 64])
+  assert code == sel, code
+
+
+def test_code_is_readable_and_stable():
+  from index.code import encode
+  sel = {"vision": "6ecf28d7" + "0" * 56, "on_policy": "7fe5257c" + "0" * 56}
+  code = encode(sel)
+  assert code.startswith("OM1-") and code.isupper()
+  assert "+" not in code and "/" not in code, "must be safe to paste and read aloud"
+  # Order of the dict must not change the code.
+  assert encode({k: sel[k] for k in reversed(list(sel))}) == code
+
+
+def test_code_survives_formatting_damage():
+  from index.code import encode, resolve
+  sel = {"vision": "a" * 64, "on_policy": "b" * 64}
+  code = encode(sel)
+  oids = ["a" * 64, "b" * 64]
+  for mangled in (code.lower(), code.replace("-", ""), f"  {code}  ", code.replace("-", " ")):
+    assert resolve(mangled, oids) == sel, mangled
+
+
+def test_code_fails_loudly_rather_than_misresolving():
+  from index.code import CodeError, encode, resolve
+  sel = {"vision": "a" * 64, "on_policy": "b" * 64}
+  code = encode(sel)
+
+  # a file that isn't in this catalog
+  try:
+    resolve(code, ["a" * 64])
+    raise AssertionError("must not resolve against a catalog missing a half")
+  except CodeError as exc:
+    assert "no file in this catalog" in str(exc)
+
+  # a corrupted body must never silently point somewhere else
+  body = code.split("-", 1)[1].replace("-", "")
+  swapped = "A" if body[0] != "A" else "B"
+  try:
+    got = resolve(f"OM1-{swapped}{body[1:]}", ["a" * 64, "b" * 64, "c" * 64])
+    assert got != sel, "corruption resolved to the original selection"
+    raise AssertionError("corrupted code resolved silently")
+  except CodeError:
+    pass
+
+  for junk in ("", "hello", "OM1-!!!!", "OM9-AAAAA"):
+    try:
+      resolve(junk, ["a" * 64])
+      raise AssertionError(f"{junk!r} should not resolve")
+    except CodeError:
+      pass
+
+
+def test_ambiguous_prefix_is_refused():
+  from index.code import CodeError, encode, resolve
+  code = encode({"vision": "ab" * 32, "on_policy": "cd" * 32})
+  # two catalog files sharing the encoded prefix
+  twins = ["ab" * 32, "ab" * 31 + "ff", "cd" * 32]
+  try:
+    resolve(code, twins)
+    raise AssertionError("an ambiguous prefix must be refused, not guessed")
+  except CodeError as exc:
+    assert "ambiguous" in str(exc), exc
+
+
+def test_code_matches_the_browser_implementation():
+  """Golden vectors shared with web/render.py's COMPOSE_JS.
+
+  The encoder exists twice -- Python here, JavaScript in the compose page -- because the page is
+  static and must work without the API. If they ever drift, codes made in a browser stop
+  redeeming, so these vectors pin both. Verified equal by driving the page's JS under node.
+  """
+  from index.code import encode
+  assert encode({"vision": "a" * 64, "on_policy": "b" * 64}) == \
+    "OM1-AEA3X-O53XO-53WAF-KVKVK-VKVKQ-4NQ"
+  assert encode({"vision": "6ecf28d7" + "0" * 56, "on_policy": "7fe5257c" + "0" * 56}) == \
+    "OM1-AEAX7-ZJFPQ-AAAAD-OZ4UN-OAAAD-U6A"
+
+
 if __name__ == "__main__":
   tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
   for test in tests:

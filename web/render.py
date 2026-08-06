@@ -77,7 +77,7 @@ section{background:var(--panel);border:1px solid var(--line);border-radius:var(-
   padding:18px 20px;margin-bottom:16px}
 section h2{margin:0 0 12px;font-size:15px;letter-spacing:-.01em}
 section h2 .sub{font-weight:400;color:var(--muted);font-size:13px;margin-left:8px}
-.required{border-left:3px solid var(--accent)}
+.required{border-left:3px solid var(--accent)}\n.note.ok{border-left-color:var(--accent)}\n.note.warn{border-left-color:var(--warn)}\nbutton{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font:inherit;font-size:14px;cursor:pointer}
 footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);
   color:var(--muted);font-size:13px}
 .empty{color:var(--muted);padding:28px 0}
@@ -116,6 +116,7 @@ def shell(title: str, body: str, depth: int = 0) -> str:
      <code>commaai/openpilot</code> git history.</p>
   <nav class="top">
     <a href="{root}index.html">Models</a>
+    <a href="{root}compose.html">Compose</a>
     <a href="{root}integrate.html">Integrate</a>
     <a href="/docs">API</a>
     <a href="https://github.com/commaai/openpilot">openpilot</a>
@@ -458,12 +459,130 @@ python clients/reference.py --pull &lt;bundle_id&gt; --out selfdrive/modeld/mode
 """
 
 
+COMPOSE_JS = """
+(function(){
+  var D=null, sel={};
+  var ROLES=["vision","on_policy","off_policy","supercombo","big_vision","big_on_policy",
+             "big_off_policy","dmonitoring","navmodel"];
+
+  function ck(f){ var l=(f.metadata||{}).lineage||{}; return l.self||l.vision||null; }
+  function b32(bytes){
+    var A="ABCDEFGHIJKLMNOPQRSTUVWXYZ234567", out="", bits=0, val=0;
+    for(var i=0;i<bytes.length;i++){ val=(val<<8)|bytes[i]; bits+=8;
+      while(bits>=5){ out+=A[(val>>>(bits-5))&31]; bits-=5; } }
+    if(bits>0) out+=A[(val<<(5-bits))&31];
+    return out;
+  }
+  async function sha256(str){
+    var buf=await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf));
+  }
+  async function makeCode(selection){
+    var keys=Object.keys(selection).sort(), body=[1];
+    keys.forEach(function(r){
+      body.push(ROLES.indexOf(r));
+      var hex=selection[r].slice(0,12);
+      for(var i=0;i<12;i+=2) body.push(parseInt(hex.substr(i,2),16));
+    });
+    var digest=await sha256(keys.map(function(r){return r+":"+selection[r];}).join(""));
+    body=body.concat(digest.slice(0,2));
+    var t=b32(body), g=[];
+    for(var i=0;i<t.length;i+=5) g.push(t.slice(i,i+5));
+    return "OM1-"+g.join("-");
+  }
+
+  function options(role){
+    return (D.files||[]).filter(function(f){
+      return (f.filenames||[]).some(function(n){
+        return role==="vision" ? n.indexOf("vision")>-1 && n.indexOf("big_")<0
+             : n.indexOf("policy")>-1 && n.indexOf("big_")<0; });
+    });
+  }
+  function fill(id, role){
+    var el=document.getElementById(id);
+    options(role).forEach(function(f){
+      var o=document.createElement("option");
+      o.value=f.oid;
+      o.textContent=(f.filenames[0]||"?")+"  "+(ck(f)||"lineage unknown").slice(0,22)+
+                    "  ("+Math.round(f.size/1048576)+" MB)";
+      el.appendChild(o);
+    });
+  }
+  async function update(){
+    var v=document.getElementById("vsel").value, p=document.getElementById("psel").value;
+    var out=document.getElementById("out"), note=document.getElementById("note");
+    if(!v||!p){ out.textContent="Pick a vision half and a policy half."; note.textContent=""; return; }
+    sel={vision:v, on_policy:p};
+    var files=D.files||[], byOid={};
+    files.forEach(function(f){ byOid[f.oid]=f; });
+    var vc=ck(byOid[v]), pc=ck(byOid[p]);
+    var attested=(D.attested_pairings||[]).some(function(pr){ return pr[0]===vc && pr[1]===pc; });
+    note.className = attested ? "note ok" : "note warn";
+    note.innerHTML = !vc||!pc
+      ? "<strong>Lineage unknown</strong> for one half \u2014 whether these were built for each other cannot be determined."
+      : attested
+        ? "<strong>Attested pairing.</strong> These halves shipped together upstream."
+        : "<strong>Cross-lineage.</strong> These never shipped together. The latent between them is untyped, so this will load and run regardless of whether the numbers mean the same thing.";
+    out.textContent = await makeCode(sel);
+  }
+  fetch("index.json").then(function(r){return r.json();}).then(function(d){
+    D=d; fill("vsel","vision"); fill("psel","policy");
+    ["vsel","psel"].forEach(function(id){
+      document.getElementById(id).addEventListener("change", update); });
+    update();
+  }).catch(function(e){
+    document.getElementById("out").textContent="could not load catalog: "+e;
+  });
+  document.getElementById("copy").addEventListener("click", function(){
+    navigator.clipboard.writeText(document.getElementById("out").textContent);
+  });
+})();
+"""
+
+
+COMPOSE = """
+<h1 class="title">Compose a model</h1>
+<p class="note">Combine a vision half with a policy half and get a code you can paste into a
+   model picker. comma ships one vision encoder against several policies, so this is how upstream
+   already works &mdash; but <strong>the exact combination you build here has never been
+   driven</strong>.</p>
+
+<section>
+  <h2>Pick the halves</h2>
+  <div class="controls">
+    <select id="vsel" aria-label="vision half"><option value="">vision half\u2026</option></select>
+    <select id="psel" aria-label="policy half"><option value="">policy half\u2026</option></select>
+  </div>
+  <p id="note" class="meta"></p>
+</section>
+
+<section class="required">
+  <h2>Your code<span class="sub">paste this into a picker</span></h2>
+  <pre id="out">Pick a vision half and a policy half.</pre>
+  <button id="copy" class="controls">Copy</button>
+  <p class="meta">The code carries which files you picked, not a promise about them. Redeeming it
+     &mdash; <code>GET /v1/compose/&lt;code&gt;</code>, or <code>redeem_code()</code> in the
+     runtime library &mdash; resolves it against the catalog and re-runs every check. A damaged
+     code fails to resolve rather than quietly naming different weights.</p>
+</section>
+
+<section>
+  <h2>Before you drive it</h2>
+  <p class="meta">Structural checks passing is not a safety result. The two halves may carry
+     different host constants, since they came from different commits &mdash; redeem the code to
+     see both and choose deliberately. Then compile on-device and qualify it yourself.</p>
+</section>
+"""
+
+
 def render(index_path: Path, out_dir: Path) -> int:
   index = json.loads(index_path.read_text())
   (out_dir / "models").mkdir(parents=True, exist_ok=True)
 
   (out_dir / "index.html").write_text(render_browse(index))
   (out_dir / "integrate.html").write_text(shell("Integrate — openmodels", INTEGRATE))
+  (out_dir / "compose.html").write_text(
+    shell("Compose — openmodels", COMPOSE + f"<script>{COMPOSE_JS}</script>"))
   for bundle in index["bundles"]:
     (out_dir / "models" / f"{bundle['bundle_id']}.html").write_text(render_detail(index, bundle))
 

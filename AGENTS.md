@@ -151,3 +151,22 @@ this feature is allowed to exist under the boundary above.
 - **Lineage requires a metadata pass.** The default indexer run reads only LFS pointers, so
   `model_checkpoint` is absent until a `--blob-cache` run. Use `--metadata-source releases` to
   read from our own mirror rather than hammering comma's LFS.
+
+## Shareable composition codes
+
+`OM1-…` codes carry truncated oids and are resolved against the catalog, which makes a code a
+**lookup key, not a description**. That is the safety property: a damaged code fails to resolve
+or fails its checksum, and cannot quietly name different weights — the only failure mode that
+would matter on a device.
+
+- **Redemption is where validation happens.** The code asserts nothing. `/v1/compose/{code}` and
+  `runtime.manager.redeem_code` both re-resolve and re-run every check. Never trust a code's
+  contents without resolving them.
+- **`ROLES` in `index/code.py` is append-only.** Reordering it silently changes what old codes
+  mean, which is exactly the misresolution the format exists to prevent.
+- **The encoder exists twice** — Python in `index/code.py`, JavaScript in `web/render.py`'s
+  `COMPOSE_JS`, because the compose page is static and must work without the API. Golden vectors
+  in `index/test_compose.py` pin both; they were verified equal by driving the page's JS under
+  node. If you change the format, change both and update the vectors.
+- **Codes differing only in trailing base32 padding bits are the same code.** Encoding always
+  emits the canonical form; accepting variants is fine.
