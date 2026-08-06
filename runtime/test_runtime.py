@@ -13,9 +13,10 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from runtime.manager import Catalog, ModelStore  # noqa: E402
+from runtime.manager import ALL_STATUSES, MERGED_ONLY, Catalog, ModelStore  # noqa: E402
 from runtime.plan import (  # noqa: E402
-  MULTI_ERA, UPSTREAM, PlanError, classify, detect_input_keys, plan_bundle,
+  MULTI_ERA, UPSTREAM, Capabilities, PlanError, check_compatibility, classify,
+  detect_input_keys, plan_bundle,
 )
 
 
@@ -146,15 +147,57 @@ def test_catalog_filters_and_groups_real_index():
     print("  (skipped catalog test: data/index.json not built)")
     return
   cat = Catalog(json.loads(index.read_text()), "file", "http://localhost")
-  merged = cat.list(kind="driving")
-  withdrawn = cat.list(kind="driving", allow_statuses={"reverted", "pr_only"})
-  assert merged and withdrawn
-  assert not (set(b["bundle_id"] for b in merged) & set(b["bundle_id"] for b in withdrawn)), \
-    "withdrawn models must never appear in the default listing"
+  everything = cat.list(kind="driving")
+  merged = cat.list(kind="driving", allow_statuses=MERGED_ONLY)
+  assert len(everything) > len(merged), "default listing must include withdrawn models"
+  assert all("status" in b for b in everything), "every entry must carry its status"
+  assert any(b["withdrawn"] for b in everything), "withdrawn models must be flagged, not hidden"
+  assert all(not b["withdrawn"] for b in merged)
   years = cat.group_by_year(kind="driving")
   assert list(years) == sorted(years, reverse=True), "newest year first"
   sc = cat.list(kind="driving", family="supercombo")
   assert all(b["family"] == "supercombo" for b in sc)
+
+
+
+
+def test_incompatible_models_are_flagged_not_hidden():
+  """A fork maintainer needs to see what it cannot run, and why."""
+  index = Path(__file__).resolve().parent.parent / "data" / "index.json"
+  if not index.exists():
+    print("  (skipped: data/index.json not built)")
+    return
+  cat = Catalog(json.loads(index.read_text()), "file", "http://localhost")
+  caps = Capabilities(compilers=frozenset({UPSTREAM}), usbgpu=False)
+
+  listed = cat.list(kind="driving", capabilities=caps)
+  runnable = cat.list(kind="driving", capabilities=caps, only_runnable=True)
+  assert len(listed) > len(runnable), "default must list models it cannot run"
+  assert all("compatibility" in b for b in listed)
+
+  blocked = [b for b in listed if not b["compatibility"]["runnable"]]
+  assert blocked, "an upstream-only fork cannot run the supercombo bundles"
+  assert all(b["compatibility"]["blockers"] for b in blocked), "a blocker must say why"
+
+
+def test_support_gaps_aggregate_into_a_roadmap():
+  index = Path(__file__).resolve().parent.parent / "data" / "index.json"
+  if not index.exists():
+    return
+  cat = Catalog(json.loads(index.read_text()), "file", "http://localhost")
+  gaps = cat.support_gaps(Capabilities(compilers=frozenset({UPSTREAM})), kind="driving")
+  assert gaps and gaps[0][1] > 0
+  codes = [g[0] for g in gaps]
+  assert any(c.startswith("needs_compiler:") for c in codes), codes
+  assert gaps == sorted(gaps, key=lambda g: g[1], reverse=True), "largest win first"
+
+
+def test_withdrawn_status_is_a_caution_not_a_blocker():
+  caps = Capabilities(compilers=frozenset({UPSTREAM, MULTI_ERA}))
+  bundle = _bundle(["vision", "on_policy"], variant="standard", status="reverted")
+  verdict = check_compatibility(bundle, caps)
+  assert verdict.runnable, "a reverted model is still mechanically runnable"
+  assert any("withdrawn" in c for c in verdict.cautions), verdict.cautions
 
 
 if __name__ == "__main__":

@@ -26,7 +26,12 @@ from pathlib import Path
 from typing import Any, Callable, Iterable
 
 CHUNK = 1 << 20
-SAFE_STATUSES = frozenset({"merged"})
+
+# Every status is listed by default. Withdrawn models are the reason this archive exists, so
+# hiding them sends people to look somewhere less careful; they are surfaced with their status
+# instead. A picker MUST render that status — see Catalog.status_of and is_withdrawn.
+ALL_STATUSES = frozenset({"merged", "reverted", "pr_only"})
+MERGED_ONLY = frozenset({"merged"})
 
 
 class CatalogUnavailable(Exception):
@@ -114,16 +119,31 @@ class Catalog:
       return bundle["status"]
     return max(bundle["occurrences"], key=lambda o: o["date"])["status"]
 
-  def list(self, *, kind: str | None = "driving", allow_statuses: Iterable[str] = SAFE_STATUSES,
+  @property
+  def suspect_oids(self) -> frozenset[str]:
+    return frozenset(f["oid"] for f in self.data.get("files", []) if f.get("suspect"))
+
+  def list(self, *, kind: str | None = "driving", allow_statuses: Iterable[str] = ALL_STATUSES,
            family: str | None = None, variant: str | None = None,
-           search: str | None = None) -> list[dict[str, Any]]:
-    """Filtered, newest first. Withdrawn models are excluded unless asked for."""
+           search: str | None = None, capabilities: Any = None,
+           only_runnable: bool = False) -> list[dict[str, Any]]:
+    """Annotated, newest first. **Flags rather than hides.**
+
+    Every entry carries `status` and, when `capabilities` is given, a `compatibility` verdict —
+    so a picker can grey out a model and say why instead of quietly omitting it. A user who
+    cannot see why a model is missing goes looking for it somewhere less careful.
+
+    `only_runnable=True` opts into actual filtering; the default lists everything.
+
+    Entries are shallow copies, so repeated calls never accumulate annotations on the catalog.
+    """
     allowed = frozenset(allow_statuses)
     out = []
     for bundle in self.data.get("bundles", []):
       if kind and bundle.get("kind") != kind:
         continue
-      if self.status_of(bundle) not in allowed:
+      status = self.status_of(bundle)
+      if status not in allowed:
         continue
       if family and bundle.get("family") != family:
         continue
@@ -131,8 +151,37 @@ class Catalog:
         continue
       if search and search.lower() not in f"{bundle.get('name','')} {bundle['bundle_id']}".lower():
         continue
-      out.append(bundle)
+
+      entry = dict(bundle, status=status, withdrawn=status != "merged")
+      if capabilities is not None:
+        from runtime.plan import check_compatibility
+        verdict = check_compatibility(bundle, capabilities, self.suspect_oids)
+        if only_runnable and not verdict.runnable:
+          continue
+        entry["compatibility"] = {
+          "runnable": verdict.runnable,
+          "blockers": verdict.blockers,
+          "cautions": verdict.cautions,
+        }
+      out.append(entry)
     return sorted(out, key=lambda b: b["introduced_by"]["date"], reverse=True)
+
+  def support_gaps(self, capabilities: Any, **kwargs) -> list[tuple[str, int, str]]:
+    """What building support for each missing capability would unlock.
+
+    Blockers aggregate into a roadmap: "adding the sunnypilot compiler unlocks 76 models" is a
+    decision a maintainer can act on, where 76 individually unsupported models is just noise.
+    Returns (code, model_count, example_detail), largest win first.
+    """
+    from runtime.plan import check_compatibility
+    counts: dict[str, int] = {}
+    examples: dict[str, str] = {}
+    for bundle in self.list(capabilities=None, **kwargs):
+      for blocker in check_compatibility(bundle, capabilities, self.suspect_oids).blockers:
+        counts[blocker.code] = counts.get(blocker.code, 0) + 1
+        examples.setdefault(blocker.code, blocker.detail)
+    return sorted(((c, n, examples[c]) for c, n in counts.items()),
+                  key=lambda row: row[1], reverse=True)
 
   def group_by_year(self, **kwargs) -> dict[str, list[dict[str, Any]]]:
     """Folder-style grouping for a picker UI."""

@@ -35,6 +35,100 @@ class PlanError(Exception):
   """The bundle cannot be compiled as given."""
 
 
+@dataclass(frozen=True)
+class Capabilities:
+  """What a fork can actually build and run.
+
+  Only mechanical facts belong here: which compilers are installed, whether the device has the
+  USB GPU the `big_` family targets, and the build's own frame skip. These are checkable, unlike
+  whether a model's outputs mean what your parser thinks they mean.
+  """
+  compilers: frozenset[str] = frozenset({UPSTREAM})
+  usbgpu: bool = False
+  frame_skip: int | None = None
+
+  @classmethod
+  def detect(cls, openpilot_root: Path | None = None) -> "Capabilities":
+    """Best-effort local detection. Explicit construction is preferable in a fork."""
+    compilers = set()
+    root = Path(openpilot_root or ".")
+    if (root / "selfdrive/modeld/compile_modeld.py").exists():
+      compilers.add(UPSTREAM)
+    if (root / "sunnypilot/modeld_v2/compile_modeld.py").exists():
+      compilers.add(MULTI_ERA)
+    usbgpu = False
+    try:                                      # mirrors openpilot's usbgpu_present()
+      usbgpu = any((d / "idVendor").exists() for d in Path("/sys/bus/usb/devices").glob("*"))
+    except OSError:
+      pass
+    return cls(frozenset(compilers or {UPSTREAM}), usbgpu)
+
+
+@dataclass(frozen=True)
+class Blocker:
+  """Why a bundle will not run here — phrased as the support that is missing.
+
+  `code` is stable and aggregatable on purpose: a blocker is really a feature request, and a
+  maintainer should be able to ask "what would adding X unlock?" rather than treating each
+  unsupported model as a dead end.
+  """
+  code: str
+  detail: str
+
+
+@dataclass
+class Compatibility:
+  """Whether a bundle is *mechanically* runnable here, and why not.
+
+  `runnable` never means safe or correct — only that this fork can build it and the hardware
+  matches. Semantic compatibility is not decidable from the data and is deliberately absent.
+  """
+  bundle_id: str
+  runnable: bool
+  blockers: list[Blocker] = field(default_factory=list)
+  cautions: list[str] = field(default_factory=list)
+
+
+def check_compatibility(bundle: dict[str, Any], caps: Capabilities,
+                        suspect_oids: frozenset[str] = frozenset()) -> Compatibility:
+  """Mechanical screen only. Blockers are facts; cautions need a human."""
+  blockers: list[Blocker] = []
+  cautions: list[str] = []
+  roles = {f["role"] for f in bundle.get("files", [])}
+
+  try:
+    model_type, needed = classify(roles)
+  except PlanError as exc:
+    return Compatibility(bundle["bundle_id"], False,
+                         [Blocker("unknown_architecture", str(exc))])
+
+  if needed not in caps.compilers:
+    blockers.append(Blocker(
+      f"needs_compiler:{needed}",
+      f"{model_type} needs the {needed} compiler; you have {', '.join(sorted(caps.compilers))}",
+    ))
+  if bundle.get("variant") == "big" and not caps.usbgpu:
+    blockers.append(Blocker(
+      "needs_usbgpu", "the big_ family targets a USB GPU (DEV=USB+AMD); none detected"))
+  if any(f["oid"] in suspect_oids for f in bundle.get("files", [])):
+    blockers.append(Blocker(
+      "suspect_file", "contains a file flagged suspect (upstream conflict debris, not a model)"))
+
+  status = bundle.get("status")
+  if status and status != "merged":
+    cautions.append(
+      f"withdrawn upstream (status: {status}) — comma pulled this back or never merged it"
+    )
+  if missing := bundle.get("host_constants_missing"):
+    cautions.append(f"host constants not recorded upstream ({', '.join(missing)}); "
+                    f"you must determine them yourself")
+  recorded = bundle.get("frame_skip")
+  if caps.frame_skip is not None and recorded is not None and caps.frame_skip != recorded:
+    cautions.append(f"ran upstream with frame_skip={recorded}, your build uses {caps.frame_skip}")
+
+  return Compatibility(bundle["bundle_id"], not blockers, blockers, cautions)
+
+
 @dataclass
 class CompilePlan:
   bundle_id: str
