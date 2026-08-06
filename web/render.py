@@ -378,8 +378,15 @@ python clients/reference.py --pull &lt;bundle_id&gt; --out selfdrive/modeld/mode
      <code>--on-policy-onnx</code>; there is no <code>--supercombo-onnx</code> and no off-policy
      input. Of the 142 driving bundles here, <strong>66 are vision+on_policy and compile with
      upstream today</strong>, while <strong>76 are combined supercombo</strong> and need a
-     multi-era compiler such as sunnypilot's. Check the bundle's roles before planning around
-     it.</p>
+     multi-era compiler such as sunnypilot's.</p>
+  <p class="meta">In practice that split falls almost entirely along age. openpilot went
+     supercombo &rarr; split &rarr; supercombo, so the format is both its oldest and its newest:
+     <strong>75 of the 76 supercombo bundles are the legacy <code>supercombo.onnx</code>
+     (2020&ndash;2024)</strong>, and the remaining one is the June 2026
+     <code>driving_supercombo.onnx</code> from the combined-onnx change. <strong>Every driving
+     model from 2025 onward is vision+on_policy</strong> and builds with stock tooling &mdash;
+     the compiler gap is mostly historical archive, not models you would run. Check the
+     bundle's roles regardless.</p>
   <p class="meta"><code>--frame-skip</code> is also required, and scons derives it from
      <em>your</em> <code>ModelConstants.MODEL_RUN_FREQ // MODEL_CONTEXT_FREQ</code> &mdash; it is
      a host property, not a model property. Provenance reports what the model ran with upstream,
