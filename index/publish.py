@@ -109,6 +109,7 @@ def publish(index_path: Path, cache_dir: Path, repo: str, limit: int | None = No
   progress(f"{len(placed)} already mirrored, {len(pending)} pending")
 
   uploaded = 0
+  failed: list[str] = []
   for record in pending:
     if limit is not None and uploaded >= limit:
       break
@@ -134,7 +135,16 @@ def publish(index_path: Path, cache_dir: Path, repo: str, limit: int | None = No
 
     tag = shard_for(counts, repo)
     progress(f"  upload {record['oid'][:12]} ({size_mb:.0f} MB) -> {tag}")
-    _gh("release", "upload", tag, str(blob), "--repo", repo, "--clobber")
+    try:
+      _gh("release", "upload", tag, str(blob), "--repo", repo, "--clobber")
+    except PublishError as exc:
+      # One bad blob must not abandon a multi-hour backfill. The run is idempotent, so a
+      # failure is simply retried next time.
+      progress(f"  FAILED {record['oid'][:12]}: {exc}")
+      failed.append(record["oid"])
+      if fetched_now and not keep_blobs:
+        blob.unlink(missing_ok=True)
+      continue
     counts[tag] = counts.get(tag, 0) + 1
     placed[record["oid"]] = tag
     uploaded += 1
@@ -151,10 +161,12 @@ def publish(index_path: Path, cache_dir: Path, repo: str, limit: int | None = No
 
   index["release_repo"] = repo
   index["mirrored_count"] = sum(1 for f in index["files"] if f.get("release"))
+  index["mirror_failures"] = failed
   if not dry_run:
     index_path.write_text(json.dumps(index, indent=1) + "\n")
 
-  progress(f"{index['mirrored_count']}/{len(index['files'])} files mirrored")
+  progress(f"{index['mirrored_count']}/{len(index['files'])} files mirrored"
+           + (f", {len(failed)} failed (retried next run)" if failed else ""))
   return index
 
 

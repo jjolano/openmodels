@@ -143,8 +143,23 @@ def classify(path: str) -> tuple[str, str, str] | None:
   return None
 
 
+# An ONNX model is never this small. Upstream has at least two LFS objects that are actually
+# git conflict debris (a pointer file with <<<<<<< markers, stored verbatim as an object), and
+# they mirror perfectly while being useless as models. Flag rather than drop: the archive's job
+# is to faithfully record what upstream contained.
+SUSPECT_MAX_BYTES = 100_000
+
+
 def read_pointer(data: bytes) -> tuple[str, int] | None:
-  """Parse an LFS pointer. Returns None if the blob is a real file, not a pointer."""
+  """Parse an LFS pointer. Returns None if the blob is a real file, not a pointer.
+
+  Refuses a pointer carrying merge-conflict markers: it holds two competing oids and picking
+  the first would silently archive whichever side of a conflict happened to sort first.
+  """
+  if b"<<<<<<<" in data or b">>>>>>>" in data:
+    return None
+  if len(LFS_POINTER.findall(data)) > 1:
+    return None
   oid = LFS_POINTER.search(data)
   size = LFS_SIZE.search(data)
   if not oid or not size:
@@ -313,6 +328,8 @@ def index_repo(repo: Repo, head: str = "HEAD", limit: int | None = None,
 
   for record in files.values():
     record["filenames"] = sorted(record["filenames"])
+    if record["size"] < SUSPECT_MAX_BYTES:
+      record["suspect"] = "too small to be a model; likely upstream conflict debris"
 
   if blob_cache is not None:
     attach_metadata(files, blob_cache, download_limit, progress)
