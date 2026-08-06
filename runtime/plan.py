@@ -256,7 +256,24 @@ def plan_bundle(bundle: dict[str, Any], files: dict[str, Path],
     warnings.append("frame_skip unknown: this era predates the constants it is derived from; "
                     "supply your own from ModelConstants")
 
+  # A composed bundle never ran anywhere; that outranks every other warning here.
+  if bundle.get("source") == "composed" or bundle.get("attested") is False:
+    warnings.append(
+      "UNATTESTED: this combination was composed from separately indexed halves and has never "
+      "run upstream. Structural checks passing does not mean it drives correctly."
+    )
+    warnings.extend(bundle.get("cautions", []))
+
   constants = bundle.get("host_constants", {})
+  if by_role := bundle.get("host_constants_by_role"):
+    # Halves came from different commits; surface each rather than silently picking one.
+    distinct = {k: v for role in by_role.values() for k, v in role.items()}
+    if len({tuple(sorted(r.items())) for r in by_role.values() if r}) > 1:
+      warnings.append(
+        f"halves carry different host constants {by_role}; choose deliberately -- merging them "
+        f"would invent a configuration nobody ran"
+      )
+    constants = constants or distinct
   if absent := bundle.get("host_constants_missing"):
     warnings.append(
       f"host constants not recorded upstream: {', '.join(absent)}. They are absent, not zero — "

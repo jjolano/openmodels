@@ -253,6 +253,38 @@ def render_detail(index: dict[str, Any], bundle: dict[str, Any]) -> str:
     for f in bundle["files"]
   )
 
+  # Lineage: which training runs produced these halves, and what else they shipped against.
+  pairings = index.get("attested_pairings", [])
+  files_by_oid = {f["oid"]: f for f in index.get("files", [])}
+  lineage_rows = []
+  for member in bundle["files"]:
+    meta = (files_by_oid.get(member["oid"], {}).get("metadata") or {})
+    lin = meta.get("lineage")
+    if not lin:
+      continue
+    ckpt = lin.get("self") or lin.get("vision")
+    partners = sorted({p[1] for p in pairings if p[0] == ckpt}) if ckpt else []
+    lineage_rows.append(
+      f"<tr><td>{html.escape(member['role'])}</td>"
+      f"<td class='mono'>{html.escape(str(ckpt))}</td>"
+      f"<td>{('also shipped with %d other %s' % (len(partners), 'policy' if len(partners)==1 else 'policies')) if partners else '—'}</td></tr>"
+    )
+  lineage_html = ""
+  if lineage_rows:
+    lineage_html = f"""
+<section>
+  <h2>Lineage<span class="sub">which training runs produced these halves</span></h2>
+  <p class="meta">comma records the training checkpoint in each model, and a fused supercombo
+    names both of its halves. That makes "these were built for each other" a fact rather than a
+    guess &mdash; and it is the only sound basis for combining halves, because the latent between
+    vision and policy is untyped and will accept anything of the right width.</p>
+  <div class="scroll"><table>
+    <tr><th>role</th><th>checkpoint</th><th>attested partners</th></tr>{''.join(lineage_rows)}
+  </table></div>
+  <p class="meta">Combine halves with <code>POST /v1/compose</code>. A pairing that never shipped
+    upstream is returned with a cross-lineage caution: it will load and run either way.</p>
+</section>"""
+
   body = f"""
 <h1 class="title">{html.escape(bundle['name'])}</h1>
 <p class="meta"><span class="badge {status}">{status.replace('_',' ')}</span>
@@ -281,6 +313,8 @@ def render_detail(index: dict[str, Any], bundle: dict[str, Any]) -> str:
     <tr><th>date</th><th>status</th><th>commit</th><th>pr</th><th>subject</th></tr>{occ}
   </table></div>
 </section>
+
+{lineage_html}
 
 <section>
   <h2>Files<span class="sub">content-addressed</span></h2>

@@ -21,6 +21,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Iterable
 
+from index import compose as compose_mod
 from index import constants as host_constants
 
 # Three path eras. Models lived at the repo root until 2022, then under selfdrive/, then were
@@ -194,7 +195,8 @@ def slugify(name: str) -> str:
 
 
 def attach_metadata(files: dict[str, dict[str, Any]], cache_dir: Path,
-                    limit: int | None, progress) -> None:
+                    limit: int | None, progress, source: str = "lfs",
+                    release_repo: str | None = None) -> None:
   """Fetch blobs and record what each ONNX declares about itself.
 
   Descriptive only: input/output shapes, dtypes, opsets, operators, and the slice map. None of
@@ -205,7 +207,12 @@ def attach_metadata(files: dict[str, dict[str, Any]], cache_dir: Path,
   from index import lfs, metadata
 
   wanted = [(oid, record["size"]) for oid, record in sorted(files.items())]
-  fetched = lfs.fetch_missing(wanted, cache_dir, limit=limit, progress=progress)
+  if source == "releases":
+    # Everything is already mirrored, so read from our own copy rather than hammering comma's
+    # LFS for a metadata-only pass.
+    fetched = fetch_from_releases(wanted, cache_dir, release_repo, limit, progress)
+  else:
+    fetched = lfs.fetch_missing(wanted, cache_dir, limit=limit, progress=progress)
 
   for oid, path in fetched.items():
     try:
@@ -214,9 +221,49 @@ def attach_metadata(files: dict[str, dict[str, Any]], cache_dir: Path,
       files[oid]["metadata_error"] = f"{type(exc).__name__}: {exc}"
 
 
+def fetch_from_releases(wanted, cache_dir: Path, repo: str | None,
+                        limit: int | None, progress) -> dict[str, Path]:
+  """Pull blobs from our own Releases mirror. Verified against the oid like any other source."""
+  import hashlib
+  import subprocess
+  if not repo:
+    raise GitError("--metadata-source releases needs --release-repo")
+  cache_dir.mkdir(parents=True, exist_ok=True)
+  listing = subprocess.run(["gh", "api", "--paginate", f"repos/{repo}/releases", "--jq",
+                            ".[].assets[] | \"\\(.name) \\(.id)\""],
+                           capture_output=True, text=True)
+  ids = dict(line.split() for line in listing.stdout.splitlines() if line.strip())
+
+  have: dict[str, Path] = {}
+  todo = []
+  for oid, _ in wanted:
+    path = cache_dir / f"{oid}.onnx"
+    (have.__setitem__(oid, path) if path.exists() else todo.append(oid))
+  if limit:
+    todo = todo[:limit]
+  progress(f"{len(have)} cached, {len(todo)} to fetch from {repo}")
+
+  for oid in todo:
+    asset = ids.get(f"{oid}.onnx")
+    if not asset:
+      progress(f"  not mirrored: {oid[:12]}")
+      continue
+    path = cache_dir / f"{oid}.onnx"
+    with open(path, "wb") as handle:
+      subprocess.run(["gh", "api", f"repos/{repo}/releases/assets/{asset}",
+                      "-H", "Accept: application/octet-stream"], stdout=handle, check=True)
+    if hashlib.sha256(path.read_bytes()).hexdigest() != oid:
+      path.unlink(missing_ok=True)
+      progress(f"  FAILED verify: {oid[:12]}")
+      continue
+    have[oid] = path
+  return have
+
+
 def index_repo(repo: Repo, head: str = "HEAD", limit: int | None = None,
                progress=lambda *_: None, blob_cache: Path | None = None,
-               download_limit: int | None = None) -> dict[str, Any]:
+               download_limit: int | None = None, metadata_source: str = "lfs",
+               release_repo: str | None = None) -> dict[str, Any]:
   if not repo.exists(head):
     raise GitError(f"ref {head!r} is not reachable — refusing to index (would silently "
                    f"report every model as missing)")
@@ -332,7 +379,12 @@ def index_repo(repo: Repo, head: str = "HEAD", limit: int | None = None,
       record["suspect"] = "too small to be a model; likely upstream conflict debris"
 
   if blob_cache is not None:
-    attach_metadata(files, blob_cache, download_limit, progress)
+    attach_metadata(files, blob_cache, download_limit, progress,
+                    source=metadata_source, release_repo=release_repo)
+
+  files_by_oid = {oid: rec for oid, rec in files.items()}
+  bundle_list = sorted(bundles.values(), key=lambda b: b["occurrences"][0]["date"])
+  pairings = compose_mod.attested_pairings(bundle_list, files_by_oid)
 
   return {
     "schema": 1,
@@ -340,7 +392,10 @@ def index_repo(repo: Repo, head: str = "HEAD", limit: int | None = None,
     "upstream_head": repo.commit_meta(head)["commit"],
     "bundle_count": len(bundles),
     "file_count": len(files),
-    "bundles": sorted(bundles.values(), key=lambda b: b["occurrences"][0]["date"]),
+    # (vision_ckpt, policy_ckpt) pairs that actually shipped upstream. The only sound basis for
+    # saying two halves were built for each other -- see index/compose.py.
+    "attested_pairings": pairings,
+    "bundles": bundle_list,
     "files": sorted(files.values(), key=lambda f: f["oid"]),
   }
 
@@ -355,12 +410,17 @@ def main() -> int:
                       help="download blobs here and extract ONNX metadata from them")
   parser.add_argument("--download-limit", type=int,
                       help="cap how many new blobs to fetch this run")
+  parser.add_argument("--metadata-source", choices=("lfs", "releases"), default="lfs",
+                      help="where to read blobs for metadata extraction")
+  parser.add_argument("--release-repo", help="owner/name holding the mirror (for 'releases')")
   args = parser.parse_args()
 
   repo = Repo(args.repo)
   index = index_repo(repo, args.head, args.limit,
                      progress=lambda m: print(m, file=sys.stderr),
-                     blob_cache=args.blob_cache, download_limit=args.download_limit)
+                     blob_cache=args.blob_cache, download_limit=args.download_limit,
+                     metadata_source=args.metadata_source,
+                     release_repo=args.release_repo)
 
   out = Path(args.out)
   out.parent.mkdir(parents=True, exist_ok=True)

@@ -288,6 +288,25 @@ def test_smoke_test_rejects_an_unloadable_artifact():
       assert "unpickle" in str(exc), exc
 
 
+
+def test_composed_manifest_carries_its_unattested_warning():
+  """A composed bundle must not reach a compile without saying it never ran."""
+  with tempfile.TemporaryDirectory() as t:
+    tmp = Path(t)
+    files = {r: tmp / f"{r}.onnx" for r in ("vision", "on_policy")}
+    for f in files.values():
+      f.write_bytes(b"")
+    manifest = _bundle(["vision", "on_policy"], frame_skip=4, source="composed", attested=False,
+                       cautions=["cross-lineage: vision A and on_policy B never shipped together"],
+                       host_constants_by_role={"vision": {"LAT_SMOOTH_SECONDS": 0.0},
+                                               "on_policy": {"LAT_SMOOTH_SECONDS": 0.1}})
+    plan = plan_bundle(manifest, files)
+
+  assert any("UNATTESTED" in w for w in plan.warnings), plan.warnings
+  assert any("cross-lineage" in w for w in plan.warnings), "cautions must propagate"
+  assert any("different host constants" in w for w in plan.warnings), plan.warnings
+
+
 if __name__ == "__main__":
   tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
   for test in tests:

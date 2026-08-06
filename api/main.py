@@ -17,6 +17,8 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
+
+from index import compose
 from fastapi.responses import RedirectResponse
 
 DATA_DIR = Path(os.environ.get("OPENMODELS_DATA", "data"))
@@ -158,9 +160,25 @@ def get_provenance(bundle_id: str) -> dict[str, Any]:
   """
   bundle = _find(bundle_id)
   introduced = bundle["introduced_by"]
+  index = load_index()
+  pairings = index.get("attested_pairings", [])
+  lineage, partners = {}, {}
+  for member in bundle["files"]:
+    record = next((f for f in index["files"] if f["oid"] == member["oid"]), {})
+    entry = (record.get("metadata") or {}).get("lineage")
+    if entry:
+      ckpt = entry.get("self") or entry.get("vision")
+      lineage[member["role"]] = entry
+      if ckpt:
+        partners[member["role"]] = compose.partners_of(ckpt, pairings)
+
   return {
     "bundle_id": bundle["bundle_id"],
+    "source": "upstream",
+    "attested": True,          # this exact file set ran at the commit below
     "ran_in": f"commaai/openpilot@{introduced['commit']}",
+    "lineage": lineage,
+    "attested_partners": partners,
     "introduced_by": introduced,
     "host_constants": bundle.get("host_constants", {}),
     "host_constants_sources": bundle.get("host_constants_sources", {}),
@@ -176,6 +194,42 @@ def get_provenance(bundle_id: str) -> dict[str, Any]:
     "verify": "sha256 of each downloaded file MUST equal its oid; refuse the blob otherwise",
     "disclaimer": DISCLAIMER,
   }
+
+
+@app.post("/v1/compose")
+def compose_bundle(selection: dict[str, str]) -> dict[str, Any]:
+  """Assemble a bundle from indexed halves — `{"vision": oid, "on_policy": oid}`.
+
+  Stateless: `bundle_id` is derived from the members, so nothing is stored and the manifest
+  returned is the whole artifact. Pass it to the runtime library exactly like a provenance
+  record.
+
+  This is how upstream already works — comma ships one vision encoder against several policies.
+  What the response adds is whether *this* pairing is one that shipped. It never has been driven
+  in this exact combination, which is why `attested` is always false.
+  """
+  index = load_index()
+  files_by_oid = {f["oid"]: f for f in index["files"]}
+  try:
+    manifest = compose.compose(selection, files_by_oid, index.get("attested_pairings", []))
+  except compose.ComposeError as exc:
+    raise HTTPException(422, str(exc)) from exc
+  return manifest
+
+
+@app.get("/v1/lineage/{checkpoint:path}")
+def get_lineage(checkpoint: str) -> dict[str, Any]:
+  """What a training checkpoint has shipped alongside upstream.
+
+  The practical question when combining halves: given this vision encoder, which policies were
+  built against it? Answered from provenance, never inferred.
+  """
+  index = load_index()
+  pairings = index.get("attested_pairings", [])
+  partners = compose.partners_of(checkpoint, pairings)
+  if not partners["as_vision"] and not partners["as_policy"]:
+    raise HTTPException(404, f"no attested pairings for checkpoint {checkpoint}")
+  return {"checkpoint": checkpoint, **partners}
 
 
 @app.get("/v1/files/{oid}")

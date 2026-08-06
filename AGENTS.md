@@ -125,3 +125,29 @@ writing new ones.
   then overflows the 32-bit relocation because the plain path passes no base address. Upstream
   pins no clang and compiles no models in CI, so nobody exercises this path. Re-test only if the
   tinygrad submodule bumps.
+
+## Lineage and composition
+
+`model_checkpoint` records the training runs behind a model, and a fused supercombo names both
+of its halves (`<vision_ckpt>/<step>/<policy_ckpt>/<step>`). That is what makes "these halves
+were built for each other" a **fact comma recorded**, not an inference — which is the only reason
+this feature is allowed to exist under the boundary above.
+
+- **Attested means it shipped.** A pairing is attested iff those checkpoints co-occurred in an
+  upstream bundle, or a supercombo named them together. Never widen this to "same shapes" or
+  "same generation" — that is the inference the registry refuses to make.
+- **Composed bundles are never attested.** `attested: false` is unconditional on anything from
+  `/v1/compose`: it may be assembled from halves that shipped together, but *this file set* has
+  never been driven.
+- **Cross-lineage composes and warns; it does not fail.** The vision→policy latent is untyped, so
+  a mismatched encoder produces confident nonsense rather than an error. The failure is silent,
+  so the warning cannot be. Refuse only what cannot work: unknown oid, unusable role set, or a
+  seam width mismatch.
+- **Composition is stateless.** `bundle_id` is derived from members, so nothing is stored. Do not
+  add a database to make composed models browsable — that would put our name on combinations
+  nobody ran.
+- **Host constants stay per-role.** Halves come from different commits; merging their constants
+  invents a configuration that never existed. Report each and let the fork choose.
+- **Lineage requires a metadata pass.** The default indexer run reads only LFS pointers, so
+  `model_checkpoint` is absent until a `--blob-cache` run. Use `--metadata-source releases` to
+  read from our own mirror rather than hammering comma's LFS.

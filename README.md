@@ -29,6 +29,8 @@ There is deliberately no `/v1/compat` endpoint.
 GET  /v1/models                        ?kind= &family= &variant= &role= &status= &in_head=
 GET  /v1/models/{bundle_id}            files, roles, occurrences
 GET  /v1/models/{bundle_id}/provenance the compatibility surface
+POST /v1/compose                       combine indexed halves into a bundle
+GET  /v1/lineage/{checkpoint}          what this checkpoint shipped alongside
 GET  /v1/files/{oid}/download          302 → release asset
 GET  /v1/status                        freshness, counts, upstream head
 GET  /docs                             OpenAPI explorer
@@ -114,6 +116,27 @@ Compilation must happen on-target: tinygrad's QCOM backend opens `/dev/kgsl-3d0`
 verified that the CPU fallback cannot substitute — on the pinned tinygrad revision it fails
 linking libm, reproducibly, in a clean container. So the plan is produced anywhere and executed
 on the device.
+
+## Combining models
+
+comma ships one vision encoder against several policies, so mixing halves is how upstream already
+works — and `model_checkpoint` records which halves were built for each other. A supercombo's
+checkpoint is literally its vision and policy checkpoints concatenated.
+
+```bash
+curl -X POST /v1/compose -d '{"vision": "<oid>", "on_policy": "<oid>"}'
+```
+
+Stateless: `bundle_id` is derived from the members, so nothing is stored — the manifest returned
+is the whole artifact, and it feeds `runtime/plan.py` like any provenance record.
+
+A pairing that **shipped upstream** composes cleanly. One that didn't is returned with a
+cross-lineage caution rather than refused: the latent between vision and policy is untyped, so a
+mismatched encoder loads, runs, and produces confident nonsense. The failure is silent, so the
+warning isn't. Only a seam-width mismatch, an unusable role set, or an unknown oid is rejected.
+
+Everything from `/v1/compose` carries `attested: false`. It may be built from halves that shipped
+together, but this exact combination has never been driven.
 
 ## Using a model in a fork
 

@@ -6,11 +6,14 @@ active. Roughly the surface of sunnypilot's ModelManagerSP, minus their cereal t
 
 Dependency-free (urllib + stdlib) so it drops into a fork without a package manager.
 
-Three behaviours are not configurable, because getting them wrong is how a fork ships a model
+Two behaviours are not configurable, because getting them wrong is how a fork ships a model
 that appears to work:
   - every downloaded file is verified against its oid, and a mismatch aborts;
-  - withdrawn models (reverted, PR-only) are excluded unless explicitly requested;
   - host constants travel with the weights and are stored alongside them.
+
+It flags rather than hides: withdrawn models and ones this fork cannot build are listed and
+annotated, never silently dropped. A user who cannot see why a model is missing goes looking
+for it somewhere less careful.
 """
 
 from __future__ import annotations
@@ -251,6 +254,9 @@ class ModelStore:
       "host_constants": provenance.get("host_constants", {}),
       "host_constants_missing": provenance.get("host_constants_missing", []),
       "frame_skip": provenance.get("frame_skip"),
+      # A picker must be able to mark a composed model as unattested.
+      "source": provenance.get("source", "upstream"),
+      "attested": provenance.get("attested", True),
       "installed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
     self._write(state)

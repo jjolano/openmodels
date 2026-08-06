@@ -80,6 +80,41 @@ def loads_output_slices(encoded: str) -> dict[str, list[int | None]]:
   return out
 
 
+def parse_lineage(model_checkpoint: str | None) -> dict[str, Any] | None:
+  """Decompose `model_checkpoint` into the training runs that produced a model.
+
+  comma writes `<uuid>/<step>` per constituent network, so a split half carries one pair and a
+  fused supercombo carries two — its vision checkpoint followed by its policy checkpoint:
+
+      vision      6a7d09ad-…/200
+      on_policy                    a27b3122-…/100
+      supercombo  6a7d09ad-…/200/a27b3122-…/100
+
+  That makes "which halves belong together" a fact comma recorded, not something we infer. It is
+  the only sound basis for saying two halves were built for each other, because the 512-float
+  latent between them is untyped and shape-compatible with anything.
+
+  Returns None when the field is absent or unparseable — older models genuinely lack it, and
+  unknown lineage must stay unknown rather than be guessed.
+  """
+  if not model_checkpoint:
+    return None
+
+  parts = [p for p in model_checkpoint.split("/") if p]
+  # Pair each uuid with its step; anything that doesn't pair up cleanly is not this format.
+  if len(parts) < 2 or len(parts) % 2:
+    return None
+  checkpoints = [f"{parts[i]}/{parts[i + 1]}" for i in range(0, len(parts), 2)]
+
+  lineage: dict[str, Any] = {"checkpoints": checkpoints, "fused": len(checkpoints) > 1}
+  if len(checkpoints) == 1:
+    lineage["self"] = checkpoints[0]
+  else:
+    # A fused model names its own halves, which is how a supercombo attests a pairing.
+    lineage["vision"], lineage["policy"] = checkpoints[0], checkpoints[1]
+  return lineage
+
+
 # --- protobuf wire format -------------------------------------------------------------------
 # Only what ONNX needs. memoryview throughout so a 296MB model isn't copied per field.
 
@@ -214,6 +249,7 @@ def parse(path: str) -> dict[str, Any]:
     "opsets": opsets,
     "operators": sorted(operators),
     "model_checkpoint": meta.get("model_checkpoint"),
+    "lineage": parse_lineage(meta.get("model_checkpoint")),
     "output_slices": None,
     "output_slices_error": None,
   }
