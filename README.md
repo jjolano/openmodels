@@ -41,8 +41,9 @@ python clients/reference.py --list
 python clients/reference.py --pull <bundle_id> --out ./models
 ```
 
-The reference client verifies every blob against its oid, **default-denies reverted and PR-only
-models**, and falls back to the static mirror when the API is unreachable.
+The reference client verifies every blob against its oid, **shows each model's status** so
+withdrawn ones are visible rather than hidden, and falls back to the static mirror when the API
+is unreachable. Pass `--merged-only` to exclude what upstream withdrew.
 
 ## Integration library (`runtime/`)
 
@@ -63,9 +64,21 @@ store.set_active(bundle_id)
 store.active_constants()      # -> the constants to apply with this model
 ```
 
-Three behaviours are not configurable, because getting them wrong ships a model that appears to
-work: every file is verified against its oid, withdrawn models are excluded unless asked for,
-and files are staged then moved atomically so an interrupted download can never look installed.
+Two behaviours are not configurable, because getting them wrong ships a model that appears to
+work: every file is verified against its oid, and downloads are staged then moved atomically so
+an interrupted transfer can never look installed.
+
+**It flags rather than hides.** Withdrawn models (reverted, PR-only) and models this fork cannot
+mechanically build are both listed, annotated, and left for your UI to render — a user who cannot
+see why a model is missing goes looking for it somewhere less careful. Pass `capabilities=` to
+attach a verdict, `only_runnable=True` to actually filter, and `support_gaps()` to turn blockers
+into a roadmap:
+
+```
+upstream-only fork: 42/142 runnable (all 142 still listed)
+   + 94 models if you add: needs_compiler:sunnypilot
+   +  7 models if you add: needs_usbgpu
+```
 
 **`runtime/plan.py`** — works out *how* to compile a bundle, without compiling it:
 

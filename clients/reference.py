@@ -5,8 +5,8 @@ Deliberately boring and dependency-free (urllib only). Three properties matter m
 features, and they are the reason this file exists rather than a curl snippet in a README:
 
   1. Every downloaded blob is verified against its oid, and a mismatch aborts.
-  2. Withdrawn models are denied by default. "merged" is not "approved", and `reverted` and
-     `pr_only` models require an explicit opt-in.
+  2. Withdrawn models are shown, never hidden -- but always with their status, because
+     "merged" is not "approved" and a user needs to see which is which.
   3. It falls back to the static mirror when the API is unreachable, so an outage degrades to
      a stale catalog rather than no models.
 
@@ -26,7 +26,8 @@ from typing import Any
 
 API = "https://openmodels.example"
 MIRROR = "https://OWNER.github.io/openmodels"          # static fallback, always readable
-SAFE_STATUSES = frozenset({"merged"})                   # default-deny reverted and pr_only
+ALL_STATUSES = frozenset({"merged", "reverted", "pr_only"})   # listed, but always with status
+MERGED_ONLY = frozenset({"merged"})
 CHUNK = 1 << 20
 
 
@@ -62,9 +63,9 @@ def latest_status(bundle: dict[str, Any]) -> str:
 
 
 def select(catalog: dict[str, Any], *, kind: str = "driving",
-           allow_statuses: frozenset[str] = SAFE_STATUSES,
+           allow_statuses: frozenset[str] = ALL_STATUSES,
            name_contains: str | None = None) -> list[dict[str, Any]]:
-  """Filter the catalog. Withdrawn models are excluded unless explicitly allowed."""
+  """Filter the catalog. Every status is included by default; callers render it."""
   bundles = catalog.get("bundles", [])
   out = []
   for bundle in bundles:
@@ -131,12 +132,11 @@ def main() -> int:
   parser.add_argument("--list", action="store_true", help="list installable models")
   parser.add_argument("--pull", metavar="BUNDLE_ID", help="download and verify a bundle")
   parser.add_argument("--out", default="models", type=Path)
-  parser.add_argument("--include-withdrawn", action="store_true",
-                      help="also show reverted and PR-only models (not recommended)")
+  parser.add_argument("--merged-only", action="store_true",
+                      help="exclude models upstream reverted or never merged")
   args = parser.parse_args()
 
-  allowed = (frozenset({"merged", "reverted", "pr_only"}) if args.include_withdrawn
-             else SAFE_STATUSES)
+  allowed = MERGED_ONLY if args.merged_only else ALL_STATUSES
 
   if args.list:
     catalog, source = fetch_catalog(args.api)
