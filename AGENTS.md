@@ -154,7 +154,7 @@ this feature is allowed to exist under the boundary above.
 
 ## Shareable composition codes
 
-`OM1-…` codes carry truncated oids and are resolved against the catalog, which makes a code a
+`OM2-…` codes carry truncated oids and are resolved against the catalog, which makes a code a
 **lookup key, not a description**. That is the safety property: a damaged code fails to resolve
 or fails its checksum, and cannot quietly name different weights — the only failure mode that
 would matter on a device.
@@ -162,8 +162,16 @@ would matter on a device.
 - **Redemption is where validation happens.** The code asserts nothing. `/v1/compose/{code}` and
   `runtime.manager.redeem_code` both re-resolve and re-run every check. Never trust a code's
   contents without resolving them.
-- **`ROLES` in `index/code.py` is append-only.** Reordering it silently changes what old codes
-  mean, which is exactly the misresolution the format exists to prevent.
+- **`SHAPES` in `index/code.py` is append-only**, and roles within a shape are the encoding
+  order. Reordering either silently changes what old codes mean, which is exactly the
+  misresolution the format exists to prevent.
+- **The format is squeezed for touchscreen entry** (13 typed characters): the role *set* is one
+  5-bit shape rather than a byte per role, oid prefixes are 3 bytes, and the checksum is 1 byte
+  because prefix resolution already rejects nearly all corruption. Do not lengthen these without
+  a reason; do not shorten the oid prefix further, since ambiguity becomes likely rather than
+  merely detectable.
+- **The `OM2-` prefix is optional on input.** It exists for human recognition, not for the
+  format; nobody should thumb in three extra characters.
 - **The encoder exists twice** — Python in `index/code.py`, JavaScript in `web/render.py`'s
   `COMPOSE_JS`, because the compose page is static and must work without the API. Golden vectors
   in `index/test_compose.py` pin both; they were verified equal by driving the page's JS under

@@ -461,9 +461,13 @@ python clients/reference.py --pull &lt;bundle_id&gt; --out selfdrive/modeld/mode
 
 COMPOSE_JS = """
 (function(){
-  var D=null, sel={};
-  var ROLES=["vision","on_policy","off_policy","supercombo","big_vision","big_on_policy",
-             "big_off_policy","dmonitoring","navmodel"];
+  var D=null;
+  // Mirrors index/code.py -- shapes are append-only and roles are the encoding order.
+  var SHAPES=[["vision","on_policy"],["vision","on_policy","off_policy"],["supercombo"],
+              ["vision","off_policy"],["big_vision","big_on_policy"],
+              ["big_vision","big_on_policy","big_off_policy"],["big_supercombo"],
+              ["dmonitoring"],["navmodel"]];
+  var VERSION=2;
 
   function ck(f){ var l=(f.metadata||{}).lineage||{}; return l.self||l.vision||null; }
   function b32(bytes){
@@ -477,18 +481,27 @@ COMPOSE_JS = """
     var buf=await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
     return Array.from(new Uint8Array(buf));
   }
-  async function makeCode(selection){
-    var keys=Object.keys(selection).sort(), body=[1];
-    keys.forEach(function(r){
-      body.push(ROLES.indexOf(r));
-      var hex=selection[r].slice(0,12);
-      for(var i=0;i<12;i+=2) body.push(parseInt(hex.substr(i,2),16));
+  function shapeOf(roles){
+    for(var i=0;i<SHAPES.length;i++){
+      if(SHAPES[i].length===roles.length &&
+         SHAPES[i].every(function(r){ return roles.indexOf(r)>-1; })) return i;
+    }
+    return -1;
+  }
+  async function makeCode(sel){
+    var roles=Object.keys(sel), si=shapeOf(roles);
+    if(si<0) return "(no code shape for this combination)";
+    var body=[(VERSION<<5)|si];
+    SHAPES[si].forEach(function(r){
+      var hex=sel[r].slice(0,6);
+      for(var i=0;i<6;i+=2) body.push(parseInt(hex.substr(i,2),16));
     });
-    var digest=await sha256(keys.map(function(r){return r+":"+selection[r];}).join(""));
-    body=body.concat(digest.slice(0,2));
+    var sorted=roles.slice().sort();
+    var digest=await sha256(sorted.map(function(r){return r+":"+sel[r];}).join(""));
+    body=body.concat(digest.slice(0,1));
     var t=b32(body), g=[];
-    for(var i=0;i<t.length;i+=5) g.push(t.slice(i,i+5));
-    return "OM1-"+g.join("-");
+    for(var i=0;i<t.length;i+=4) g.push(t.slice(i,i+4));
+    return "OM2-"+g.join("-");
   }
 
   function options(role){
@@ -512,18 +525,16 @@ COMPOSE_JS = """
     var v=document.getElementById("vsel").value, p=document.getElementById("psel").value;
     var out=document.getElementById("out"), note=document.getElementById("note");
     if(!v||!p){ out.textContent="Pick a vision half and a policy half."; note.textContent=""; return; }
-    sel={vision:v, on_policy:p};
-    var files=D.files||[], byOid={};
-    files.forEach(function(f){ byOid[f.oid]=f; });
+    var byOid={}; (D.files||[]).forEach(function(f){ byOid[f.oid]=f; });
     var vc=ck(byOid[v]), pc=ck(byOid[p]);
     var attested=(D.attested_pairings||[]).some(function(pr){ return pr[0]===vc && pr[1]===pc; });
     note.className = attested ? "note ok" : "note warn";
     note.innerHTML = !vc||!pc
-      ? "<strong>Lineage unknown</strong> for one half \u2014 whether these were built for each other cannot be determined."
+      ? "<strong>Lineage unknown</strong> for one half \\u2014 whether these were built for each other cannot be determined."
       : attested
         ? "<strong>Attested pairing.</strong> These halves shipped together upstream."
         : "<strong>Cross-lineage.</strong> These never shipped together. The latent between them is untyped, so this will load and run regardless of whether the numbers mean the same thing.";
-    out.textContent = await makeCode(sel);
+    out.textContent = await makeCode({vision:v, on_policy:p});
   }
   fetch("index.json").then(function(r){return r.json();}).then(function(d){
     D=d; fill("vsel","vision"); fill("psel","policy");
@@ -560,7 +571,8 @@ COMPOSE = """
   <h2>Your code<span class="sub">paste this into a picker</span></h2>
   <pre id="out">Pick a vision half and a policy half.</pre>
   <button id="copy" class="controls">Copy</button>
-  <p class="meta">The code carries which files you picked, not a promise about them. Redeeming it
+  <p class="meta">13 characters &mdash; the <code>OM2-</code> prefix is for recognition and does
+     not need typing. The code carries which files you picked, not a promise about them. Redeeming it
      &mdash; <code>GET /v1/compose/&lt;code&gt;</code>, or <code>redeem_code()</code> in the
      runtime library &mdash; resolves it against the catalog and re-runs every check. A damaged
      code fails to resolve rather than quietly naming different weights.</p>

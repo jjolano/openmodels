@@ -194,11 +194,25 @@ def test_code_round_trips():
   assert code == sel, code
 
 
+def test_code_is_short_enough_to_thumb_in():
+  """These get typed on a car touchscreen, so length is a feature."""
+  from index.code import encode
+  common = encode({"vision": "a" * 64, "on_policy": "b" * 64})
+  assert len(common.replace("-", "")) <= 20, common
+  # base32 is A-Z plus 2-7, so it *does* contain I, L and O -- but never the digits they
+  # resemble. A user who reads "O" and types "0" lands outside the alphabet and gets a clean
+  # decode error rather than a different model. Misreads fail loudly, which is the property
+  # that matters; there is no case to get wrong either.
+  body = common.replace("-", "")
+  assert not set("0189") & set(body), common
+  assert body.isupper(), common
+
+
 def test_code_is_readable_and_stable():
   from index.code import encode
   sel = {"vision": "6ecf28d7" + "0" * 56, "on_policy": "7fe5257c" + "0" * 56}
   code = encode(sel)
-  assert code.startswith("OM1-") and code.isupper()
+  assert code.startswith("OM2-") and code.isupper()
   assert "+" not in code and "/" not in code, "must be safe to paste and read aloud"
   # Order of the dict must not change the code.
   assert encode({k: sel[k] for k in reversed(list(sel))}) == code
@@ -209,7 +223,10 @@ def test_code_survives_formatting_damage():
   sel = {"vision": "a" * 64, "on_policy": "b" * 64}
   code = encode(sel)
   oids = ["a" * 64, "b" * 64]
-  for mangled in (code.lower(), code.replace("-", ""), f"  {code}  ", code.replace("-", " ")):
+  # The prefix is optional on input: nobody should have to thumb in three extra characters.
+  bare = code.split("-", 1)[1]
+  for mangled in (code.lower(), code.replace("-", ""), f"  {code}  ",
+                  code.replace("-", " "), bare, bare.replace("-", "").lower()):
     assert resolve(mangled, oids) == sel, mangled
 
 
@@ -227,15 +244,16 @@ def test_code_fails_loudly_rather_than_misresolving():
 
   # a corrupted body must never silently point somewhere else
   body = code.split("-", 1)[1].replace("-", "")
-  swapped = "A" if body[0] != "A" else "B"
+  mid = len(body) // 2
+  swapped = "A" if body[mid] != "A" else "B"
   try:
-    got = resolve(f"OM1-{swapped}{body[1:]}", ["a" * 64, "b" * 64, "c" * 64])
+    got = resolve(f"OM2-{body[:mid]}{swapped}{body[mid+1:]}", ["a" * 64, "b" * 64, "c" * 64])
     assert got != sel, "corruption resolved to the original selection"
     raise AssertionError("corrupted code resolved silently")
   except CodeError:
     pass
 
-  for junk in ("", "hello", "OM1-!!!!", "OM9-AAAAA"):
+  for junk in ("", "hello", "OM2-!!!!", "AEA3XO53XO53WAFKVKVKVKVKQ4NQ"):
     try:
       resolve(junk, ["a" * 64])
       raise AssertionError(f"{junk!r} should not resolve")
@@ -263,10 +281,9 @@ def test_code_matches_the_browser_implementation():
   redeeming, so these vectors pin both. Verified equal by driving the page's JS under node.
   """
   from index.code import encode
-  assert encode({"vision": "a" * 64, "on_policy": "b" * 64}) == \
-    "OM1-AEA3X-O53XO-53WAF-KVKVK-VKVKQ-4NQ"
+  assert encode({"vision": "a" * 64, "on_policy": "b" * 64}) == "OM2-ICVK-VKV3-XO5Y-O"
   assert encode({"vision": "6ecf28d7" + "0" * 56, "on_policy": "7fe5257c" + "0" * 56}) == \
-    "OM1-AEAX7-ZJFPQ-AAAAD-OZ4UN-OAAAD-U6A"
+    "OM2-IBXM-6KD7-4USR-2"
 
 
 if __name__ == "__main__":
