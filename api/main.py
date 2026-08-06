@@ -108,10 +108,15 @@ def list_models(
 
   total = len(bundles)
   page = bundles[offset:offset + limit]
+  index = load_index()
   return {
     "total": total,
     "offset": offset,
     "count": len(page),
+    # Freshness travels with every listing: a client that only ever calls /v1/models must still
+    # be able to notice the indexer has stopped, which otherwise looks like a quiet upstream.
+    "generated_at": index["generated_at"],
+    "upstream_head": index["upstream_head"],
     "disclaimer": DISCLAIMER,
     "bundles": [
       {

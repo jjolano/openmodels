@@ -44,6 +44,46 @@ python clients/reference.py --pull <bundle_id> --out ./models
 The reference client verifies every blob against its oid, **default-denies reverted and PR-only
 models**, and falls back to the static mirror when the API is unreachable.
 
+## Integration library (`runtime/`)
+
+Drop-in, dependency-free (stdlib only), and deliberately **outside the control path** — it never
+runs inference or touches actuation. Two pieces:
+
+**`runtime/manager.py`** — everything behind a model-picker UI, with no opinion about the UI:
+
+```python
+from runtime.manager import Catalog, ModelStore, download_bundle
+
+cat   = Catalog.load(API, mirror=MIRROR, cache=Path("cache.json"))
+years = cat.group_by_year(kind="driving")        # folder-style picker
+store = ModelStore(Path("models"))
+
+download_bundle(cat, bundle_id, store, on_progress=lambda p: bar(p.fraction, p.eta_seconds))
+store.set_active(bundle_id)
+store.active_constants()      # -> the constants to apply with this model
+```
+
+Three behaviours are not configurable, because getting them wrong ships a model that appears to
+work: every file is verified against its oid, withdrawn models are excluded unless asked for,
+and files are staged then moved atomically so an interrupted download can never look installed.
+
+**`runtime/plan.py`** — works out *how* to compile a bundle, without compiling it:
+
+```python
+plan = plan_bundle(provenance, files, host_frame_skip=4)
+plan.model_type   # vision_policy | supercombo | vision_multi_policy
+plan.compiler     # "openpilot" or "sunnypilot" — upstream can't take a supercombo
+plan.command(compiler_path, output, model_size, camera_resolutions)
+```
+
+It maps files to compiler flags by **role, not filename**, and duck-types input keys the way
+sunnypilot does, so a 2021 model presenting `input_imgs`/`desire` plans as readily as a 2026 one
+presenting `img`/`desire_pulse`. Disagreements (your `frame_skip` vs the model's) and absences
+(host constants that never existed) surface as warnings rather than being silently resolved.
+
+Compilation itself still requires the device — the QCOM backend opens `/dev/kgsl-3d0` — so the
+plan is produced anywhere and executed on-target.
+
 ## Using a model in a fork
 
 The registry hands you source weights and provenance. Making them run is your fork's job:

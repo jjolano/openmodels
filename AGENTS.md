@@ -93,3 +93,23 @@ nothing."
    searched, but a rename is invisible.
 4. If a model filename changed, add it to `ROLE_PATTERNS` **above** any prefix it would otherwise
    match; `big_` entries are checked before their bare equivalents.
+
+## `runtime/` — the integration library
+
+Sits **outside the control path** by design: it plans compiles and manages downloads, but never
+runs inference, parses model outputs, or touches actuation. Keep it that way. Output semantics
+(meta layout, MDN field order, desire encoding) belong to the fork's `modeld`, and reimplementing
+them here would create a second, unvalidated source of safety-relevant behaviour. If that
+knowledge is ever needed, vendor openpilot's or sunnypilot's parsers with attribution rather than
+writing new ones.
+
+- **Map roles to compiler flags, never filenames.** `driving_policy.onnx` and
+  `driving_on_policy.onnx` are the same role in different eras.
+- **Duck-type input keys**, following sunnypilot: prefix/substring matching absorbs
+  `input_imgs` → `img` and `desire` → `desire_pulse`. Exact-name lookups break on every model
+  older than the current era.
+- **`frame_skip` and `model_size` are host properties**, not model properties — scons derives
+  them from the fork's own constants. Report a disagreement with the model's recorded value as a
+  warning; never silently pick one.
+- **Downloads stage then move atomically.** A half-finished bundle that reads as installed is
+  worse than one that failed outright.
