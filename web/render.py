@@ -307,7 +307,18 @@ INTEGRATE = """
 <h1 class="title">Integrating openmodels into a fork</h1>
 <p class="note">Read this before wiring the API into anything that drives. The registry hands you
    <strong>source weights and provenance</strong>. Turning that into something a car runs is your
-   fork's job, and so is deciding whether it is safe.</p>
+   fork's job, and so is deciding whether it is safe. Replace
+   <code>openmodels.example</code> below with the instance you are using.</p>
+
+<section class="required">
+  <h2>Start here: use the reference client</h2>
+  <p class="meta">Everything below is what <code>clients/reference.py</code> already does
+     correctly &mdash; oid verification, default-denying withdrawn models, and falling back to
+     the static mirror when the API is down. Copy it into your fork rather than hand-rolling
+     curl. The rest of this page explains what it is doing and why.</p>
+  <pre>python clients/reference.py --list
+python clients/reference.py --pull &lt;bundle_id&gt; --out selfdrive/modeld/models</pre>
+</section>
 
 <section>
   <h2>1. Pick a model by provenance, not by shape</h2>
@@ -315,52 +326,93 @@ INTEGRATE = """
   <pre>curl -s https://openmodels.example/v1/models/&lt;bundle_id&gt;/provenance</pre>
   <p class="meta">You get the upstream commit, the host constants in effect there, and every
      occurrence with its status. There is deliberately no endpoint that tells you two models are
-     compatible &mdash; that claim cannot be made from the available data.</p>
+     compatible &mdash; that claim cannot be made from the available data. Check
+     <code>/v1/status</code> for catalog freshness; a stale <code>generated_at</code> means the
+     indexer has stopped, which otherwise looks identical to "upstream shipped nothing".</p>
 </section>
 
 <section>
-  <h2>2. Download and verify</h2>
-  <p class="meta">The oid is the sha256. Refuse any blob that does not match; a hash check is the
-     only thing standing between your fork and a swapped artifact.</p>
-  <pre>oid=&lt;oid&gt;
-curl -L https://openmodels.example/v1/files/$oid/download -o model.onnx
-echo "$oid  model.onnx" | sha256sum -c || exit 1</pre>
+  <h2>2. Download every file in the bundle, and verify each one</h2>
+  <p class="meta"><strong>A bundle is usually more than one file.</strong> A split model needs its
+     vision <em>and</em> policy halves together &mdash; vision alone has no
+     <code>plan</code>, <code>lead</code>, or <code>lane_lines</code> and cannot drive. Keep the
+     filenames from <code>/provenance</code>; the build looks them up by name.</p>
+  <p class="meta">The oid is the sha256. Refuse any blob that does not match &mdash; that check is
+     the only thing standing between your fork and a swapped artifact.</p>
+  <pre>curl -s https://openmodels.example/v1/models/&lt;bundle_id&gt;/provenance \\
+  | jq -r '.files[] | "\\(.oid) \\(.filename)"' \\
+  | while read oid name; do
+      curl -sL "https://openmodels.example/v1/files/$oid/download" -o "$name"
+      echo "$oid  $name" | sha256sum -c || exit 1
+    done</pre>
+  <p class="meta">A <code>503</code> means the blob is indexed but not yet mirrored &mdash; retry
+     later. Two files in the archive are flagged <code>suspect</code>: they are upstream git
+     conflict debris rather than models, and they mirror faithfully while being unusable.</p>
+  <p class="meta"><strong>Map files to compiler inputs by <code>role</code>, never by
+     filename.</strong> Names changed across eras &mdash; commit <code>249cafe</code> renamed
+     <code>driving_policy.onnx</code> to <code>driving_on_policy.onnx</code> with identical
+     content &mdash; so an older bundle's <code>on_policy</code> role still arrives as
+     <code>driving_policy.onnx</code>. The role is stable; the filename is not.</p>
 </section>
 
 <section class="required">
   <h2>3. Apply the host constants</h2>
   <p class="meta">Set <code>LAT_SMOOTH_SECONDS</code> and <code>LONG_SMOOTH_SECONDS</code> to the
-     values from <code>/provenance</code>. They feed lateral delay in controlsd. Shipping new
-     weights against stale constants is the most likely way to get a model that appears to work
-     and steers wrong.</p>
+     values from <code>/provenance</code>. They feed lateral delay in controlsd, and comma
+     changes them in the same commit that swaps a model. Shipping new weights against stale
+     constants is the most likely way to get a model that appears to work and steers wrong.</p>
+  <p class="meta"><strong>When <code>host_constants_missing</code> is non-empty, that is real
+     information, not a gap to paper over.</strong> Older eras predate these constants entirely
+     &mdash; 41 of the 142 driving bundles here have none. The registry reports them absent
+     rather than defaulting them to zero, because a wrong smoothing constant changes steering
+     silently. If you cannot determine a value, treat the model as unqualified.</p>
 </section>
 
 <section>
-  <h2>4. Compile for your target</h2>
+  <h2>4. Compile for your target &mdash; and check the compiler accepts the architecture</h2>
   <p class="meta">openpilot builds the tinygrad pickle from ONNX during scons, choosing a backend
      from the hardware present. The QCOM path opens <code>/dev/kgsl-3d0</code> directly, so a
-     device-usable artifact can only be produced on the device. Pinning a model needs no extra
-     work &mdash; drop the ONNX in and let the existing build compile it.</p>
+     device-usable artifact can only be produced on the device &mdash; not in CI.</p>
+  <p class="meta"><strong>Upstream's compiler only accepts a vision + on-policy pair.</strong>
+     <code>compile_modeld.py</code> requires <code>--vision-onnx</code> and
+     <code>--on-policy-onnx</code>; there is no <code>--supercombo-onnx</code> and no off-policy
+     input. Of the 142 driving bundles here, <strong>66 are vision+on_policy and compile with
+     upstream today</strong>, while <strong>76 are combined supercombo</strong> and need a
+     multi-era compiler such as sunnypilot's. Check the bundle's roles before planning around
+     it.</p>
+  <p class="meta"><code>--frame-skip</code> is also required, and scons derives it from
+     <em>your</em> <code>ModelConstants.MODEL_RUN_FREQ // MODEL_CONTEXT_FREQ</code> &mdash; it is
+     a host property, not a model property. Provenance reports what the model ran with upstream,
+     so a difference from your own value is a mismatch signal worth investigating rather than a
+     number to copy blindly.</p>
+  <pre>python selfdrive/modeld/compile_modeld.py \\
+  --vision-onnx    selfdrive/modeld/models/driving_vision.onnx \\
+  --on-policy-onnx selfdrive/modeld/models/driving_on_policy.onnx \\
+  --model-size 512x256 --camera-resolutions 1928x1208 1344x760 \\
+  --frame-skip 4 --output selfdrive/modeld/models/driving_tinygrad.pkl</pre>
   <p class="meta"><strong>Runtime model switching is where the cost lands.</strong> A settings-menu
-     picker cannot re-run scons per selection, so it must invoke <code>compile_modeld.py</code>
-     on-device: multi-minute, offroad-only, and it needs a progress UI plus a rollback path. Note
-     that openpilot's current compiler accepts only the current vision/on-policy pair; historical
-     architectures need a multi-era compiler.</p>
+     picker cannot re-run scons per selection, so it must invoke the compiler on-device:
+     multi-minute, offroad-only, and it needs a progress UI, a disk budget, and a rollback path
+     for a compile that fails or is interrupted.</p>
 </section>
 
 <section>
   <h2>5. Default-deny what upstream withdrew</h2>
-  <p class="meta">Filter to <code>status=merged</code> unless a human opted in. A reverted model is
-     one comma pulled back, and "merged" is not the same as "approved" &mdash; several models
-     landed and were reverted days later. PR-only models never cleared review at all.</p>
-  <pre>curl -s "https://openmodels.example/v1/models?status=merged&kind=driving"</pre>
+  <p class="meta">Filter to <code>status=merged</code> unless a human explicitly opted in. A
+     reverted model is one comma pulled back, and "merged" is not the same as "approved" &mdash;
+     several models landed and were reverted days later. PR-only models never cleared review at
+     all. The reference client applies this by default; if you query directly, apply it
+     yourself.</p>
+  <pre>curl -s "https://openmodels.example/v1/models?status=merged&amp;kind=driving"</pre>
 </section>
 
 <section>
   <h2>What the registry never establishes</h2>
   <p class="meta">Target-hardware compilation, process replay, latency and memory behaviour,
      closed-loop driving quality, or safety. Everything served here is storage integrity and
-     upstream history. Qualify a model on your own hardware before anyone drives on it.</p>
+     upstream history. Two models can share every tensor shape while interpreting those numbers
+     completely differently, which is why no endpoint will ever tell you they are
+     interchangeable. Qualify a model on your own hardware before anyone drives on it.</p>
 </section>
 """
 
