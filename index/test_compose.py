@@ -212,7 +212,7 @@ def test_code_is_readable_and_stable():
   from index.code import encode
   sel = {"vision": "6ecf28d7" + "0" * 56, "on_policy": "7fe5257c" + "0" * 56}
   code = encode(sel)
-  assert code.startswith("OM2-") and code.isupper()
+  assert code.startswith("OM3-") and code.isupper()
   assert "+" not in code and "/" not in code, "must be safe to paste and read aloud"
   # Order of the dict must not change the code.
   assert encode({k: sel[k] for k in reversed(list(sel))}) == code
@@ -245,15 +245,15 @@ def test_code_fails_loudly_rather_than_misresolving():
   # a corrupted body must never silently point somewhere else
   body = code.split("-", 1)[1].replace("-", "")
   mid = len(body) // 2
-  swapped = "A" if body[mid] != "A" else "B"
+  swapped = "A" if body[mid] != "A" else "C"
   try:
-    got = resolve(f"OM2-{body[:mid]}{swapped}{body[mid+1:]}", ["a" * 64, "b" * 64, "c" * 64])
+    got = resolve(f"OM3-{body[:mid]}{swapped}{body[mid+1:]}", ["a" * 64, "b" * 64, "c" * 64])
     assert got != sel, "corruption resolved to the original selection"
     raise AssertionError("corrupted code resolved silently")
   except CodeError:
     pass
 
-  for junk in ("", "hello", "OM2-!!!!", "AEA3XO53XO53WAFKVKVKVKVKQ4NQ"):
+  for junk in ("", "OM3-!!!!", "OM3-ABC", "hello world"):
     try:
       resolve(junk, ["a" * 64])
       raise AssertionError(f"{junk!r} should not resolve")
@@ -281,47 +281,38 @@ def test_code_matches_the_browser_implementation():
   redeeming, so these vectors pin both. Verified equal by driving the page's JS under node.
   """
   from index.code import encode
-  assert encode({"vision": "a" * 64, "on_policy": "b" * 64}) == "OM2-ICVK-VKV3-XO5Y-O"
+  assert encode({"vision": "a" * 64, "on_policy": "b" * 64}) == "OM3-2PYP-MEKY-CXXA-2C"
   assert encode({"vision": "6ecf28d7" + "0" * 56, "on_policy": "7fe5257c" + "0" * 56}) == \
-    "OM2-IBXM-6KD7-4USR-2"
+    "OM3-2PR5-9AM0-KEE0-1C"
 
 
-def test_lookalike_digits_are_repaired_on_input():
-  """Read off a screen, thumbed into a car: O becomes 0, I becomes 1, B becomes 8."""
-  from index.code import encode, resolve
-  sel = {"vision": "a" * 64, "on_policy": "b" * 64}
-  code, oids = encode(sel), ["a" * 64, "b" * 64]
+def test_every_lookalike_self_corrects():
+  """No misread can produce a different model, because no lookalike is a legal character.
 
-  typed = code.replace("O", "0").replace("I", "1").replace("B", "8")
-  assert resolve(typed, oids) == sel, typed
-  # and the repair must not depend on case either
-  assert resolve(typed.lower(), oids) == sel
-
-
-def test_unrepairable_lookalikes_fail_loudly():
-  """2/Z, 5/S, 6/G, 7/T are both valid base32, so a misread cannot be repaired.
-
-  It must therefore fail to resolve rather than silently naming other weights -- a retry, not a
-  wrong model.
+  Base32 could not offer this: it contained both `2` and `Z`, so a misread there was
+  unrepairable and merely failed. Excluding every confusable letter is what buys
+  self-correction, for the price of one extra character.
   """
-  from index.code import CodeError, encode, resolve
+  from index.code import ALPHABET, _REPAIR, encode, resolve
   sel = {"vision": "a" * 64, "on_policy": "b" * 64}
-  code, oids = encode(sel), ["a" * 64, "b" * 64]
-  body = code.split("-", 1)[1]
+  oids = ["a" * 64, "b" * 64]
+  code = encode(sel)
 
-  swaps = {"2": "Z", "Z": "2", "5": "S", "S": "5", "6": "G", "G": "6", "7": "T", "T": "7"}
-  tried = 0
-  for i, char in enumerate(body):
-    if char not in swaps:
+  # Each repaired character must be illegal in the alphabet, or repairing it would corrupt a
+  # legitimate code.
+  for typed in _REPAIR:
+    assert chr(typed) not in ALPHABET, f"{chr(typed)!r} is both legal and repaired"
+
+  lookalikes = {"0": "OQ", "1": "IL", "2": "Z", "5": "S", "6": "G", "7": "T", "8": "B", "V": "U"}
+  checked = 0
+  for canonical, variants in lookalikes.items():
+    if canonical not in code:
       continue
-    tried += 1
-    mangled = body[:i] + swaps[char] + body[i + 1:]
-    try:
-      got = resolve(mangled, oids)
-      assert got != sel, f"misread {char}->{swaps[char]} silently resolved to the same selection"
-    except CodeError:
-      pass          # the expected outcome: a clean failure
-  assert tried, "this code contained no confusable characters to test"
+    for variant in variants:
+      checked += 1
+      assert resolve(code.replace(canonical, variant), oids) == sel, f"{variant} for {canonical}"
+  assert checked, "this code contained no repairable characters to test"
+  assert resolve(code.lower(), oids) == sel
 
 
 if __name__ == "__main__":

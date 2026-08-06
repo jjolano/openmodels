@@ -470,16 +470,20 @@ COMPOSE_JS = """
               ["vision","off_policy"],["big_vision","big_on_policy"],
               ["big_vision","big_on_policy","big_off_policy"],["big_supercombo"],
               ["dmonitoring"],["navmodel"]];
-  var VERSION=2;
+  var VERSION=3;
 
   function ck(f){ var l=(f.metadata||{}).lineage||{}; return l.self||l.vision||null; }
-  function b32(bytes){
-    var A="ABCDEFGHIJKLMNOPQRSTUVWXYZ234567", out="", bits=0, val=0;
-    for(var i=0;i<bytes.length;i++){ val=(val<<8)|bytes[i]; bits+=8;
-      while(bits>=5){ out+=A[(val>>>(bits-5))&31]; bits-=5; } }
-    if(bits>0) out+=A[(val<<(5-bits))&31];
+  // Mirrors index/code.py. Base26 over an alphabet with no confusable characters, so a
+  // misread self-corrects on entry rather than merely failing.
+  var ALPHABET="0123456789ACDEFHJKMNPRVWXY";
+  function b26(bytes, chars){
+    var v=0n;
+    for(var i=0;i<bytes.length;i++) v=(v<<8n)|BigInt(bytes[i]);
+    var out="", B=BigInt(ALPHABET.length);
+    for(var j=0;j<chars;j++){ out=ALPHABET[Number(v%B)]+out; v=v/B; }
     return out;
   }
+  function charsFor(n){ return Math.ceil(n*8/Math.log2(ALPHABET.length)); }
   async function sha256(str){
     var buf=await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
     return Array.from(new Uint8Array(buf));
@@ -502,9 +506,9 @@ COMPOSE_JS = """
     var sorted=roles.slice().sort();
     var digest=await sha256(sorted.map(function(r){return r+":"+sel[r];}).join(""));
     body=body.concat(digest.slice(0,1));
-    var t=b32(body), g=[];
+    var t=b26(body, charsFor(body.length)), g=[];
     for(var i=0;i<t.length;i+=4) g.push(t.slice(i,i+4));
-    return "OM2-"+g.join("-");
+    return "OM3-"+g.join("-");
   }
 
   function options(role){
@@ -574,7 +578,7 @@ COMPOSE = """
   <h2>Your code<span class="sub">paste this into a picker</span></h2>
   <pre id="out">Pick a vision half and a policy half.</pre>
   <button id="copy" class="controls">Copy</button>
-  <p class="meta">13 characters &mdash; the <code>OM2-</code> prefix is for recognition and does
+  <p class="meta">14 characters &mdash; the <code>OM2-</code> prefix is for recognition and does
      not need typing. The code carries which files you picked, not a promise about them. Redeeming it
      &mdash; <code>GET /v1/compose/&lt;code&gt;</code>, or <code>redeem_code()</code> in the
      runtime library &mdash; resolves it against the catalog and re-runs every check. A damaged

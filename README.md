@@ -125,17 +125,20 @@ checkpoint is literally its vision and policy checkpoints concatenated.
 
 ```bash
 curl -X POST /v1/compose -d '{"vision": "<oid>", "on_policy": "<oid>"}'
-# -> { "bundle_id": …, "code": "OM2-ICVK-VKV3-XO5Y-O", … }
+# -> { "bundle_id": …, "code": "OM3-2PYP-MEKY-CXXA-2C", … }
 ```
 
 Build one in the browser at **`/compose`** and get a code to paste into a model picker. Redeem it
 with `GET /v1/compose/{code}`, or offline with `runtime.manager.redeem_code(code, catalog)`.
 
-Codes are **13 characters** to type — sized for a car touchscreen, with the `OM2-` prefix
-optional on input. They carry *which files you picked*, not a promise about them: truncated oids
-resolved against the catalog on redemption, where every check re-runs. A damaged code fails to
-resolve rather than quietly naming different weights, and a misread character (`O` typed as `0`)
-lands outside base32 and errors cleanly.
+Codes are **14 characters** to type — sized for a car touchscreen, with the `OM3-` prefix
+optional on input. The alphabet excludes every letter that resembles a digit
+(`B G I L O Q S T U Z`), so a misread self-corrects: type `O` for `0` or `S` for `5` and the code
+still resolves.
+
+They carry *which files you picked*, not a promise about them: truncated oids resolved against
+the catalog on redemption, where every check re-runs. A genuinely damaged code fails to resolve
+rather than quietly naming different weights.
 
 Stateless: `bundle_id` is derived from the members, so nothing is stored — the manifest returned
 is the whole artifact, and it feeds `runtime/plan.py` like any provenance record.

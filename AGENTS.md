@@ -154,7 +154,7 @@ this feature is allowed to exist under the boundary above.
 
 ## Shareable composition codes
 
-`OM2-…` codes carry truncated oids and are resolved against the catalog, which makes a code a
+`OM3-…` codes carry truncated oids and are resolved against the catalog, which makes a code a
 **lookup key, not a description**. That is the safety property: a damaged code fails to resolve
 or fails its checksum, and cannot quietly name different weights — the only failure mode that
 would matter on a device.
@@ -170,13 +170,16 @@ would matter on a device.
   because prefix resolution already rejects nearly all corruption. Do not lengthen these without
   a reason; do not shorten the oid prefix further, since ambiguity becomes likely rather than
   merely detectable.
-- **The `OM2-` prefix is optional on input.** It exists for human recognition, not for the
+- **The `OM3-` prefix is optional on input.** It exists for human recognition, not for the
   format; nobody should thumb in three extra characters.
-- **Lookalike repair is one-directional and deliberate.** `0→O`, `1→I`, `8→B` are safe because
-  those digits are not in base32's alphabet, so accepting them can never collide with a valid
-  code. `2/Z`, `5/S`, `6/G` and `7/T` are **not** repairable — both members are valid — so a
-  misread there fails to resolve. That is the intended outcome: a retry, not a wrong model. Do
-  not "fix" it by guessing.
+- **The alphabet is base26, and that is a transcription decision, not an encoding one.**
+  `0123456789ACDEFHJKMNPRVWXY` excludes `B G I L O Q S T U Z` — every letter that resembles a
+  digit. Because none of them is legal, all of them can be repaired on input, so a misread
+  self-corrects instead of failing. Base32 could not do this: it contained both `2` and `Z`, so
+  those misreads were unrepairable. The price is one character (14, not 13); it is worth it.
+- **Never add a repaired character to `ALPHABET`.** A character that is both legal and repaired
+  would corrupt valid codes. `test_every_lookalike_self_corrects` asserts the two sets stay
+  disjoint.
 - **The encoder exists twice** — Python in `index/code.py`, JavaScript in `web/render.py`'s
   `COMPOSE_JS`, because the compose page is static and must work without the API. Golden vectors
   in `index/test_compose.py` pin both; they were verified equal by driving the page's JS under
