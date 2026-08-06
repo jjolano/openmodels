@@ -113,3 +113,15 @@ writing new ones.
   warning; never silently pick one.
 - **Downloads stage then move atomically.** A half-finished bundle that reads as installed is
   worse than one that failed outright.
+
+- **`build.py` orchestrates a compile; it never runs inference.** The smoke test checks that the
+  artifact exists, unpickles, and carries `metadata` — nothing more. Executing a driving model to
+  "validate" it means interpreting its outputs, which is the boundary above.
+- **Compilation is fail-loud, which is why it can be automated.** No pickle, or an unloadable
+  one, is a visible failure; keep it that way by staging, verifying, then moving atomically, and
+  by restoring the previously active model on any error.
+- **Do not try to validate compiles on CPU in CI.** On the pinned tinygrad the CPU JIT fails to
+  link libm (`fmaxf`), reproducibly in a clean ubuntu:24.04 container; patching `link_libs=['m']`
+  then overflows the 32-bit relocation because the plain path passes no base address. Upstream
+  pins no clang and compiles no models in CI, so nobody exercises this path. Re-test only if the
+  tinygrad submodule bumps.

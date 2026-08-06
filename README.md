@@ -81,8 +81,26 @@ sunnypilot does, so a 2021 model presenting `input_imgs`/`desire` plans as readi
 presenting `img`/`desire_pulse`. Disagreements (your `frame_skip` vs the model's) and absences
 (host constants that never existed) surface as warnings rather than being silently resolved.
 
-Compilation itself still requires the device — the QCOM backend opens `/dev/kgsl-3d0` — so the
-plan is produced anywhere and executed on-target.
+**`runtime/build.py`** — runs that compile **on the device**, with rails around it:
+
+```python
+result = build_and_activate(plan, compiler_path, store,
+                            model_size="512x256", camera_resolutions=["1928x1208"])
+```
+
+Compile into staging → smoke-test the artifact → move it into place atomically → activate. Any
+failure restores the previously active model, so a bad compile costs the user a wait rather than
+a working car.
+
+This is safe to automate because compilation is **fail-loud**: a compile either emits a pickle or
+it does not, and the pickle either loads or it does not. The smoke test deliberately stops at
+structural checks (size, unpickles, carries `metadata`) — running inference to "check" a model
+would mean interpreting its outputs, which is the boundary this package does not cross.
+
+Compilation must happen on-target: tinygrad's QCOM backend opens `/dev/kgsl-3d0` directly. We
+verified that the CPU fallback cannot substitute — on the pinned tinygrad revision it fails
+linking libm, reproducibly, in a clean container. So the plan is produced anywhere and executed
+on the device.
 
 ## Using a model in a fork
 

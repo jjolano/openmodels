@@ -13,6 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from runtime.build import BuildError, build, build_and_activate, smoke_test  # noqa: E402
 from runtime.manager import ALL_STATUSES, MERGED_ONLY, Catalog, ModelStore  # noqa: E402
 from runtime.plan import (  # noqa: E402
   MULTI_ERA, UPSTREAM, Capabilities, PlanError, check_compatibility, classify,
@@ -198,6 +199,93 @@ def test_withdrawn_status_is_a_caution_not_a_blocker():
   verdict = check_compatibility(bundle, caps)
   assert verdict.runnable, "a reverted model is still mechanically runnable"
   assert any("withdrawn" in c for c in verdict.cautions), verdict.cautions
+
+
+
+# --- build rails: testable without a device, because the rails are not the compile -----------
+
+def _stub_compiler(tmp: Path, behaviour: str) -> Path:
+  """A fake compile_modeld.py that fails in a specific, realistic way."""
+  script = tmp / "stub_compiler.py"
+  script.write_text(f"""
+import sys, pickle
+out = sys.argv[sys.argv.index("--output") + 1]
+behaviour = {behaviour!r}
+if behaviour == "exit_nonzero":
+    print("tinygrad: unsupported opset", file=sys.stderr); sys.exit(3)
+if behaviour == "no_output":
+    sys.exit(0)
+if behaviour == "tiny":
+    open(out, "wb").write(b"x" * 128); sys.exit(0)
+if behaviour == "no_metadata":
+    pickle.dump({{"runners": "x" * 200000}}, open(out, "wb")); sys.exit(0)
+pickle.dump({{"metadata": {{"model": {{}}}}, "pad": "x" * 200000}}, open(out, "wb"))
+""")
+  return script
+
+
+def _plan(tmp: Path):
+  files = {r: tmp / f"{r}.onnx" for r in ("vision", "on_policy")}
+  for p in files.values():
+    p.write_bytes(b"")
+  return plan_bundle(_bundle(["vision", "on_policy"], frame_skip=4), files)
+
+
+def test_build_succeeds_and_places_artifact_atomically():
+  with tempfile.TemporaryDirectory() as t:
+    tmp = Path(t)
+    result = build(_plan(tmp), _stub_compiler(tmp, "ok"), tmp / "out",
+                   model_size="512x256", camera_resolutions=["1928x1208"])
+    assert result.artifact.exists() and result.size_bytes > 64 * 1024
+    assert "unpickles" in result.checks and "carries metadata" in result.checks
+    leftovers = list((tmp / "out").glob(".build-*")) + list((tmp / "out").glob(".*.new"))
+    assert not leftovers, f"staging not cleaned: {leftovers}"
+
+
+def test_build_failures_leave_nothing_behind():
+  for behaviour, expect in [("exit_nonzero", "exited 3"), ("no_output", "produced no"),
+                            ("tiny", "did not produce a model"), ("no_metadata", "metadata")]:
+    with tempfile.TemporaryDirectory() as t:
+      tmp = Path(t)
+      try:
+        build(_plan(tmp), _stub_compiler(tmp, behaviour), tmp / "out",
+              model_size="512x256", camera_resolutions=["1928x1208"])
+        raise AssertionError(f"{behaviour} should have raised")
+      except BuildError as exc:
+        assert expect in str(exc), f"{behaviour}: {exc}"
+      out = tmp / "out"
+      assert not list(out.glob("*.pkl")), f"{behaviour} left an artifact behind"
+      assert not list(out.glob(".build-*")), f"{behaviour} left staging behind"
+
+
+def test_failed_build_restores_the_previously_active_model():
+  with tempfile.TemporaryDirectory() as t:
+    tmp = Path(t)
+    store = ModelStore(tmp / "models")
+    store.record("old", {"files": [{"role": "vision", "filename": "v.onnx",
+                                    "oid": "a" * 64, "size": 1}]})
+    store.path_for("old").mkdir(parents=True, exist_ok=True)
+    (store.path_for("old") / "v.onnx").write_bytes(b"x")
+    store.set_active("old")
+
+    try:
+      build_and_activate(_plan(tmp), _stub_compiler(tmp, "exit_nonzero"), store,
+                         model_size="512x256", camera_resolutions=["1928x1208"])
+      raise AssertionError("should have raised")
+    except BuildError:
+      pass
+    assert store.active() == "old", "a failed compile must not disturb the running model"
+
+
+def test_smoke_test_rejects_an_unloadable_artifact():
+  with tempfile.TemporaryDirectory() as t:
+    bad = Path(t) / "bad.pkl"
+    bad.write_bytes(b"\x80\x04garbage" + b"y" * 200000)
+    try:
+      smoke_test(bad)
+      raise AssertionError("unloadable artifact must be rejected")
+    except BuildError as exc:
+      assert "unpickle" in str(exc), exc
 
 
 if __name__ == "__main__":
