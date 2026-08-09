@@ -224,21 +224,29 @@ def attach_metadata(files: dict[str, dict[str, Any]], cache_dir: Path,
 def fetch_from_releases(wanted, cache_dir: Path, repo: str | None,
                         limit: int | None, progress) -> dict[str, Path]:
   """Pull blobs from our own Releases mirror. Verified against the oid like any other source."""
-  import hashlib
-  import subprocess
   if not repo:
     raise GitError("--metadata-source releases needs --release-repo")
   cache_dir.mkdir(parents=True, exist_ok=True)
-  listing = subprocess.run(["gh", "api", "--paginate", f"repos/{repo}/releases", "--jq",
-                            ".[].assets[] | \"\\(.name) \\(.id)\""],
-                           capture_output=True, text=True)
-  ids = dict(line.split() for line in listing.stdout.splitlines() if line.strip())
+  # Must raise, never return empty: an auth or network failure here is indistinguishable
+  # downstream from "nothing is mirrored", and the run would report every model as lacking
+  # metadata while exiting 0.
+  try:
+    listing = subprocess.run(["gh", "api", "--paginate", f"repos/{repo}/releases", "--jq",
+                              ".[].assets[] | \"\\(.name) \\(.id)\""],
+                             capture_output=True, text=True, check=True)
+  except subprocess.CalledProcessError as exc:
+    raise GitError(f"gh api failed listing releases for {repo}: {exc.stderr}") from exc
+  # rsplit: the id is the last field, so an asset name containing a space cannot break the parse.
+  ids = dict(line.rsplit(None, 1) for line in listing.stdout.splitlines() if line.strip())
 
   have: dict[str, Path] = {}
   todo = []
   for oid, _ in wanted:
     path = cache_dir / f"{oid}.onnx"
-    (have.__setitem__(oid, path) if path.exists() else todo.append(oid))
+    if path.exists():
+      have[oid] = path
+    else:
+      todo.append(oid)
   if limit:
     todo = todo[:limit]
   progress(f"{len(have)} cached, {len(todo)} to fetch from {repo}")
@@ -382,9 +390,8 @@ def index_repo(repo: Repo, head: str = "HEAD", limit: int | None = None,
     attach_metadata(files, blob_cache, download_limit, progress,
                     source=metadata_source, release_repo=release_repo)
 
-  files_by_oid = {oid: rec for oid, rec in files.items()}
   bundle_list = sorted(bundles.values(), key=lambda b: b["occurrences"][0]["date"])
-  pairings = compose_mod.attested_pairings(bundle_list, files_by_oid)
+  pairings = compose_mod.attested_pairings(bundle_list, files)
 
   return {
     "schema": 1,

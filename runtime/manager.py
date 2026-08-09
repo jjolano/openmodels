@@ -304,18 +304,20 @@ def redeem_code(code: str, catalog: Catalog) -> dict[str, Any]:
   return compose_bundle(selection, files_by_oid, catalog.data.get("attested_pairings", []))
 
 
-def download_bundle(catalog: Catalog, bundle_id: str, store: ModelStore,
+def download_bundle(catalog: Catalog, bundle: str | dict[str, Any], store: ModelStore,
                     on_progress: ProgressFn | None = None,
                     api: str | None = None) -> dict[str, Any]:
   """Download every file in a bundle, verifying each, and record it as installed.
+
+  `bundle` is either a bundle id to look up, or a composed manifest (from `redeem_code` or
+  `/v1/compose`), which has no server-side record to fetch and is accepted directly.
 
   Files land in a temporary directory and are moved into place only once all of them verify,
   so an interrupted download can never leave a half-installed bundle that looks usable.
   """
   api = api or catalog.api
-  # A composed manifest has no server-side record to fetch; accept it directly.
-  record = bundle_id if isinstance(bundle_id, dict) else catalog.provenance(bundle_id)
-  bundle_id = record.get("bundle_id", bundle_id) if isinstance(record, dict) else bundle_id
+  record = bundle if isinstance(bundle, dict) else catalog.provenance(bundle)
+  bundle_id = record["bundle_id"]
   files = record["files"]
   total = sum(f["size"] for f in files)
 

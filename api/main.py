@@ -163,9 +163,10 @@ def get_provenance(bundle_id: str) -> dict[str, Any]:
   introduced = bundle["introduced_by"]
   index = load_index()
   pairings = index.get("attested_pairings", [])
+  files_by_oid = {f["oid"]: f for f in index["files"]}
   lineage, partners = {}, {}
   for member in bundle["files"]:
-    record = next((f for f in index["files"] if f["oid"] == member["oid"]), {})
+    record = files_by_oid.get(member["oid"], {})
     entry = (record.get("metadata") or {}).get("lineage")
     if entry:
       ckpt = entry.get("self") or entry.get("vision")
@@ -197,6 +198,21 @@ def get_provenance(bundle_id: str) -> dict[str, Any]:
   }
 
 
+def _composed(selection: dict[str, str], index: dict[str, Any],
+              code: str | None = None) -> dict[str, Any]:
+  """Compose a selection and mint its code, turning every refusal into a 422.
+
+  Shared by both endpoints on purpose: a code asserts nothing, so redeeming one must run the
+  identical check set a fresh compose does.
+  """
+  files_by_oid = {f["oid"]: f for f in index["files"]}
+  try:
+    manifest = compose.compose(selection, files_by_oid, index.get("attested_pairings", []))
+    return {**manifest, "code": code or codes.encode(selection)}
+  except (compose.ComposeError, codes.CodeError) as exc:
+    raise HTTPException(422, str(exc)) from exc
+
+
 @app.post("/v1/compose")
 def compose_bundle(selection: dict[str, str]) -> dict[str, Any]:
   """Assemble a bundle from indexed halves — `{"vision": oid, "on_policy": oid}`.
@@ -209,13 +225,7 @@ def compose_bundle(selection: dict[str, str]) -> dict[str, Any]:
   What the response adds is whether *this* pairing is one that shipped. It never has been driven
   in this exact combination, which is why `attested` is always false.
   """
-  index = load_index()
-  files_by_oid = {f["oid"]: f for f in index["files"]}
-  try:
-    manifest = compose.compose(selection, files_by_oid, index.get("attested_pairings", []))
-  except compose.ComposeError as exc:
-    raise HTTPException(422, str(exc)) from exc
-  return {**manifest, "code": codes.encode(selection)}
+  return _composed(selection, load_index())
 
 
 @app.get("/v1/compose/{code}")
@@ -227,16 +237,11 @@ def resolve_code(code: str) -> dict[str, Any]:
   a damaged one fails here instead of quietly naming different weights.
   """
   index = load_index()
-  files_by_oid = {f["oid"]: f for f in index["files"]}
   try:
-    selection = codes.resolve(code, list(files_by_oid))
+    selection = codes.resolve(code, [f["oid"] for f in index["files"]])
   except codes.CodeError as exc:
-    raise HTTPException(422, f"{exc}") from exc
-  try:
-    manifest = compose.compose(selection, files_by_oid, index.get("attested_pairings", []))
-  except compose.ComposeError as exc:
     raise HTTPException(422, str(exc)) from exc
-  return {**manifest, "code": code}
+  return _composed(selection, index, code=code)
 
 
 @app.get("/v1/lineage/{checkpoint:path}")

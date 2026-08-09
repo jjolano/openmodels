@@ -39,8 +39,13 @@ jobs:
           git fetch --filter=blob:none origin '+refs/pull/*/head:refs/remotes/pr/*' || true
           git fetch --filter=blob:none origin '+refs/heads/*:refs/remotes/origin/*'
 
+      # test_compose.py holds the golden vectors pinning index/code.py against web/render.py's
+      # COMPOSE_JS. The encoder exists twice by design, so nothing but this catches them drifting.
       - name: Self-check
-        run: python index/test_metadata.py
+        run: |
+          python index/test_metadata.py
+          python index/test_compose.py
+          python runtime/test_runtime.py
 
       - name: Index
         run: python -m index.indexer --repo upstream --head origin/master --out data/index.json
