@@ -141,13 +141,21 @@ this feature is allowed to exist under the boundary above.
   never been driven.
 - **Cross-lineage composes and warns; it does not fail.** The vision→policy latent is untyped, so
   a mismatched encoder produces confident nonsense rather than an error. The failure is silent,
-  so the warning cannot be. Refuse only what cannot work: unknown oid, unusable role set, or a
-  seam width mismatch.
+  so the warning cannot be. Refuse only what cannot work: unknown oid, unusable role set, a seam
+  width mismatch, or halves that disagree on hardware target or kind.
+- **Hardware target and kind are read from the filename, not the role.** A `big_` half is
+  USBGPU/AMD and a standard one is QCOM, so a bundle spanning both runs nowhere — but the role of
+  `big_driving_vision.onnx` is plain `vision`; `big` is the bundle-level *variant*. `compose()`
+  therefore reuses `indexer.classify` rather than inspecting roles. There is no `big_vision` role
+  anywhere in the index, and code that invents one will silently match nothing.
 - **Composition is stateless.** `bundle_id` is derived from members, so nothing is stored. Do not
   add a database to make composed models browsable — that would put our name on combinations
   nobody ran.
 - **Host constants stay per-role.** Halves come from different commits; merging their constants
-  invents a configuration that never existed. Report each and let the fork choose.
+  invents a configuration that never existed. Report each and let the fork choose. `plan_bundle`
+  collapses `host_constants_by_role` into a single `host_constants` **only when every half
+  agrees** — that is one real configuration, not an invented one. When they disagree it warns and
+  leaves `host_constants` empty; it must never fall back to a last-wins merge.
 - **Lineage requires a metadata pass.** The default indexer run reads only LFS pointers, so
   `model_checkpoint` is absent until a `--blob-cache` run. Use `--metadata-source releases` to
   read from our own mirror rather than hammering comma's LFS.
@@ -165,6 +173,11 @@ would matter on a device.
 - **`SHAPES` in `index/code.py` is append-only**, and roles within a shape are the encoding
   order. Reordering either silently changes what old codes mean, which is exactly the
   misresolution the format exists to prevent.
+- **A shape `compose()` cannot build is never minted.** `_MINTABLE` gates `encode()`, so a code is
+  only issued for a combination that will redeem. Shapes 4–8 are permanently inert: they name
+  `big_*` roles the index never emits (see the variant note above) and single-file models with
+  nothing to compose. They stay in the table because it is append-only — do not delete them, and
+  do not repurpose their slots.
 - **The format is squeezed for touchscreen entry** (13 typed characters): the role *set* is one
   5-bit shape rather than a byte per role, oid prefixes are 3 bytes, and the checksum is 1 byte
   because prefix resolution already rejects nearly all corruption. Do not lengthen these without

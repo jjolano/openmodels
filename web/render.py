@@ -26,7 +26,9 @@ CSS = """
 :root{
   --bg:#fbfbfa; --panel:#fff; --ink:#16150f; --muted:#6b6a63; --line:#e3e2dc;
   --accent:#3d5a3d; --warn:#8a5a1f; --danger:#8f3232; --code:#f4f4f1;
-  --radius:10px; --mono:ui-monospace,SFMono-Regular,Menlo,monospace;\n  --code-font:"JetBrains Mono","IBM Plex Mono","Roboto Mono","DejaVu Sans Mono",\n              ui-monospace,SFMono-Regular,Menlo,monospace;
+  --radius:10px; --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  --code-font:"JetBrains Mono","IBM Plex Mono","Roboto Mono","DejaVu Sans Mono",
+              ui-monospace,SFMono-Regular,Menlo,monospace;
 }
 @media (prefers-color-scheme:dark){:root{
   --bg:#131311; --panel:#1b1b18; --ink:#eceae2; --muted:#9b998f; --line:#2e2e29;
@@ -80,7 +82,11 @@ section h2 .sub{font-weight:400;color:var(--muted);font-size:13px;margin-left:8p
 .required{border-left:3px solid var(--accent)}
 #out{font-family:var(--code-font);font-size:26px;letter-spacing:.16em;text-align:center;
   padding:20px 14px;font-variant-ligatures:none;font-feature-settings:"ss01","zero","calt" 0;
-  word-break:break-all;line-height:1.4}\n.note.ok{border-left-color:var(--accent)}\n.note.warn{border-left-color:var(--warn)}\nbutton{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:8px 14px;font:inherit;font-size:14px;cursor:pointer}
+  word-break:break-all;line-height:1.4}
+.note.ok{border-left-color:var(--accent)}
+.note.warn{border-left-color:var(--warn)}
+button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;
+  padding:8px 14px;font:inherit;font-size:14px;cursor:pointer}
 footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);
   color:var(--muted);font-size:13px}
 .empty{color:var(--muted);padding:28px 0}
@@ -518,20 +524,30 @@ COMPOSE_JS = """
              : n.indexOf("policy")>-1 && n.indexOf("big_")<0; });
     });
   }
+  // off_policy is a distinct role in the index, not a flavour of on_policy. Encoding one as the
+  // other would make the code name weights the user did not pick -- the exact misresolution the
+  // format exists to prevent -- so the role travels with the option.
+  function policyRole(f){
+    return (f.filenames||[]).some(function(n){ return n.indexOf("off_policy")>-1; })
+      ? "off_policy" : "on_policy";
+  }
   function fill(id, role){
     var el=document.getElementById(id);
     options(role).forEach(function(f){
       var o=document.createElement("option");
       o.value=f.oid;
+      o.dataset.role = role==="vision" ? "vision" : policyRole(f);
       o.textContent=(f.filenames[0]||"?")+"  "+(ck(f)||"lineage unknown").slice(0,22)+
                     "  ("+Math.round(f.size/1048576)+" MB)";
       el.appendChild(o);
     });
   }
   async function update(){
-    var v=document.getElementById("vsel").value, p=document.getElementById("psel").value;
+    var psel=document.getElementById("psel");
+    var v=document.getElementById("vsel").value, p=psel.value;
     var out=document.getElementById("out"), note=document.getElementById("note");
     if(!v||!p){ out.textContent="Pick a vision half and a policy half."; note.textContent=""; return; }
+    var prole=psel.selectedOptions[0].dataset.role || "on_policy";
     var byOid={}; (D.files||[]).forEach(function(f){ byOid[f.oid]=f; });
     var vc=ck(byOid[v]), pc=ck(byOid[p]);
     var attested=(D.attested_pairings||[]).some(function(pr){ return pr[0]===vc && pr[1]===pc; });
@@ -541,7 +557,8 @@ COMPOSE_JS = """
       : attested
         ? "<strong>Attested pairing.</strong> These halves shipped together upstream."
         : "<strong>Cross-lineage.</strong> These never shipped together. The latent between them is untyped, so this will load and run regardless of whether the numbers mean the same thing.";
-    out.textContent = await makeCode({vision:v, on_policy:p});
+    var sel={vision:v}; sel[prole]=p;
+    out.textContent = await makeCode(sel);
   }
   fetch("index.json").then(function(r){return r.json();}).then(function(d){
     D=d; fill("vsel","vision"); fill("psel","policy");
@@ -578,7 +595,7 @@ COMPOSE = """
   <h2>Your code<span class="sub">paste this into a picker</span></h2>
   <pre id="out">Pick a vision half and a policy half.</pre>
   <button id="copy" class="controls">Copy</button>
-  <p class="meta">14 characters &mdash; the <code>OM2-</code> prefix is for recognition and does
+  <p class="meta">14 characters &mdash; the <code>OM3-</code> prefix is for recognition and does
      not need typing. The code carries which files you picked, not a promise about them. Redeeming it
      &mdash; <code>GET /v1/compose/&lt;code&gt;</code>, or <code>redeem_code()</code> in the
      runtime library &mdash; resolves it against the catalog and re-runs every check. A damaged

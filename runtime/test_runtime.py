@@ -305,6 +305,34 @@ def test_composed_manifest_carries_its_unattested_warning():
   assert any("UNATTESTED" in w for w in plan.warnings), plan.warnings
   assert any("cross-lineage" in w for w in plan.warnings), "cautions must propagate"
   assert any("different host constants" in w for w in plan.warnings), plan.warnings
+  # Disagreeing halves must not be merged into a configuration nobody ran; the fork chooses
+  # from the per-role values instead.
+  assert plan.host_constants == {}, plan.host_constants
+  assert plan.host_constants_by_role["vision"]["LAT_SMOOTH_SECONDS"] == 0.0
+  assert plan.host_constants_by_role["on_policy"]["LAT_SMOOTH_SECONDS"] == 0.1
+  assert plan.to_dict()["host_constants_by_role"] == plan.host_constants_by_role
+
+
+def test_agreeing_halves_collapse_to_one_configuration():
+  """Collapsing is only honest when the halves agree — then it is one real configuration.
+
+  The counterpart to the disagreement case above: refusing to report constants the halves both
+  carry would push the fork into supplying its own, which is how a wrong smoothing constant
+  gets in.
+  """
+  with tempfile.TemporaryDirectory() as t:
+    tmp = Path(t)
+    files = {r: tmp / f"{r}.onnx" for r in ("vision", "on_policy")}
+    for f in files.values():
+      f.write_bytes(b"")
+    both = {"LAT_SMOOTH_SECONDS": 0.2, "LONG_SMOOTH_SECONDS": 0.3}
+    manifest = _bundle(["vision", "on_policy"], frame_skip=4, source="composed", attested=False,
+                       host_constants_by_role={"vision": dict(both), "on_policy": dict(both)})
+    plan = plan_bundle(manifest, files)
+
+  assert plan.host_constants == both, plan.host_constants
+  assert not any("different host constants" in w for w in plan.warnings), plan.warnings
+  assert plan.host_constants_by_role["on_policy"] == both
 
 
 if __name__ == "__main__":

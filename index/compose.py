@@ -128,10 +128,24 @@ def compose(selection: dict[str, str], files_by_oid: dict[str, dict[str, Any]],
     members.append({"role": role, "filename": filename, "oid": oid,
                     "size": record["size"], "metadata": record.get("metadata") or {}})
 
+  # Hardware target and model kind are properties of the *filename*, not of the role: the indexer
+  # reads big_driving_vision.onnx as ("driving", "big", "vision"). A big_ half is a USBGPU/AMD
+  # artifact and a standard one is QCOM, so a bundle that mixes them cannot run anywhere — the
+  # same reason the indexer never groups them together. Deferred import: indexer imports us.
+  from index.indexer import classify
+  specs = [s for s in (classify(m["filename"]) for m in members) if s]
+  kinds = {s[0] for s in specs}
+  variants = {s[1] for s in specs}
+  if len(variants) > 1:
+    raise ComposeError("cannot combine big_ (USBGPU/AMD) and standard (QCOM) halves: they target "
+                       "different hardware and are different architectures")
+  if len(kinds) > 1:
+    raise ComposeError(f"cannot combine {sorted(kinds)} models in one bundle")
+
   roles = {m["role"] for m in members}
   if "supercombo" in roles and len(roles) > 1:
     raise ComposeError("a supercombo is self-contained and cannot be combined with other halves")
-  if "supercombo" not in roles and not {"vision"} <= roles:
+  if "supercombo" not in roles and "vision" not in roles:
     raise ComposeError(f"a composed driving model needs a vision half; got {sorted(roles)}")
   if "supercombo" not in roles and not ({"on_policy", "off_policy"} & roles):
     raise ComposeError(f"a composed driving model needs a policy half; got {sorted(roles)}")

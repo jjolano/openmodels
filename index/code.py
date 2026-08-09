@@ -66,6 +66,14 @@ SHAPES: tuple[tuple[str, ...], ...] = (
   ("navmodel",),
 )
 
+# Shapes 4-8 name roles the index never emits. `big` is a bundle-level *variant*, not a role —
+# indexer.ROLE_PATTERNS reads big_driving_vision.onnx as ("driving", "big", "vision"), so a big_
+# composition is expressed with the ordinary roles and the variant follows from the files. The
+# remaining two are single-file models with nothing to compose. They stay in SHAPES because the
+# table is append-only; they are simply never minted, so no code can be issued that compose()
+# would then refuse to redeem.
+_MINTABLE = frozenset({0, 1, 2, 3})
+
 
 class CodeError(Exception):
   """The code is malformed, or does not resolve against this catalog."""
@@ -124,6 +132,9 @@ def encode(selection: dict[str, str]) -> str:
     raise CodeError("nothing to encode")
 
   shape_index = _shape_of(set(selection))
+  if shape_index not in _MINTABLE:
+    raise CodeError(f"shape {shape_index} ({', '.join(SHAPES[shape_index])}) is reserved but not "
+                    f"composable, so no code is issued for it")
   body = bytearray([(VERSION << 5) | shape_index])
   for role in SHAPES[shape_index]:
     oid = selection[role]

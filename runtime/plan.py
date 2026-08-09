@@ -138,6 +138,9 @@ class CompilePlan:
   input_keys: dict[str, str | None]              # logical name -> this model's actual key
   frame_skip: int | None
   host_constants: dict[str, Any] = field(default_factory=dict)
+  # Populated for composed bundles only. The halves come from different commits, so this is the
+  # authoritative form: `host_constants` above is filled in only when every half agrees.
+  host_constants_by_role: dict[str, Any] = field(default_factory=dict)
   warnings: list[str] = field(default_factory=list)
 
   def command(self, compiler_path: str, output: str, model_size: str,
@@ -168,6 +171,7 @@ class CompilePlan:
       "input_keys": self.input_keys,
       "frame_skip": self.frame_skip,
       "host_constants": self.host_constants,
+      "host_constants_by_role": self.host_constants_by_role,
       "warnings": self.warnings,
     }
 
@@ -265,15 +269,18 @@ def plan_bundle(bundle: dict[str, Any], files: dict[str, Path],
     warnings.extend(bundle.get("cautions", []))
 
   constants = bundle.get("host_constants", {})
-  if by_role := bundle.get("host_constants_by_role"):
-    # Halves came from different commits; surface each rather than silently picking one.
-    distinct = {k: v for role in by_role.values() for k, v in role.items()}
-    if len({tuple(sorted(r.items())) for r in by_role.values() if r}) > 1:
+  by_role = bundle.get("host_constants_by_role") or {}
+  if by_role:
+    # Halves came from different commits. Collapsing is only honest when they agree; when they
+    # disagree the fork must choose, because merging invents a configuration nobody ran.
+    seen = {tuple(sorted(r.items())) for r in by_role.values() if r}
+    if len(seen) > 1:
       warnings.append(
         f"halves carry different host constants {by_role}; choose deliberately -- merging them "
         f"would invent a configuration nobody ran"
       )
-    constants = constants or distinct
+    elif seen:
+      constants = constants or dict(next(iter(seen)))
   if absent := bundle.get("host_constants_missing"):
     warnings.append(
       f"host constants not recorded upstream: {', '.join(absent)}. They are absent, not zero — "
@@ -288,7 +295,7 @@ def plan_bundle(bundle: dict[str, Any], files: dict[str, Path],
   return CompilePlan(
     bundle_id=bundle["bundle_id"], model_type=model_type, compiler=compiler,
     onnx_flags=onnx_flags, input_keys=input_keys, frame_skip=frame_skip,
-    host_constants=constants, warnings=warnings,
+    host_constants=constants, host_constants_by_role=by_role, warnings=warnings,
   )
 
 

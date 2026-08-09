@@ -75,6 +75,9 @@ def _files():
     "pol99": _file("pol99", P2, buffer_depth=99, name="driving_on_policy.onnx"),
     "wide": _file("wide", P2, buffer_depth=25, name="w.onnx"),
     "sc": _file("sc", f"{V2}/{PX}", seam=512, name="driving_supercombo.onnx"),
+    "bigvis": _file("bigvis", V1, seam=512, name="big_driving_vision.onnx"),
+    "bigpol": _file("bigpol", P1, buffer_depth=25, name="big_driving_on_policy.onnx"),
+    "dmon": _file("dmon", name="dmonitoring_model.onnx"),
   }
 
 
@@ -139,6 +142,31 @@ def test_role_set_must_be_runnable():
       assert expect in str(exc), f"{selection}: {exc}"
 
 
+def test_hardware_targets_are_never_mixed():
+  """`big_` is USBGPU/AMD and standard is QCOM — a bundle spanning both runs on no device.
+
+  The indexer never groups them, so composition must not either. The variant is a property of
+  the filename, not of the role: both halves here are roles `vision` and `on_policy`.
+  """
+  try:
+    compose({"vision": "bigvis", "on_policy": "pol1"}, _files(), [])
+    raise AssertionError("big_ + standard must be refused")
+  except ComposeError as exc:
+    assert "different hardware" in str(exc), exc
+  # ... while an all-big_ pairing is a perfectly ordinary composition.
+  out = compose({"vision": "bigvis", "on_policy": "bigpol"}, _files(), [[V1, P1]])
+  assert out["checks"]["attested_pairing"] is True
+
+
+def test_kinds_are_never_mixed():
+  """driving and dmonitoring are different networks; they never shared a bundle upstream."""
+  try:
+    compose({"vision": "vis1", "on_policy": "pol1", "dmonitoring": "dmon"}, _files(), [])
+    raise AssertionError("driving + dmonitoring must be refused")
+  except ComposeError as exc:
+    assert "cannot combine" in str(exc), exc
+
+
 def test_unknown_oid_is_refused():
   try:
     compose({"vision": "vis1", "on_policy": "ghost"}, _files(), [])
@@ -199,13 +227,44 @@ def test_code_is_short_enough_to_thumb_in():
   from index.code import encode
   common = encode({"vision": "a" * 64, "on_policy": "b" * 64})
   assert len(common.replace("-", "")) <= 20, common
-  # base32 is A-Z plus 2-7, so it *does* contain I, L and O -- but never the digits they
-  # resemble. A user who reads "O" and types "0" lands outside the alphabet and gets a clean
-  # decode error rather than a different model. Misreads fail loudly, which is the property
-  # that matters; there is no case to get wrong either.
-  body = common.replace("-", "")
-  assert not set("0189") & set(body), common
+  # 14 typed characters, and the OM3- prefix does not have to be one of them.
+  body = common[len("OM3-"):].replace("-", "")
+  assert len(body) == 14, body
+  # base26 keeps every digit and drops every letter that resembles one, which is what makes a
+  # misread repairable rather than merely loud -- see test_every_lookalike_self_corrects.
+  assert not set("BGILOQSTUZ") & set(body), common
   assert body.isupper(), common
+
+
+def test_off_policy_keeps_its_own_role():
+  """A code names roles, and off_policy is not a flavour of on_policy.
+
+  SHAPES[3] exists precisely so this pairing survives a round trip; encoding it as on_policy
+  would redeem to a bundle naming weights the sender never picked.
+  """
+  from index.code import encode, resolve
+  sel = {"vision": "a" * 64, "off_policy": "b" * 64}
+  assert resolve(encode(sel), ["a" * 64, "b" * 64]) == sel
+  # ... and it is a different code from the on_policy pairing over the same two files.
+  assert encode(sel) != encode({"vision": "a" * 64, "on_policy": "b" * 64})
+
+
+def test_reserved_shapes_are_never_minted():
+  """SHAPES is append-only, so shapes that cannot compose stay in the table but issue no code.
+
+  `big_vision` and friends name roles the index never emits — `big` is a bundle-level variant,
+  not a role — and dmonitoring/navmodel are single-file models. A code for any of them would
+  resolve and then be refused at redemption, which is a worse failure than never minting it.
+  """
+  from index.code import CodeError, SHAPES, _MINTABLE, encode
+  for index, shape in enumerate(SHAPES):
+    if index in _MINTABLE:
+      continue
+    try:
+      encode({role: "ab" * 32 for role in shape})
+      raise AssertionError(f"shape {index} {shape} must not be mintable")
+    except CodeError as exc:
+      assert "reserved" in str(exc), exc
 
 
 def test_code_is_readable_and_stable():
