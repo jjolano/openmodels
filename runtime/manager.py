@@ -106,8 +106,14 @@ class Catalog:
     The cache is a genuine third tier, not an optimisation: a device that is offroad and
     offline should still be able to show the user what it already knows about.
     """
-    if cache and cache.exists() and (time.time() - cache.stat().st_mtime) < max_age:
-      return cls(json.loads(cache.read_text()), "cache", api)
+    cached = None
+    if cache and cache.exists():
+      try:
+        cached = json.loads(cache.read_text())
+        if (time.time() - cache.stat().st_mtime) < max_age:
+          return cls(cached, "cache", api)
+      except (OSError, json.JSONDecodeError):
+        pass
 
     failures = []
     sources = [(f"{api.rstrip('/')}/v1/models?limit=1000", "api")] if api else []
@@ -118,13 +124,15 @@ class Catalog:
         data = json.loads(_get(url))
         if cache:
           cache.parent.mkdir(parents=True, exist_ok=True)
-          cache.write_text(json.dumps(data))
+          tmp = cache.with_suffix(cache.suffix + ".tmp")
+          tmp.write_text(json.dumps(data))
+          tmp.replace(cache)
         return cls(data, source, api)
       except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError) as exc:
         failures.append(f"{source}: {exc}")
 
-    if cache and cache.exists():
-      return cls(json.loads(cache.read_text()), "stale-cache", api)
+    if cached is not None:
+      return cls(cached, "stale-cache", api)
     raise CatalogUnavailable("; ".join(failures))
 
   @property

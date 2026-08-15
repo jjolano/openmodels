@@ -17,8 +17,10 @@ from __future__ import annotations
 
 import os
 import pickle
+import queue
 import shutil
 import subprocess
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -103,11 +105,29 @@ def build(plan: CompilePlan, compiler: Path, output_dir: Path, *,
     process = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                text=True, env={**os.environ, **(env or {})})
     assert process.stdout is not None
-    for line in process.stdout:
-      lines.append(line.rstrip())
+    output: queue.Queue[str | None] = queue.Queue()
+
+    def read_output() -> None:
+      for line in process.stdout:
+        output.put(line.rstrip())
+      output.put(None)
+
+    threading.Thread(target=read_output, daemon=True).start()
+    deadline = started + timeout
+    while True:
+      remaining = deadline - time.monotonic()
+      if remaining <= 0:
+        raise subprocess.TimeoutExpired(argv, timeout)
+      try:
+        line = output.get(timeout=remaining)
+      except queue.Empty as exc:
+        raise subprocess.TimeoutExpired(argv, timeout) from exc
+      if line is None:
+        break
+      lines.append(line)
       if on_output:
-        on_output(line.rstrip())
-    code = process.wait(timeout=timeout)
+        on_output(line)
+    code = process.wait(timeout=max(0, deadline - time.monotonic()))
     if code != 0:
       raise BuildError(f"compiler exited {code}\n" + "\n".join(lines[-15:]))
 
@@ -119,6 +139,7 @@ def build(plan: CompilePlan, compiler: Path, output_dir: Path, *,
     tmp.replace(final)                       # atomic: modeld never sees a partial pickle
   except subprocess.TimeoutExpired as exc:
     process.kill()
+    process.wait()
     raise BuildError(f"compile exceeded {timeout}s") from exc
   finally:
     shutil.rmtree(staging, ignore_errors=True)

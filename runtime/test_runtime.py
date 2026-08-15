@@ -15,6 +15,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from runtime.build import BuildError, build, build_and_activate, smoke_test  # noqa: E402
+from runtime import manager  # noqa: E402
 from runtime.manager import ALL_STATUSES, MERGED_ONLY, Catalog, ModelStore  # noqa: E402
 from runtime.plan import (  # noqa: E402
   MULTI_ERA, UPSTREAM, Capabilities, PlanError, check_compatibility, classify,
@@ -241,6 +242,20 @@ def test_catalog_uses_recorded_release_without_a_live_api():
     f"https://github.com/owner/repo/releases/download/blobs-0003/{oid}.onnx"
 
 
+def test_catalog_recovers_from_a_torn_cache_atomically():
+  with tempfile.TemporaryDirectory() as tmp:
+    cache = Path(tmp) / "catalog.json"
+    cache.write_text("{torn")
+    old_get = manager._get
+    manager._get = lambda *_: json.dumps({"bundles": []}).encode()
+    try:
+      catalog = Catalog.load("https://api.example", cache=cache)
+    finally:
+      manager._get = old_get
+    assert catalog.source == "api" and json.loads(cache.read_text()) == {"bundles": []}
+    assert not cache.with_suffix(".json.tmp").exists()
+
+
 
 # --- build rails: testable without a device, because the rails are not the compile -----------
 
@@ -248,10 +263,11 @@ def _stub_compiler(tmp: Path, behaviour: str) -> Path:
   """A fake compile_modeld.py that fails in a specific, realistic way."""
   script = tmp / "stub_compiler.py"
   script.write_text(f"""
-import sys, pickle, time
+import os, sys, pickle, time
 out = sys.argv[sys.argv.index("--output") + 1]
 behaviour = {behaviour!r}
 if behaviour == "hang":
+    os.close(1); os.close(2)
     time.sleep(30)
 if behaviour == "exit_nonzero":
     print("tinygrad: unsupported opset", file=sys.stderr); sys.exit(3)
@@ -351,7 +367,7 @@ def test_composed_manifest_carries_its_unattested_warning():
     for f in files.values():
       f.write_bytes(b"")
     manifest = _bundle(["vision", "on_policy"], frame_skip=4, source="composed", attested=False,
-                       cautions=["cross-lineage: vision A and on_policy B never shipped together"],
+                       cautions=["cross-lineage: no shipped pairing is recorded for vision A and on_policy B"],
                        host_constants_by_role={"vision": {"LAT_SMOOTH_SECONDS": 0.0},
                                                "on_policy": {"LAT_SMOOTH_SECONDS": 0.1}})
     plan = plan_bundle(manifest, files)
