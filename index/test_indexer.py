@@ -4,6 +4,7 @@
 import hashlib
 import os
 import json
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -13,7 +14,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from index.constants import extract_from_source  # noqa: E402
 from index import lfs  # noqa: E402
 from clients.reference import terminal_text  # noqa: E402
-from index.indexer import attach_metadata, index_repo, merge_previous, read_pointer  # noqa: E402
+from index.indexer import (  # noqa: E402
+  attach_metadata, fetch_from_releases, index_repo, merge_previous, read_pointer,
+)
 from index import publish as publisher  # noqa: E402
 from web import render as renderer  # noqa: E402
 from web.render import render_detail  # noqa: E402
@@ -212,6 +215,34 @@ def test_interrupted_lfs_download_removes_partial_file():
     finally:
       lfs.urllib.request.urlopen = old_urlopen
     assert not dest.with_suffix(".onnx.part").exists()
+
+
+def test_interrupted_release_download_removes_partial_file():
+  oid = hashlib.sha256(b"model").hexdigest()
+  calls = 0
+
+  def fake_run(*_, **kwargs):
+    nonlocal calls
+    calls += 1
+    if calls == 1:
+      return type("Result", (), {"stdout": f"{oid}.onnx 1\n"})()
+    kwargs["stdout"].write(b"partial")
+    raise OSError("connection dropped")
+
+  with tempfile.TemporaryDirectory() as tmp:
+    cache = Path(tmp)
+    old_run = subprocess.run
+    subprocess.run = fake_run
+    try:
+      try:
+        fetch_from_releases([(oid, 5)], cache, "owner/repo", None, lambda *_: None)
+        raise AssertionError("interrupted download must fail")
+      except OSError:
+        pass
+    finally:
+      subprocess.run = old_run
+    assert not (cache / f"{oid}.onnx").exists()
+    assert not (cache / f"{oid}.onnx.part").exists()
 
 
 def test_only_confirmed_missing_lfs_objects_are_marked_unavailable():

@@ -12,6 +12,7 @@ indexed refs include arbitrary PR heads.
 from __future__ import annotations
 
 import ast
+import math
 from typing import Any, NamedTuple
 
 # name -> candidate paths, newest era first. openpilot moved everything under openpilot/ in
@@ -72,9 +73,16 @@ def extract_from_source(source: str, names: set[str]) -> dict[str, Found]:
       for target in targets:
         if isinstance(target, ast.Name) and target.id in names and target.id not in found:
           try:
-            found[target.id] = Found(ast.literal_eval(node.value), node.lineno)
+            value = ast.literal_eval(node.value)
           except (ValueError, SyntaxError):
-            pass  # computed, not literal — treated as absent
+            continue  # computed, not literal — treated as absent
+          # These constants are numeric. Accepting arbitrary literals lets an attacker-controlled
+          # upstream PR smuggle strings into every downstream renderer and client.
+          if isinstance(value, bool) or not isinstance(value, (int, float)):
+            continue
+          if isinstance(value, float) and not math.isfinite(value):
+            continue
+          found[target.id] = Found(value, node.lineno)
 
   visit_body(tree.body)
   return found

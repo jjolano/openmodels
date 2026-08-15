@@ -277,21 +277,25 @@ def fetch_from_releases(wanted, cache_dir: Path, repo: str | None,
         todo.append(oid)
       else:
         progress(f"  not mirrored: {oid[:12]}")
-  if limit:
+  if limit is not None:
     todo = todo[:limit]
   progress(f"{len(have)} cached, {len(todo)} to fetch from {repo}")
 
   for oid in todo:
     asset = ids[f"{oid}.onnx"]
     path = cache_dir / f"{oid}.onnx"
-    with open(path, "wb") as handle:
-      subprocess.run(["gh", "api", f"repos/{repo}/releases/assets/{asset}",
-                      "-H", "Accept: application/octet-stream"], stdout=handle, check=True)
-    if not lfs.verified(path, oid):
-      path.unlink(missing_ok=True)
-      progress(f"  FAILED verify: {oid[:12]}")
-      continue
-    have[oid] = path
+    tmp = path.with_suffix(path.suffix + ".part")
+    try:
+      with open(tmp, "wb") as handle:
+        subprocess.run(["gh", "api", f"repos/{repo}/releases/assets/{asset}",
+                        "-H", "Accept: application/octet-stream"], stdout=handle, check=True)
+      if not lfs.verified(tmp, oid):
+        progress(f"  FAILED verify: {oid[:12]}")
+        continue
+      tmp.replace(path)
+      have[oid] = path
+    finally:
+      tmp.unlink(missing_ok=True)
   return have
 
 
@@ -373,7 +377,7 @@ def index_repo(repo: Repo, head: str = "HEAD", limit: int | None = None,
 
   commits = repo.commits_touching(MODEL_DIRS)
   progress(f"{len(commits)} commits touch model dirs")
-  if limit:
+  if limit is not None:
     commits = commits[:limit]
 
   bundles: dict[str, dict[str, Any]] = {}

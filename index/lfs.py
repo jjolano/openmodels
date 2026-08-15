@@ -112,7 +112,7 @@ def fetch_missing(oids: list[tuple[str, int]], cache_dir: Path,
 
   if unavailable:
     wanted.sort(key=lambda item: item[0] in unavailable)
-  if limit:
+  if limit is not None:
     wanted = wanted[:limit]
   progress(f"{len(have)} cached, {len(wanted)} to fetch")
 
