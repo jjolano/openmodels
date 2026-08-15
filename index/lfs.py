@@ -30,8 +30,13 @@ class VerificationError(LFSError):
   """Downloaded bytes did not hash to the requested oid."""
 
 
+def verified(path: Path, oid: str) -> bool:
+  with open(path, "rb") as handle:
+    return hashlib.file_digest(handle, "sha256").hexdigest() == oid
+
+
 def resolve(oids: list[tuple[str, int]], batch_url: str = BATCH_URL,
-            timeout: int = 30) -> dict[str, str]:
+            timeout: int = 30, unavailable: set[str] | None = None) -> dict[str, str]:
   """Ask the batch API for download hrefs. Returns {oid: href} for whatever it offers."""
   if not oids:
     return {}
@@ -58,6 +63,8 @@ def resolve(oids: list[tuple[str, int]], batch_url: str = BATCH_URL,
     href = (obj.get("actions") or {}).get("download", {}).get("href")
     if href:
       hrefs[obj["oid"]] = href
+    elif (obj.get("error") or {}).get("code") in (404, 410) and unavailable is not None:
+      unavailable.add(obj["oid"])
   return hrefs
 
 
@@ -67,22 +74,26 @@ def download(oid: str, href: str, dest: Path, timeout: int = 300) -> Path:
   tmp = dest.with_suffix(dest.suffix + ".part")
   digest = hashlib.sha256()
 
-  with urllib.request.urlopen(href, timeout=timeout) as response, open(tmp, "wb") as handle:
-    while chunk := response.read(CHUNK):
-      digest.update(chunk)
-      handle.write(chunk)
+  try:
+    with urllib.request.urlopen(href, timeout=timeout) as response, open(tmp, "wb") as handle:
+      while chunk := response.read(CHUNK):
+        digest.update(chunk)
+        handle.write(chunk)
 
-  if digest.hexdigest() != oid:
+    if digest.hexdigest() != oid:
+      raise VerificationError(f"{oid}: got {digest.hexdigest()} — refusing blob")
+
+    tmp.replace(dest)
+    return dest
+  except Exception:
     tmp.unlink(missing_ok=True)
-    raise VerificationError(f"{oid}: got {digest.hexdigest()} — refusing blob")
-
-  tmp.rename(dest)
-  return dest
+    raise
 
 
 def fetch_missing(oids: list[tuple[str, int]], cache_dir: Path,
                   batch_url: str = BATCH_URL, limit: int | None = None,
-                  progress=lambda *_: None) -> dict[str, Path]:
+                  progress=lambda *_: None,
+                  unavailable: set[str] | None = None) -> dict[str, Path]:
   """Download any oids not already cached. Returns {oid: path} for everything on disk.
 
   Batched in groups of 100 so one hostile or GC'd object can't sink a whole run.
@@ -93,22 +104,29 @@ def fetch_missing(oids: list[tuple[str, int]], cache_dir: Path,
 
   for oid, size in oids:
     path = cache_dir / f"{oid}.onnx"
-    if path.exists():
+    if path.exists() and verified(path, oid):
       have[oid] = path
     else:
+      path.unlink(missing_ok=True)
       wanted.append((oid, size))
 
+  if unavailable:
+    wanted.sort(key=lambda item: item[0] in unavailable)
   if limit:
     wanted = wanted[:limit]
   progress(f"{len(have)} cached, {len(wanted)} to fetch")
 
   for start in range(0, len(wanted), 100):
     batch = wanted[start:start + 100]
-    hrefs = resolve(batch, batch_url)
+    batch_unavailable: set[str] = set()
+    hrefs = resolve(batch, batch_url, unavailable=batch_unavailable)
+    if unavailable is not None:
+      unavailable.update(batch_unavailable)
     for oid, size in batch:
       href = hrefs.get(oid)
       if not href:
-        progress(f"  unavailable upstream: {oid[:12]}")
+        state = "unavailable upstream" if oid in batch_unavailable else "no download action"
+        progress(f"  {state}: {oid[:12]}")
         continue
       try:
         have[oid] = download(oid, href, cache_dir / f"{oid}.onnx")

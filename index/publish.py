@@ -28,6 +28,7 @@ from index import lfs
 
 ASSETS_PER_RELEASE = 1000          # GitHub's documented, enforced cap
 TAG_PREFIX = "blobs-"
+NOTICE = Path(__file__).resolve().parent.parent / "THIRD_PARTY_NOTICES.md"
 
 
 class PublishError(RuntimeError):
@@ -79,8 +80,7 @@ def ensure_release(repo: str, tag: str) -> None:
   if _gh_ok("api", f"repos/{repo}/releases/tags/{tag}"):
     return
   _gh("release", "create", tag, "--repo", repo, "--title", f"Model blobs {tag}",
-      "--notes", "Model weights mirrored from commaai/openpilot. Filenames are their sha256 "
-                 "(the git-lfs oid) — verify every download against it.")
+      "--notes-file", str(NOTICE))
 
 
 def shard_for(counts: dict[str, int], repo: str) -> str:
@@ -110,6 +110,7 @@ def publish(index_path: Path, cache_dir: Path, repo: str, limit: int | None = No
 
   uploaded = 0
   failed: list[str] = []
+  unavailable = set(index.get("mirror_unavailable", ())) - set(placed)
   for record in pending:
     if limit is not None and uploaded >= limit:
       break
@@ -126,12 +127,23 @@ def publish(index_path: Path, cache_dir: Path, repo: str, limit: int | None = No
     # downloaded, so steady-state runs move nothing and a discarded cache costs nothing.
     blob = cache_dir / f"{record['oid']}.onnx"
     fetched_now = False
+    if blob.exists() and not lfs.verified(blob, record["oid"]):
+      blob.unlink()
     if not blob.exists():
-      got = lfs.fetch_missing([(record["oid"], record["size"])], cache_dir, progress=progress)
+      unavailable.discard(record["oid"])
+      confirmed_unavailable: set[str] = set()
+      got = lfs.fetch_missing([(record["oid"], record["size"])], cache_dir,
+                              progress=progress, unavailable=confirmed_unavailable)
       if record["oid"] not in got:
-        progress(f"  unavailable upstream: {record['oid'][:12]}")
+        if record["oid"] in confirmed_unavailable:
+          progress(f"  unavailable upstream: {record['oid'][:12]}")
+          unavailable.add(record["oid"])
+        else:
+          failed.append(record["oid"])
         continue
       blob, fetched_now = got[record["oid"]], True
+    else:
+      unavailable.discard(record["oid"])
 
     tag = shard_for(counts, repo)
     progress(f"  upload {record['oid'][:12]} ({size_mb:.0f} MB) -> {tag}")
@@ -162,8 +174,11 @@ def publish(index_path: Path, cache_dir: Path, repo: str, limit: int | None = No
   index["release_repo"] = repo
   index["mirrored_count"] = sum(1 for f in index["files"] if f.get("release"))
   index["mirror_failures"] = failed
+  index["mirror_unavailable"] = sorted(unavailable)
   if not dry_run:
-    index_path.write_text(json.dumps(index, indent=1) + "\n")
+    tmp = index_path.with_suffix(index_path.suffix + ".tmp")
+    tmp.write_text(json.dumps(index, indent=1) + "\n")
+    tmp.replace(index_path)
 
   progress(f"{index['mirrored_count']}/{len(index['files'])} files mirrored"
            + (f", {len(failed)} failed (retried next run)" if failed else ""))

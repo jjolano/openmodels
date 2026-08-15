@@ -98,10 +98,7 @@ class Repo:
     if all_refs:
       args.append("--all")
     args += ["--", *[f"{d}/*.onnx" for d in dirs]]
-    try:
-      return self._run(*args).split()
-    except GitError:
-      return []
+    return self._run(*args).split()
 
   def commit_meta(self, ref: str) -> dict[str, str]:
     out = self._run("show", "-s", "--format=%H%x00%cI%x00%s", ref).split("\0")
@@ -149,6 +146,9 @@ def classify(path: str) -> tuple[str, str, str] | None:
 # they mirror perfectly while being useless as models. Flag rather than drop: the archive's job
 # is to faithfully record what upstream contained.
 SUSPECT_MAX_BYTES = 100_000
+# Current USBGPU models top out around 296 MB. Parsing reads one protobuf into memory, so keep a
+# hostile PR from turning a metadata pass into a multi-gigabyte allocation.
+MAX_METADATA_BYTES = 512 * 1024**2
 
 
 def read_pointer(data: bytes) -> tuple[str, int] | None:
@@ -157,7 +157,7 @@ def read_pointer(data: bytes) -> tuple[str, int] | None:
   Refuses a pointer carrying merge-conflict markers: it holds two competing oids and picking
   the first would silently archive whichever side of a conflict happened to sort first.
   """
-  if b"<<<<<<<" in data or b">>>>>>>" in data:
+  if len(data) > 4096 or b"<<<<<<<" in data or b">>>>>>>" in data:
     return None
   if len(LFS_POINTER.findall(data)) > 1:
     return None
@@ -165,7 +165,15 @@ def read_pointer(data: bytes) -> tuple[str, int] | None:
   size = LFS_SIZE.search(data)
   if not oid or not size:
     return None
-  return oid.group(1).decode(), int(size.group(1))
+  # GitHub cannot mirror a 2 GiB asset, and bounding the decimal before int() keeps a hostile PR
+  # from using an absurdly long size field to crash the indexer.
+  raw_size = size.group(1)
+  if len(raw_size) > 10:
+    return None
+  parsed_size = int(raw_size)
+  if not 0 < parsed_size < 2 * 1024**3:
+    return None
+  return oid.group(1).decode(), parsed_size
 
 
 def bundle_id(members: list[dict[str, Any]]) -> str:
@@ -196,7 +204,9 @@ def slugify(name: str) -> str:
 
 def attach_metadata(files: dict[str, dict[str, Any]], cache_dir: Path,
                     limit: int | None, progress, source: str = "lfs",
-                    release_repo: str | None = None) -> None:
+                    release_repo: str | None = None,
+                    fetch_all_missing: bool = False,
+                    known_unavailable: set[str] | None = None) -> set[str]:
   """Fetch blobs and record what each ONNX declares about itself.
 
   Descriptive only: input/output shapes, dtypes, opsets, operators, and the slice map. None of
@@ -206,24 +216,40 @@ def attach_metadata(files: dict[str, dict[str, Any]], cache_dir: Path,
   """
   from index import lfs, metadata
 
-  wanted = [(oid, record["size"]) for oid, record in sorted(files.items())]
+  for record in files.values():
+    if record["size"] > MAX_METADATA_BYTES:
+      record["metadata_error"] = (
+        f"refused to parse {record['size']} bytes (limit {MAX_METADATA_BYTES})"
+      )
+  wanted = [
+    (oid, record["size"])
+    for oid, record in sorted(files.items())
+    if fetch_all_missing or ("metadata" not in record and "metadata_error" not in record)
+  ]
+  unavailable = set(known_unavailable or ())
   if source == "releases":
     # Everything is already mirrored, so read from our own copy rather than hammering comma's
     # LFS for a metadata-only pass.
     fetched = fetch_from_releases(wanted, cache_dir, release_repo, limit, progress)
   else:
-    fetched = lfs.fetch_missing(wanted, cache_dir, limit=limit, progress=progress)
+    fetched = lfs.fetch_missing(wanted, cache_dir, limit=limit, progress=progress,
+                                unavailable=unavailable)
 
   for oid, path in fetched.items():
+    if "metadata" in files[oid] or "metadata_error" in files[oid]:
+      continue
     try:
       files[oid]["metadata"] = metadata.parse(str(path))
     except Exception as exc:
       files[oid]["metadata_error"] = f"{type(exc).__name__}: {exc}"
+  return unavailable
 
 
 def fetch_from_releases(wanted, cache_dir: Path, repo: str | None,
                         limit: int | None, progress) -> dict[str, Path]:
   """Pull blobs from our own Releases mirror. Verified against the oid like any other source."""
+  from index import lfs
+
   if not repo:
     raise GitError("--metadata-source releases needs --release-repo")
   cache_dir.mkdir(parents=True, exist_ok=True)
@@ -243,24 +269,25 @@ def fetch_from_releases(wanted, cache_dir: Path, repo: str | None,
   todo = []
   for oid, _ in wanted:
     path = cache_dir / f"{oid}.onnx"
-    if path.exists():
+    if path.exists() and lfs.verified(path, oid):
       have[oid] = path
     else:
-      todo.append(oid)
+      path.unlink(missing_ok=True)
+      if f"{oid}.onnx" in ids:
+        todo.append(oid)
+      else:
+        progress(f"  not mirrored: {oid[:12]}")
   if limit:
     todo = todo[:limit]
   progress(f"{len(have)} cached, {len(todo)} to fetch from {repo}")
 
   for oid in todo:
-    asset = ids.get(f"{oid}.onnx")
-    if not asset:
-      progress(f"  not mirrored: {oid[:12]}")
-      continue
+    asset = ids[f"{oid}.onnx"]
     path = cache_dir / f"{oid}.onnx"
     with open(path, "wb") as handle:
       subprocess.run(["gh", "api", f"repos/{repo}/releases/assets/{asset}",
                       "-H", "Accept: application/octet-stream"], stdout=handle, check=True)
-    if hashlib.sha256(path.read_bytes()).hexdigest() != oid:
+    if not lfs.verified(path, oid):
       path.unlink(missing_ok=True)
       progress(f"  FAILED verify: {oid[:12]}")
       continue
@@ -268,10 +295,75 @@ def fetch_from_releases(wanted, cache_dir: Path, repo: str | None,
   return have
 
 
+def merge_previous(index: dict[str, Any], previous: dict[str, Any]) -> dict[str, Any]:
+  """Retain records whose only upstream ref was force-pushed or deleted.
+
+  Current observations win for mutable facts; old occurrences, metadata, and release placement
+  remain append-only. This is the persistence layer the archive needs, and a JSON file is enough.
+  """
+  files = {f["oid"]: dict(f) for f in previous.get("files", [])}
+  for current in index["files"]:
+    old = files.get(current["oid"], {})
+    merged = {**old, **current}
+    merged["filenames"] = sorted(set(old.get("filenames", ())) |
+                                 set(current.get("filenames", ())))
+    files[current["oid"]] = merged
+
+  bundles = {b["bundle_id"]: {**b, "in_head": False, "upstream_reachable": False}
+             for b in previous.get("bundles", [])}
+  for current in index["bundles"]:
+    current = {**current, "upstream_reachable": True}
+    old = bundles.get(current["bundle_id"])
+    if old:
+      occurrences = {o["commit"]: o for o in old.get("occurrences", [])}
+      occurrences.update({o["commit"]: o for o in current.get("occurrences", [])})
+      current = {**old, **current,
+                 "occurrences": sorted(occurrences.values(), key=lambda o: o["date"])}
+    bundles[current["bundle_id"]] = current
+
+  index["files"] = sorted(files.values(), key=lambda f: f["oid"])
+  index["bundles"] = sorted(bundles.values(), key=lambda b: b["occurrences"][0]["date"])
+  index["file_count"] = len(files)
+  index["bundle_count"] = len(bundles)
+  for field in ("release_repo", "mirror_unavailable", "mirror_failures"):
+    if field not in index and field in previous:
+      index[field] = previous[field]
+  return index
+
+
+def attach_host_contexts(index: dict[str, Any]) -> None:
+  """Put each driving half's recorded host configuration beside its content record.
+
+  Composition selects files by oid, not bundles. Keeping every upstream context prevents it
+  from silently borrowing constants from an unrelated half or hiding genuine ambiguity.
+  """
+  contexts: dict[str, list[dict[str, Any]]] = defaultdict(list)
+  for bundle in index["bundles"]:
+    if bundle["kind"] != "driving":
+      continue
+    for member in bundle["files"]:
+      context = {
+        "role": member["role"],
+        "bundle_id": bundle["bundle_id"],
+        "commit": bundle["introduced_by"]["commit"],
+        "host_constants": bundle.get("host_constants", {}),
+        "host_constants_sources": bundle.get("host_constants_sources", {}),
+        "host_constants_missing": bundle.get("host_constants_missing", []),
+      }
+      if "frame_skip" in bundle:
+        context["frame_skip"] = bundle["frame_skip"]
+      if context not in contexts[member["oid"]]:
+        contexts[member["oid"]].append(context)
+
+  for record in index["files"]:
+    record["host_contexts"] = contexts.get(record["oid"], [])
+
+
 def index_repo(repo: Repo, head: str = "HEAD", limit: int | None = None,
                progress=lambda *_: None, blob_cache: Path | None = None,
                download_limit: int | None = None, metadata_source: str = "lfs",
-               release_repo: str | None = None) -> dict[str, Any]:
+               release_repo: str | None = None, previous: dict[str, Any] | None = None,
+               mirror_local: bool = False) -> dict[str, Any]:
   if not repo.exists(head):
     raise GitError(f"ref {head!r} is not reachable — refusing to index (would silently "
                    f"report every model as missing)")
@@ -284,12 +376,27 @@ def index_repo(repo: Repo, head: str = "HEAD", limit: int | None = None,
   bundles: dict[str, dict[str, Any]] = {}
   files: dict[str, dict[str, Any]] = {}
   pr_to_bundles: dict[int, set[str]] = defaultdict(set)
-  head_oids: set[str] = set()
 
-  # Which oids are live at HEAD — the most useful and directly verifiable status signal.
-  for path, blob in repo.onnx_at(head).items():
-    if pointer := read_pointer(repo.blob(blob)):
-      head_oids.add(pointer[0])
+  def groups_at(ref: str) -> dict[tuple[str, str, str], list[dict[str, Any]]]:
+    groups: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
+    for path, blob in repo.onnx_at(ref).items():
+      spec = classify(path)
+      pointer = read_pointer(repo.blob(blob)) if spec else None
+      if spec is None or pointer is None:
+        continue
+      kind, variant, role = spec
+      oid, size = pointer
+      family = "supercombo" if role == "supercombo" else "split"
+      groups[(kind, variant, family)].append(
+        {"role": role, "filename": Path(path).name, "path": path, "oid": oid, "size": size}
+      )
+    return groups
+
+  head_groups = groups_at(head)
+  if not any(kind == "driving" for kind, _, _ in head_groups):
+    raise GitError("no recognised driving model at upstream HEAD — refusing to publish a "
+                   "silently stale catalog; check MODEL_DIRS and ROLE_PATTERNS")
+  head_bundle_ids = {bundle_id(members) for members in head_groups.values()}
 
   for number, commit in enumerate(commits, 1):
     if number % 25 == 0:
@@ -300,22 +407,12 @@ def index_repo(repo: Repo, head: str = "HEAD", limit: int | None = None,
     # Group by (kind, variant, family). driving/dmonitoring/nav never share a bundle; the big_
     # family targets different hardware; and a self-contained supercombo is a different
     # architecture from a vision+policy split, even when both exist at a transition commit.
-    groups: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
-    for path, blob in repo.onnx_at(commit).items():
-      spec = classify(path)
-      if spec is None:
-        continue
-      kind, variant, role = spec
-      pointer = read_pointer(repo.blob(blob))
-      if pointer is None:
-        continue  # pre-LFS era: real file in tree, not a pointer
-      oid, size = pointer
-      family = "supercombo" if role == "supercombo" else "split"
-      groups[(kind, variant, family)].append(
-        {"role": role, "filename": Path(path).name, "path": path, "oid": oid, "size": size}
-      )
-      files.setdefault(oid, {"oid": oid, "size": size, "filenames": set()})
-      files[oid]["filenames"].add(Path(path).name)
+    groups = groups_at(commit)
+    for members in groups.values():
+      for member in members:
+        oid = member["oid"]
+        files.setdefault(oid, {"oid": oid, "size": member["size"], "filenames": set()})
+        files[oid]["filenames"].add(member["filename"])
 
     for (kind, variant, family), members in groups.items():
       bid = bundle_id(members)
@@ -336,7 +433,8 @@ def index_repo(repo: Repo, head: str = "HEAD", limit: int | None = None,
           "family": family,
           "files": sorted(members, key=lambda m: m["role"]),
           "occurrences": [],
-          "in_head": all(m["oid"] in head_oids for m in members),
+          "in_head": bid in head_bundle_ids,
+          "upstream_reachable": True,
         }
       # Occurrences accrue: the same content can land, be reverted, and re-land.
       if commit not in {o["commit"] for o in bundles[bid]["occurrences"]}:
@@ -386,25 +484,41 @@ def index_repo(repo: Repo, head: str = "HEAD", limit: int | None = None,
     if record["size"] < SUSPECT_MAX_BYTES:
       record["suspect"] = "too small to be a model; likely upstream conflict debris"
 
-  if blob_cache is not None:
-    attach_metadata(files, blob_cache, download_limit, progress,
-                    source=metadata_source, release_repo=release_repo)
-
   bundle_list = sorted(bundles.values(), key=lambda b: b["occurrences"][0]["date"])
-  pairings = compose_mod.attested_pairings(bundle_list, files)
-
-  return {
-    "schema": 1,
+  index = {
+    "schema": 2,
     "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     "upstream_head": repo.commit_meta(head)["commit"],
     "bundle_count": len(bundles),
     "file_count": len(files),
     # (vision_ckpt, policy_ckpt) pairs that actually shipped upstream. The only sound basis for
     # saying two halves were built for each other -- see index/compose.py.
-    "attested_pairings": pairings,
+    "attested_pairings": [],
     "bundles": bundle_list,
     "files": sorted(files.values(), key=lambda f: f["oid"]),
   }
+  if previous:
+    index = merge_previous(index, previous)
+  attach_host_contexts(index)
+
+  files = {f["oid"]: f for f in index["files"]}
+  if blob_cache is not None:
+    unavailable = attach_metadata(files, blob_cache, download_limit, progress,
+                                  source=metadata_source, release_repo=release_repo,
+                                  fetch_all_missing=mirror_local,
+                                  known_unavailable=set(index.get("mirror_unavailable", ())))
+    if mirror_local:
+      known_unavailable = set(index.get("mirror_unavailable", ())) | unavailable
+      known_unavailable.difference_update(
+        oid for oid in known_unavailable if (blob_cache / f"{oid}.onnx").exists()
+      )
+      index["mirror_unavailable"] = sorted(known_unavailable)
+      for oid, record in files.items():
+        record["local_mirrored"] = (blob_cache / f"{oid}.onnx").is_file()
+      index["mirrored_count"] = sum(f["local_mirrored"] for f in files.values())
+  index["attested_pairings"] = compose_mod.attested_pairings(index["bundles"], files)
+  index["files"] = sorted(files.values(), key=lambda f: f["oid"])
+  return index
 
 
 def main() -> int:
@@ -420,18 +534,26 @@ def main() -> int:
   parser.add_argument("--metadata-source", choices=("lfs", "releases"), default="lfs",
                       help="where to read blobs for metadata extraction")
   parser.add_argument("--release-repo", help="owner/name holding the mirror (for 'releases')")
+  parser.add_argument("--previous", type=Path,
+                      help="previous index.json; retains records from refs that disappeared")
+  parser.add_argument("--mirror-local", action="store_true",
+                      help="ensure every blob is present in --blob-cache, not only metadata gaps")
   args = parser.parse_args()
 
   repo = Repo(args.repo)
+  previous = json.loads(args.previous.read_text()) if args.previous and args.previous.exists() else None
   index = index_repo(repo, args.head, args.limit,
                      progress=lambda m: print(m, file=sys.stderr),
                      blob_cache=args.blob_cache, download_limit=args.download_limit,
                      metadata_source=args.metadata_source,
-                     release_repo=args.release_repo)
+                     release_repo=args.release_repo, previous=previous,
+                     mirror_local=args.mirror_local)
 
   out = Path(args.out)
   out.parent.mkdir(parents=True, exist_ok=True)
-  out.write_text(json.dumps(index, indent=1) + "\n")
+  tmp = out.with_suffix(out.suffix + ".tmp")
+  tmp.write_text(json.dumps(index, indent=1) + "\n")
+  tmp.replace(out)
   print(f"{index['bundle_count']} bundles, {index['file_count']} distinct files -> {out}")
   return 0
 

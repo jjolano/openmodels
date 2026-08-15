@@ -99,19 +99,22 @@ def download_verified(oid: str, dest: Path, url: str) -> Path:
   digest = hashlib.sha256()
   tmp = dest.with_suffix(dest.suffix + ".part")
 
-  with urllib.request.urlopen(url, timeout=60) as response, \
-       open(tmp, "wb") as handle:
-    while chunk := response.read(CHUNK):
-      digest.update(chunk)
-      handle.write(chunk)
+  try:
+    with urllib.request.urlopen(url, timeout=60) as response, \
+         open(tmp, "wb") as handle:
+      while chunk := response.read(CHUNK):
+        digest.update(chunk)
+        handle.write(chunk)
 
-  actual = digest.hexdigest()
-  if actual != oid:
+    actual = digest.hexdigest()
+    if actual != oid:
+      raise VerificationError(f"sha256 mismatch for {oid}: got {actual} — refusing blob")
+
+    tmp.replace(dest)
+    return dest
+  except Exception:
     tmp.unlink(missing_ok=True)
-    raise VerificationError(f"sha256 mismatch for {oid}: got {actual} — refusing blob")
-
-  tmp.rename(dest)
-  return dest
+    raise
 
 
 def provenance(bundle_id: str, catalog: dict[str, Any], api: str = API) -> dict[str, Any]:
