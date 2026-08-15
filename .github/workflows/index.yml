@@ -5,6 +5,14 @@ name: index
 # That is what keeps the catalog fresh and the mirror current even if the API host dies.
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/index.yml
+      - index/**
+      - web/**
+      - pyproject.toml
+      - THIRD_PARTY_NOTICES.md
   schedule:
     - cron: "17 6 * * *"
   workflow_dispatch:
