@@ -317,8 +317,12 @@ def merge_previous(index: dict[str, Any], previous: dict[str, Any]) -> dict[str,
     if old:
       occurrences = {o["commit"]: o for o in old.get("occurrences", [])}
       occurrences.update({o["commit"]: o for o in current.get("occurrences", [])})
+      contexts = {c["commit"]: c for c in old.get("host_contexts", [])}
+      contexts.update({c["commit"]: c for c in current.get("host_contexts", [])})
       current = {**old, **current,
                  "occurrences": sorted(occurrences.values(), key=lambda o: o["date"])}
+      current["host_contexts"] = [contexts[o["commit"]] for o in current["occurrences"]
+                                  if o["commit"] in contexts]
     bundles[current["bundle_id"]] = current
 
   index["files"] = sorted(files.values(), key=lambda f: f["oid"])
@@ -342,18 +346,17 @@ def attach_host_contexts(index: dict[str, Any]) -> None:
     if bundle["kind"] != "driving":
       continue
     for member in bundle["files"]:
-      context = {
-        "role": member["role"],
-        "bundle_id": bundle["bundle_id"],
+      recorded = bundle.get("host_contexts") or [{
         "commit": bundle["introduced_by"]["commit"],
         "host_constants": bundle.get("host_constants", {}),
         "host_constants_sources": bundle.get("host_constants_sources", {}),
         "host_constants_missing": bundle.get("host_constants_missing", []),
-      }
-      if "frame_skip" in bundle:
-        context["frame_skip"] = bundle["frame_skip"]
-      if context not in contexts[member["oid"]]:
-        contexts[member["oid"]].append(context)
+        **({"frame_skip": bundle["frame_skip"]} if "frame_skip" in bundle else {}),
+      }]
+      for item in recorded:
+        context = {"role": member["role"], "bundle_id": bundle["bundle_id"], **item}
+        if context not in contexts[member["oid"]]:
+          contexts[member["oid"]].append(context)
 
   for record in index["files"]:
     record["host_contexts"] = contexts.get(record["oid"], [])
@@ -456,6 +459,15 @@ def index_repo(repo: Repo, head: str = "HEAD", limit: int | None = None,
           occurrence["reverted_by_commit"] = commit
           occurrence["reverted_at"] = meta["date"]
 
+  constants_by_commit: dict[str, dict[str, Any]] = {}
+
+  def constants_at(commit: str) -> dict[str, Any]:
+    if commit not in constants_by_commit:
+      constants_by_commit[commit] = host_constants.extract(
+        lambda path, ref=commit: repo.show(ref, path)
+      )
+    return constants_by_commit[commit]
+
   for bundle in bundles.values():
     bundle["occurrences"].sort(key=lambda o: o["date"])
 
@@ -472,7 +484,18 @@ def index_repo(repo: Repo, head: str = "HEAD", limit: int | None = None,
     # and only for driving models. Smoothing constants are meaningless for DM or nav.
     if bundle["kind"] != "driving":
       continue
-    extracted = host_constants.extract(lambda p, c=introduced["commit"]: repo.show(c, p))
+    bundle["host_contexts"] = []
+    for occurrence in bundle["occurrences"]:
+      context = constants_at(occurrence["commit"])
+      bundle["host_contexts"].append({
+        "commit": occurrence["commit"],
+        "status": occurrence["status"],
+        "host_constants": context["values"],
+        "host_constants_sources": context["sources"],
+        "host_constants_missing": context["missing"],
+        **({"frame_skip": context["frame_skip"]} if "frame_skip" in context else {}),
+      })
+    extracted = constants_at(introduced["commit"])
     bundle["host_constants"] = extracted["values"]
     bundle["host_constants_sources"] = extracted["sources"]
     bundle["host_constants_missing"] = extracted["missing"]

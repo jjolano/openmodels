@@ -196,6 +196,7 @@ def get_provenance(bundle_id: str) -> dict[str, Any]:
     "host_constants": bundle.get("host_constants", {}),
     "host_constants_sources": bundle.get("host_constants_sources", {}),
     "host_constants_missing": bundle.get("host_constants_missing", []),
+    "host_contexts": bundle.get("host_contexts", []),
     "frame_skip": bundle.get("frame_skip"),
     "files": [
       {"role": f["role"], "filename": f["filename"], "path": f["path"],

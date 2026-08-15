@@ -103,6 +103,49 @@ def test_previous_catalog_is_append_only_but_current_observations_win():
   assert merged["release_repo"] == "owner/current"
 
 
+def test_previous_host_contexts_survive_when_a_bundle_reappears():
+  occurrence = lambda commit, date: {"commit": commit, "date": date, "status": "merged"}
+  previous = {
+    "files": [],
+    "bundles": [{"bundle_id": "same", "occurrences": [occurrence("old", "2025-01-01")],
+                 "host_contexts": [{"commit": "old", "host_constants": {"X": 1}}]}],
+  }
+  current = {
+    "files": [],
+    "bundles": [{"bundle_id": "same", "occurrences": [occurrence("new", "2026-01-01")],
+                 "host_contexts": [{"commit": "new", "host_constants": {"X": 2}}]}],
+  }
+  merged = merge_previous(current, previous)
+  assert [c["commit"] for c in merged["bundles"][0]["host_contexts"]] == ["old", "new"]
+
+
+def test_every_occurrence_contributes_its_host_context():
+  oid_v, oid_p = "a" * 64, "b" * 64
+
+  class FakeRepo:
+    def exists(self, _): return True
+    def commits_touching(self, _): return ["new", "old"]
+    def commit_meta(self, ref):
+      dates = {"old": "2025-01-01T00:00:00Z", "new": "2026-01-01T00:00:00Z",
+               "HEAD": "2026-01-01T00:00:00Z"}
+      return {"commit": ref, "date": dates[ref], "subject": f"model {ref} (#1)"}
+    def onnx_at(self, _):
+      return {"models/driving_vision.onnx": "v", "models/driving_on_policy.onnx": "p"}
+    def blob(self, blob): return _pointer(oid_v if blob == "v" else oid_p)
+    def is_ancestor(self, *_): return True
+    def show(self, commit, path):
+      if path == "selfdrive/modeld/modeld.py":
+        return (f"LAT_SMOOTH_SECONDS = {0.1 if commit == 'old' else 0.2}\n"
+                "LONG_SMOOTH_SECONDS = 0.3\n")
+      if path == "selfdrive/modeld/constants.py":
+        return "class ModelConstants:\n  MODEL_RUN_FREQ = 20\n  MODEL_CONTEXT_FREQ = 5\n"
+      return None
+
+  catalog = index_repo(FakeRepo(), progress=lambda *_: None)
+  contexts = catalog["files"][0]["host_contexts"]
+  assert {c["host_constants"]["LAT_SMOOTH_SECONDS"] for c in contexts} == {0.1, 0.2}
+
+
 def test_pointer_size_is_bounded_before_integer_conversion():
   assert read_pointer(_pointer("a" * 64)) == ("a" * 64, 123456)
   assert read_pointer(_pointer("a" * 64, 2 * 1024**3)) is None
