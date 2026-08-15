@@ -12,9 +12,11 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException, Query
 
@@ -29,6 +31,9 @@ BLOB_BACKEND = os.environ.get("BLOB_BACKEND", "github")
 RELEASE_REPO = os.environ.get("RELEASE_REPO", "jjolano/openmodels")
 RELOAD_SECONDS = int(os.environ.get("RELOAD_SECONDS", "60"))
 LOCAL_BLOB_DIR = Path(os.environ.get("LOCAL_BLOB_DIR", DATA_DIR / "public" / "blobs"))
+OID_RE = re.compile(r"[0-9a-f]{64}")
+RELEASE_RE = re.compile(r"blobs-[0-9]{4}")
+REPO_RE = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+")
 
 DISCLAIMER = (
   "Provenance only. This registry asserts blob identity and upstream history. It does not "
@@ -273,9 +278,16 @@ def get_lineage(checkpoint: str) -> dict[str, Any]:
 
 @app.get("/v1/files/{oid}")
 def get_file(oid: str) -> dict[str, Any]:
-  for record in load_index()["files"]:
+  record = _find_file(oid, load_index())
+  return {**record, "download": f"/v1/files/{oid}/download"}
+
+
+def _find_file(oid: str, index: dict[str, Any]) -> dict[str, Any]:
+  if not OID_RE.fullmatch(oid):
+    raise HTTPException(404, f"no file {oid}")
+  for record in index["files"]:
     if record["oid"] == oid:
-      return {**record, "download": f"/v1/files/{oid}/download"}
+      return record
   raise HTTPException(404, f"no file {oid}")
 
 
@@ -287,9 +299,7 @@ def download_file(oid: str) -> RedirectResponse:
   tree and the release assets keep serving. It also avoids uvicorn shipping a 296MB file.
   """
   index = load_index()
-  record = next((r for r in index["files"] if r["oid"] == oid), None)
-  if record is None:
-    raise HTTPException(404, f"no file {oid}")
+  record = _find_file(oid, index)
 
   if BLOB_BACKEND == "local":
     if not (LOCAL_BLOB_DIR / f"{oid}.onnx").is_file():
@@ -307,6 +317,11 @@ def download_file(oid: str) -> RedirectResponse:
       f"file {oid} is indexed but not yet mirrored; retry once the publisher has run",
     )
   repo = index.get("release_repo") or RELEASE_REPO
+  if not isinstance(repo, str) or not REPO_RE.fullmatch(repo):
+    raise HTTPException(503, "catalog has an invalid release repository")
+  if not isinstance(release, str) or not RELEASE_RE.fullmatch(release):
+    raise HTTPException(503, f"file {oid} has an invalid recorded release")
   return RedirectResponse(
-    f"https://github.com/{repo}/releases/download/{release}/{oid}.onnx", status_code=302
+    f"https://github.com/{quote(repo, safe='/')}/releases/download/"
+    f"{quote(release, safe='')}/{oid}.onnx", status_code=302
   )

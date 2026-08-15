@@ -34,6 +34,21 @@ def test_status_and_download_states():
     assert status["mirror_unavailable_count"] == 1
     redirect = main.download_file(oid)
     assert redirect.status_code == 302 and "blobs-0000" in redirect.headers["location"]
+    cached = main.load_index()
+    cached["files"][0]["release"] = "../../attacker"
+    try:
+      main.download_file(oid)
+      raise AssertionError("an unsafe recorded release must not redirect")
+    except HTTPException as exc:
+      assert exc.status_code == 503
+    cached["files"][0]["release"] = "blobs-0000"
+    cached["release_repo"] = "owner/repo?next=//attacker"
+    try:
+      main.download_file(oid)
+      raise AssertionError("an unsafe recorded repository must not redirect")
+    except HTTPException as exc:
+      assert exc.status_code == 503
+    cached["release_repo"] = "owner/repo"
     try:
       main.download_file(gone)
       raise AssertionError("gone upstream blob must not look pending")
@@ -41,6 +56,11 @@ def test_status_and_download_states():
       assert exc.status_code == 410
 
     main.BLOB_BACKEND = "local"
+    try:
+      main.download_file("../index.json")
+      raise AssertionError("an unsafe oid must not reach the filesystem")
+    except HTTPException as exc:
+      assert exc.status_code == 404
     try:
       main.download_file(oid)
       raise AssertionError("missing local blob must not redirect")
