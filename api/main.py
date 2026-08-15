@@ -300,11 +300,14 @@ def download_file(oid: str) -> RedirectResponse:
   """
   index = load_index()
   record = _find_file(oid, index)
+  stored_oid = record.get("oid")
+  if not isinstance(stored_oid, str) or not OID_RE.fullmatch(stored_oid):
+    raise HTTPException(503, "catalog has an invalid file oid")
 
   if BLOB_BACKEND == "local":
-    if not (LOCAL_BLOB_DIR / f"{oid}.onnx").is_file():
+    if not (LOCAL_BLOB_DIR / f"{stored_oid}.onnx").is_file():
       raise HTTPException(503, f"file {oid} is indexed but not present in the local mirror")
-    return RedirectResponse(f"/blobs/{oid}.onnx", status_code=302)
+    return RedirectResponse(f"/blobs/{stored_oid}.onnx", status_code=302)
 
   # Blobs are sharded across releases (1000 assets each), so the shard is data, not a formula.
   # Without one the blob simply isn't mirrored yet — say so rather than 302 to a 404.
@@ -323,5 +326,5 @@ def download_file(oid: str) -> RedirectResponse:
     raise HTTPException(503, f"file {oid} has an invalid recorded release")
   return RedirectResponse(
     f"https://github.com/{quote(repo, safe='/')}/releases/download/"
-    f"{quote(release, safe='')}/{oid}.onnx", status_code=302
+    f"{quote(release, safe='')}/{stored_oid}.onnx", status_code=302
   )
