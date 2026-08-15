@@ -1,8 +1,7 @@
-# Self-hosting openmodels. A self-hosted instance is a full peer, not a degraded mode:
-# it indexes from commaai/openpilot directly and depends on nothing we operate.
+# Self-hosting openmodels. A self-hosted instance indexes directly from commaai/openpilot and
+# builds its own verified local blob mirror; it does not depend on the public openmodels service.
 #
-#   docker compose up -d                  # index + serve, no credentials needed
-#   docker compose --profile web up -d    # ...also terminate TLS with caddy
+#   docker compose up -d                  # index + serve on http://localhost:8000
 #
 # Detection is pure git (anonymous ls-remote + blobless fetch) and LFS blobs need no auth, so
 # GITHUB_TOKEN is only ever required to *publish* — which is the public instance's job.
@@ -10,10 +9,29 @@
 services:
   indexer:
     build: .
-    command: ["/bin/sh", "-c", "while true; do python -m index.indexer --repo /data/openpilot --out /data/index.json || true; python web/render.py --index /data/index.json --out /data/public || true; sleep \"$${INTERVAL:-3600}\"; done"]
+    command:
+      - /bin/sh
+      - -ec
+      - |
+        if [ ! -d /data/openpilot/.git ]; then
+          git clone --filter=blob:none --no-checkout https://github.com/commaai/openpilot /data/openpilot
+        fi
+        while true; do
+          git -C /data/openpilot fetch --prune --filter=blob:none origin '+refs/pull/*/head:refs/remotes/pr/*'
+          git -C /data/openpilot fetch --prune --filter=blob:none origin '+refs/heads/*:refs/remotes/origin/*'
+          python -m index.indexer \
+            --repo /data/openpilot --head origin/master \
+            --out /data/index.json --previous /data/index.json \
+            --blob-cache /data/public/blobs --mirror-local \
+            --download-limit "$${LOCAL_MIRROR_LIMIT:-40}"
+          python web/render.py --index /data/index.json --out /data/public
+          sleep "$${INTERVAL:-3600}"
+        done
     environment:
       INTERVAL: "${INTERVAL:-3600}"
-      BLOB_BACKEND: "${BLOB_BACKEND:-github}"
+      LOCAL_MIRROR_LIMIT: "${LOCAL_MIRROR_LIMIT:-40}"
+      BLOB_BACKEND: local
+      OPENMODELS_API_BASE: "${OPENMODELS_API_BASE:-}"
     volumes:
       - data:/data
     restart: unless-stopped
@@ -23,23 +41,20 @@ services:
     command: ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
     environment:
       OPENMODELS_DATA: /data
-      BLOB_BACKEND: "${BLOB_BACKEND:-github}"
-      RELEASE_BASE: "${RELEASE_BASE:-https://github.com/OWNER/openmodels/releases/download/blobs}"
-    ports:
-      - "${PORT:-8000}:8000"
+      BLOB_BACKEND: local
+      LOCAL_BLOB_DIR: /data/public/blobs
     volumes:
       - data:/data
     restart: unless-stopped
 
-  # Optional: most self-hosters already run traefik or nginx. Serves the static tree directly,
-  # which is what keeps the site and downloads alive when the api container is down.
+  # Static catalog and blobs never pass through Python. Put your normal HTTPS proxy in front
+  # when exposing this beyond localhost.
   caddy:
-    image: caddy:2-alpine
-    profiles: ["web"]
-    command: ["caddy", "file-server", "--root", "/data/public", "--listen", ":80"]
+    image: caddy:2-alpine@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648
     ports:
-      - "${WEB_PORT:-8080}:80"
+      - "127.0.0.1:${PORT:-8000}:80"
     volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - data:/data
     restart: unless-stopped
 

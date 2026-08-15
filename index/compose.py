@@ -219,7 +219,8 @@ def compose(selection: dict[str, str], files_by_oid: dict[str, dict[str, Any]],
         )
       elif (v_ckpt, p_ckpt) not in known:
         cautions.append(
-          f"cross-lineage: vision {v_ckpt} and {policy['role']} {p_ckpt} never shipped together. "
+          f"cross-lineage: no shipped pairing is recorded for vision {v_ckpt} and "
+          f"{policy['role']} {p_ckpt}. "
           f"The latent between them is untyped, so this will load and run regardless of whether "
           f"the numbers mean the same thing."
         )

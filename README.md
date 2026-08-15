@@ -60,6 +60,7 @@ runs inference or touches actuation. Two pieces:
 **`runtime/manager.py`** — everything behind a model-picker UI, with no opinion about the UI:
 
 ```python
+from pathlib import Path
 from runtime.manager import Catalog, ModelStore, download_bundle
 
 MIRROR = "https://jjolano.github.io/openmodels"
@@ -144,10 +145,11 @@ rather than quietly naming different weights.
 Stateless: `bundle_id` is derived from the members, so nothing is stored — the manifest returned
 is the whole artifact, and it feeds `runtime/plan.py` like any provenance record.
 
-A pairing that **shipped upstream** composes cleanly. One that didn't is returned with a
-cross-lineage caution rather than refused: the latent between vision and policy is untyped, so a
-mismatched encoder loads, runs, and produces confident nonsense. The failure is silent, so the
-warning isn't. Only a seam-width mismatch, an unusable role set, or an unknown oid is rejected.
+A pairing recorded as having **shipped upstream** composes cleanly. One without recorded
+attestation is returned with a cross-lineage caution rather than refused: the latent between
+vision and policy is untyped, so a mismatched encoder loads, runs, and produces confident
+nonsense. The failure is silent, so the warning isn't. Only a seam-width mismatch, an unusable
+role set, or an unknown oid is rejected.
 
 Everything from `/v1/compose` carries `attested: false`. It may be built from halves that shipped
 together, but this exact combination has never been driven.

@@ -117,7 +117,12 @@ FILTER_JS = """
 
 def shell(title: str, body: str, depth: int = 0) -> str:
   root = "../" * depth
-  api_link = f'<a href="{html.escape(API_BASE, quote=True)}/docs">API</a>' if API_BASE else ""
+  if API_BASE:
+    api_link = f'<a href="{html.escape(API_BASE, quote=True)}/docs">API</a>'
+  elif BLOB_BACKEND == "local":
+    api_link = f'<a href="{root}docs">API</a>'
+  else:
+    api_link = ""
   return f"""<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -324,8 +329,8 @@ def render_detail(index: dict[str, Any], bundle: dict[str, Any]) -> str:
   <div class="scroll"><table>
     <tr><th>role</th><th>checkpoint</th><th>attested partners</th></tr>{''.join(lineage_rows)}
   </table></div>
-  <p class="meta">Combine halves with <code>POST /v1/compose</code>. A pairing that never shipped
-    upstream is returned with a cross-lineage caution: it will load and run either way.</p>
+  <p class="meta">Combine halves with <code>POST /v1/compose</code>. A pairing without recorded
+    attestation is returned with a cross-lineage caution: it will load and run either way.</p>
 </section>"""
 
   body = f"""
@@ -582,7 +587,7 @@ COMPOSE_JS = """
       ? "<strong>Lineage unknown</strong> for one half \\u2014 whether these were built for each other cannot be determined."
       : attested
         ? "<strong>Attested pairing.</strong> These halves shipped together upstream."
-        : "<strong>Cross-lineage.</strong> These never shipped together. The latent between them is untyped, so this will load and run regardless of whether the numbers mean the same thing.";
+        : "<strong>Cross-lineage.</strong> No shipped pairing is recorded in this catalog. The latent between them is untyped, so this will load and run regardless of whether the numbers mean the same thing.";
     var sel={vision:v}; sel[prole]=p;
     out.textContent = await makeCode(sel);
   }

@@ -24,8 +24,8 @@ upstream at this commit with these constants* — which a client can independent
 ## Never unpickle `output_slices`
 
 It is a base64 **pickle** inside attacker-controllable ONNX metadata, and the indexer reads
-arbitrary PR heads while CI holds publish credentials. `pickle.loads` there is remote code
-execution via a crafted pull request.
+arbitrary PR heads. CI parses it only in the read-only job; `pickle.loads` would still be remote
+code execution via a crafted pull request.
 
 Use `metadata.loads_output_slices`, which resolves nothing but `builtins.slice`. If you need a
 new type out of that stream, widen the allowlist deliberately and add a test — do not reach for
@@ -71,12 +71,15 @@ absent one. Old eras genuinely lack these constants and correctly report them mi
 - **Which release holds a blob is data, not a formula.** GitHub caps a release at 1000 assets,
   so `index/publish.py` shards across `blobs-NNNN` and writes the tag onto each file. Never
   reconstruct a download URL from the oid alone. A file with no `release` isn't mirrored yet and
-  the API returns 503 — do not "fix" that by redirecting to a URL that 404s.
+  the API returns 503; a file confirmed gone from upstream returns 410. Do not "fix" either by
+  redirecting to a URL that 404s.
 - **The publisher fetches on demand and deletes after upload.** Never pre-download the archive
   in CI: it's ~8 GB, exceeds the Actions cache, and steady-state runs would move it for nothing.
 - **`--dry-run` must touch neither the network nor the repo.** It once uploaded for real when a
   blob happened to be cached; keep the guard above the fetch, not inside it.
-- `gh-pages` is generated and force-pushed. Never hand-edit it or merge into it.
+- `gh-pages` is generated and force-pushed. Never hand-edit it or merge into it. The workflow
+  reads its previous `index.json` before regeneration: that merge is what retains models whose
+  only PR ref was later force-pushed away.
 - **No subjective data.** No ratings, comfort scores, or steering feel — we have no telemetry and
   would be inventing them. Link to sunnylink.wiki for that.
 
@@ -155,10 +158,13 @@ this feature is allowed to exist under the boundary above.
   invents a configuration that never existed. Report each and let the fork choose. `plan_bundle`
   collapses `host_constants_by_role` into a single `host_constants` **only when every half
   agrees** — that is one real configuration, not an invented one. When they disagree it warns and
-  leaves `host_constants` empty; it must never fall back to a last-wins merge.
+  leaves `host_constants` empty; it must never fall back to a last-wins merge. An oid can have
+  multiple upstream host contexts, so file records retain all of them; composition selects a
+  role's constants only when those contexts agree.
 - **Lineage requires a metadata pass.** The default indexer run reads only LFS pointers, so
   `model_checkpoint` is absent until a `--blob-cache` run. Use `--metadata-source releases` to
-  read from our own mirror rather than hammering comma's LFS.
+  read from our own mirror rather than hammering comma's LFS. Production performs a bounded
+  release-backed metadata pass on every run and carries completed records forward.
 
 ## Shareable composition codes
 

@@ -14,17 +14,33 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   index:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
+
+      # The current upstream refs are not an archive: a force-push destroys the previous PR head.
+      # Carry the last catalog forward so its occurrences and release mappings remain append-only.
+      - name: Restore previous catalog
+        run: |
+          mkdir -p data
+          set +e
+          git ls-remote --exit-code origin refs/heads/gh-pages >/dev/null 2>&1
+          status=$?
+          set -e
+          if [ "$status" -eq 0 ]; then
+            git fetch --depth=1 origin gh-pages
+            git show FETCH_HEAD:index.json > data/previous-index.json
+          elif [ "$status" -ne 2 ]; then
+            exit "$status"
+          fi
 
       # Pointers only. A full clone with LFS would pull ~8GB we never need: the oid and size
       # are already in the 133-byte pointer, so blobs are fetched selectively later.
@@ -36,19 +52,61 @@ jobs:
             https://github.com/commaai/openpilot upstream
           cd upstream
           # Unmerged PR heads carry models that never landed, and force-pushes erase them.
-          git fetch --filter=blob:none origin '+refs/pull/*/head:refs/remotes/pr/*' || true
-          git fetch --filter=blob:none origin '+refs/heads/*:refs/remotes/origin/*'
+          git fetch --prune --filter=blob:none origin '+refs/pull/*/head:refs/remotes/pr/*'
+          git fetch --prune --filter=blob:none origin '+refs/heads/*:refs/remotes/origin/*'
 
       # test_compose.py holds the golden vectors pinning index/code.py against web/render.py's
       # COMPOSE_JS. The encoder exists twice by design, so nothing but this catches them drifting.
       - name: Self-check
         run: |
+          python -m pip install .
           python index/test_metadata.py
+          python index/test_indexer.py
           python index/test_compose.py
+          python api/test_api.py
           python runtime/test_runtime.py
 
       - name: Index
-        run: python -m index.indexer --repo upstream --head origin/master --out data/index.json
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python -m index.indexer \
+            --repo upstream \
+            --head origin/master \
+            --out data/index.json \
+            --previous data/previous-index.json \
+            --blob-cache "${RUNNER_TEMP}/metadata" \
+            --metadata-source releases \
+            --release-repo "${GITHUB_REPOSITORY}" \
+            --download-limit "${METADATA_LIMIT:-20}"
+
+      - name: Hand catalog to publisher
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: catalog
+          path: data/index.json
+          if-no-files-found: error
+          retention-days: 1
+
+  publish:
+    needs: index
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Receive catalog
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: catalog
+          path: data
 
       # Mirrors blobs comma may GC, and writes each file's release shard back into the index.
       # Blobs are fetched on demand and deleted after upload, so the runner never holds the
@@ -63,7 +121,24 @@ jobs:
             --cache "${RUNNER_TEMP}/blobs" \
             --repo "${GITHUB_REPOSITORY}" \
             --limit "${UPLOAD_LIMIT:-40}"
-        continue-on-error: true
+
+      - name: Preserve the upstream license on blob releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json, os, pathlib, subprocess
+          index = json.load(open("data/index.json"))
+          notice = pathlib.Path("THIRD_PARTY_NOTICES.md").read_text()
+          for tag in sorted({f["release"] for f in index["files"] if f.get("release")}):
+            body = subprocess.check_output(
+              ["gh", "release", "view", tag, "--repo", os.environ["GITHUB_REPOSITORY"],
+               "--json", "body", "--jq", ".body"], text=True)
+            if body.rstrip() != notice.rstrip():
+              subprocess.run(["gh", "release", "edit", tag, "--repo",
+                              os.environ["GITHUB_REPOSITORY"],
+                              "--notes-file", "THIRD_PARTY_NOTICES.md"], check=True)
+          PY
 
       # After publishing, so the rendered pages and the mirrored index.json carry release tags.
       - name: Render site
@@ -71,7 +146,7 @@ jobs:
 
       - name: Publish site to gh-pages
         # Fully generated, so publishing is a clean overwrite — no merge, no conflicts.
-        uses: peaceiris/actions-gh-pages@v4
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453 # v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: data/public
@@ -83,13 +158,21 @@ jobs:
           import json
           d = json.load(open("data/index.json"))
           mirrored = d.get("mirrored_count", 0)
+          unavailable = len(d.get("mirror_unavailable", []))
           total = d["file_count"]
           print(f"## openmodels index\n")
           print(f"- bundles: **{d['bundle_count']}**")
           print(f"- distinct files: **{total}**")
           print(f"- mirrored to releases: **{mirrored}/{total}**")
+          print(f"- unavailable upstream: **{unavailable}**")
+          print(f"- metadata parsed: **{sum('metadata' in f for f in d['files'])}/{total}**")
+          print(f"- attested lineage pairings: **{len(d.get('attested_pairings', []))}**")
+          print(f"- retained after upstream ref deletion: **{sum(not b.get('upstream_reachable', True) for b in d['bundles'])}**")
           print(f"- total: **{sum(f['size'] for f in d['files'])/2**30:.2f} GB**")
           print(f"- upstream head: `{d['upstream_head'][:12]}`")
-          if mirrored < total:
-            print(f"\n> Backfill in progress: {total - mirrored} blobs still to mirror.")
+          pending = total - mirrored - unavailable
+          if pending:
+            print(f"\n> Backfill in progress: {pending} blobs still to mirror.")
+          if unavailable:
+            print(f"\n> {unavailable} blobs have disappeared from upstream and return HTTP 410.")
           PY
