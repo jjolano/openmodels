@@ -28,3 +28,4 @@ jobs:
           python index/test_compose.py
           python api/test_api.py
           python runtime/test_runtime.py
+          python web/test_render.py

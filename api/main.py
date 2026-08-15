@@ -121,6 +121,9 @@ def list_models(
   if since:
     bundles = [b for b in bundles if b["introduced_by"]["date"] >= since]
 
+  # Newest first: index order is git-log order, and paginating that means a client's first page
+  # is the oldest models in the archive.
+  bundles = sorted(bundles, key=lambda b: b["introduced_by"]["date"], reverse=True)
   total = len(bundles)
   page = bundles[offset:offset + limit]
   index = load_index()

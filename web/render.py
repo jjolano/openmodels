@@ -12,6 +12,7 @@ import argparse
 import html
 import json
 import os
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -177,11 +178,35 @@ def statuses(bundle: dict[str, Any]) -> list[str]:
   return sorted({o["status"] for o in bundle["occurrences"]})
 
 
+ROLE_LABELS = {"vision": "vision", "on_policy": "on-policy", "off_policy": "off-policy",
+               "supercombo": "combined supercombo", "dmonitoring": "driver monitoring",
+               "navmodel": "navigation"}
+
+# comma titles most model PRs ("Firehose model", "Tomb Raider 14"), but some land under the bare
+# training-run reference, which renders as a card titled with a UUID.
+CHECKPOINT_NAME = re.compile(
+  r"^([0-9a-f]{8})-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:/(\d+))?$", re.I)
+
+
+def role_label(role: str) -> str:
+  return ROLE_LABELS.get(role, role)
+
+
 def plain_roles(bundle: dict[str, Any]) -> str:
-  names = {"vision": "vision", "on_policy": "on-policy", "off_policy": "off-policy",
-           "supercombo": "combined supercombo", "dmonitoring": "driver monitoring",
-           "navmodel": "navigation"}
-  return " · ".join(names.get(f["role"], f["role"]) for f in bundle["files"])
+  return " · ".join(role_label(f["role"]) for f in bundle["files"])
+
+
+def pretty_name(bundle: dict[str, Any]) -> str:
+  """Display title. Rephrases an opaque upstream name; never invents a description.
+
+  The only rewrite is the training-run reference comma uses as a PR title — the same
+  `<checkpoint>/<step>` form recorded in model metadata — so this stays a restatement of an
+  upstream fact rather than a characterisation of the model.
+  """
+  if match := CHECKPOINT_NAME.match(bundle["name"]):
+    step = f" · step {match.group(2)}" if match.group(2) else ""
+    return f"Training run {match.group(1)}{step}"
+  return bundle["name"]
 
 
 def render_browse(index: dict[str, Any]) -> str:
@@ -190,7 +215,8 @@ def render_browse(index: dict[str, Any]) -> str:
   for b in bundles:
     bundle_statuses = statuses(b)
     size = sum(f["size"] for f in b["files"])
-    search = f"{b['name']} {b['slug']} {b['bundle_id']} {plain_roles(b)}".lower()
+    search = (f"{pretty_name(b)} {b['name']} {b['slug']} {b['bundle_id']} "
+              f"{plain_roles(b)}").lower()
     head = '<span class="badge head">in HEAD</span>' if b["in_head"] else ""
     archived = ('<span class="badge pr_only">upstream ref gone</span>'
                 if not b.get("upstream_reachable", True) else "")
@@ -202,7 +228,7 @@ def render_browse(index: dict[str, Any]) -> str:
     cards.append(f"""<article class="card" data-kind="{b['kind']}"
    data-statuses="{' '.join(bundle_statuses)}"
    data-search="{html.escape(search, quote=True)}">
-  <h3><a href="models/{b['bundle_id']}.html">{html.escape(b['name'])}</a></h3>
+  <h3><a href="models/{b['bundle_id']}.html">{html.escape(pretty_name(b))}</a></h3>
   <div class="meta"><span>{b['introduced_by']['date'][:10]}</span><span>{human_bytes(size)}</span>
     <span>{b['kind']}</span></div>
   <div class="badges">{badges}<span class="badge">{b['family']}</span>
@@ -278,7 +304,8 @@ def render_detail(index: dict[str, Any], bundle: dict[str, Any]) -> str:
     return "unavailable upstream" if member["oid"] in unavailable else "mirror pending"
 
   files = "".join(
-    f"<tr><td>{html.escape(f['role'])}</td><td class='mono'>{html.escape(f['filename'])}</td>"
+    f"<tr><td>{html.escape(role_label(f['role']))}</td>"
+    f"<td class='mono'>{html.escape(f['filename'])}</td>"
     f"<td>{human_bytes(f['size'])}</td>"
     f"<td class='mono'>{f['oid'][:16]}…</td><td>{download_cell(f)}</td></tr>"
     for f in bundle["files"]
@@ -313,7 +340,7 @@ def render_detail(index: dict[str, Any], bundle: dict[str, Any]) -> str:
     ckpt = lin.get("self") or lin.get("vision")
     partners = sorted({p[1] for p in pairings if p[0] == ckpt}) if ckpt else []
     lineage_rows.append(
-      f"<tr><td>{html.escape(member['role'])}</td>"
+      f"<tr><td>{html.escape(role_label(member['role']))}</td>"
       f"<td class='mono'>{html.escape(str(ckpt))}</td>"
       f"<td>{('also shipped with %d other %s' % (len(partners), 'policy' if len(partners)==1 else 'policies')) if partners else '—'}</td></tr>"
     )
@@ -334,7 +361,7 @@ def render_detail(index: dict[str, Any], bundle: dict[str, Any]) -> str:
 </section>"""
 
   body = f"""
-<h1 class="title">{html.escape(bundle['name'])}</h1>
+<h1 class="title">{html.escape(pretty_name(bundle))}</h1>
 <p class="meta">{status_badges}
   <span class="badge">{bundle['kind']}</span><span class="badge">{bundle['family']}</span>
   <span class="badge">{bundle['variant']}</span>
@@ -382,7 +409,7 @@ def render_detail(index: dict[str, Any], bundle: dict[str, Any]) -> str:
     See <a href="../integrate.html">Integrate</a>.</p>
 </section>
 """
-  return shell(f"{bundle['name']} — openmodels", body, depth=1)
+  return shell(f"{pretty_name(bundle)} — openmodels", body, depth=1)
 
 
 INTEGRATE = """
@@ -510,6 +537,15 @@ COMPOSE_JS = """
   var VERSION=3;
 
   function ck(f){ var l=(f.metadata||{}).lineage||{}; return l.self||l.vision||null; }
+  // A truncated UUID reads as noise; the run/step it encodes is what a human recognises.
+  function ckLabel(f){
+    var c=ck(f); if(!c) return "lineage unknown";
+    var p=c.split("/");
+    return "run "+p[0].slice(0,8)+(p[1]?" step "+p[1]:"");
+  }
+  // Files carry no date of their own, so recency comes from the newest bundle shipping each oid.
+  var NEWEST={};
+  function dateOf(f){ return NEWEST[f.oid]||""; }
   // Mirrors index/code.py. Base26 over an alphabet with no confusable characters, so a
   // misread self-corrects on entry rather than merely failing.
   var ALPHABET="0123456789ACDEFHJKMNPRVWXY";
@@ -564,12 +600,14 @@ COMPOSE_JS = """
   }
   function fill(id, role){
     var el=document.getElementById(id);
-    options(role).forEach(function(f){
+    options(role).sort(function(a,b){
+      return dateOf(a)<dateOf(b) ? 1 : dateOf(a)>dateOf(b) ? -1 : 0; })
+    .forEach(function(f){
       var o=document.createElement("option");
       o.value=f.oid;
       o.dataset.role = role==="vision" ? "vision" : policyRole(f);
-      o.textContent=(f.filenames[0]||"?")+"  "+(ck(f)||"lineage unknown").slice(0,22)+
-                    "  ("+Math.round(f.size/1048576)+" MB)";
+      o.textContent=(f.filenames[0]||"?")+"  "+(dateOf(f).slice(0,10)||"undated")+"  "+
+                    ckLabel(f)+"  ("+Math.round(f.size/1048576)+" MB)";
       el.appendChild(o);
     });
   }
@@ -592,7 +630,12 @@ COMPOSE_JS = """
     out.textContent = await makeCode(sel);
   }
   fetch("index.json").then(function(r){return r.json();}).then(function(d){
-    D=d; fill("vsel","vision"); fill("psel","policy");
+    D=d;
+    (D.bundles||[]).forEach(function(b){
+      var dt=(b.introduced_by||{}).date||"";
+      (b.files||[]).forEach(function(m){ if(dt>(NEWEST[m.oid]||"")) NEWEST[m.oid]=dt; });
+    });
+    fill("vsel","vision"); fill("psel","policy");
     ["vsel","psel"].forEach(function(id){
       document.getElementById(id).addEventListener("change", update); });
     update();

@@ -86,6 +86,8 @@ def select(catalog: dict[str, Any], *, kind: str = "driving",
     if name_contains and name_contains.lower() not in bundle.get("name", "").lower():
       continue
     out.append(bundle)
+  # Newest first — the mirror is in git-log order, which puts 2019 at the top.
+  out.sort(key=lambda b: b.get("introduced_by", {}).get("date", ""), reverse=True)
   return out
 
 
