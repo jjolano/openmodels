@@ -1,10 +1,14 @@
+[build-system]
+requires = ["setuptools==83.0.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "openmodels"
 version = "0.1.0"
 description = "Public archive of openpilot driving models: identity and provenance"
 requires-python = ">=3.11"
-dependencies = ["fastapi>=0.115", "uvicorn[standard]>=0.30"]
+dependencies = ["fastapi==0.141.1", "uvicorn[standard]==0.52.3"]
 # index/ deliberately has no third-party deps: it must run on any CI runner.
 
 [tool.setuptools]
-packages = ["index", "api"]
+packages = ["index", "api", "runtime"]
