@@ -89,12 +89,23 @@ class Compatibility:
   cautions: list[str] = field(default_factory=list)
 
 
+def _recorded_frame_skip(bundle: dict[str, Any]) -> tuple[int | None, list[int]]:
+  role_values = {value for value in (bundle.get("frame_skip_by_role") or {}).values()
+                 if value is not None}
+  if len(role_values) > 1:
+    return None, sorted(role_values)
+  if role_values:
+    return next(iter(role_values)), []
+  return bundle.get("frame_skip"), []
+
+
 def check_compatibility(bundle: dict[str, Any], caps: Capabilities,
                         suspect_oids: frozenset[str] = frozenset()) -> Compatibility:
   """Mechanical screen only. Blockers are facts; cautions need a human."""
   blockers: list[Blocker] = []
   cautions: list[str] = []
-  roles = {f["role"] for f in bundle.get("files", [])}
+  roles = ({f["role"] for f in bundle.get("files", [])} or
+           set(bundle.get("roles", [])))
 
   try:
     model_type, needed = classify(roles)
@@ -114,15 +125,24 @@ def check_compatibility(bundle: dict[str, Any], caps: Capabilities,
     blockers.append(Blocker(
       "suspect_file", "contains a file flagged suspect (upstream conflict debris, not a model)"))
 
-  status = bundle.get("status")
-  if status and status != "merged":
-    cautions.append(
-      f"withdrawn upstream (status: {status}) — comma pulled this back or never merged it"
-    )
+  statuses = set(bundle.get("statuses") or ())
+  if not statuses and bundle.get("status"):
+    statuses.add(bundle["status"])
+  if not statuses and bundle.get("occurrences"):
+    statuses.update(o["status"] for o in bundle["occurrences"])
+  if "reverted" in statuses:
+    cautions.append("this file set has a reverted occurrence upstream")
+  if statuses == {"pr_only"}:
+    cautions.append("this file set was observed only on unmerged upstream PRs")
+  if bundle.get("upstream_reachable") is False:
+    cautions.append("the upstream PR ref was force-pushed or deleted; this archive retained it")
   if missing := bundle.get("host_constants_missing"):
     cautions.append(f"host constants not recorded upstream ({', '.join(missing)}); "
                     f"you must determine them yourself")
-  recorded = bundle.get("frame_skip")
+  recorded, disagreeing_skips = _recorded_frame_skip(bundle)
+  if disagreeing_skips:
+    cautions.append(f"halves record different frame_skip values {disagreeing_skips}; "
+                    "use the host build's value and investigate before driving")
   if caps.frame_skip is not None and recorded is not None and caps.frame_skip != recorded:
     cautions.append(f"ran upstream with frame_skip={recorded}, your build uses {caps.frame_skip}")
 
@@ -248,7 +268,10 @@ def plan_bundle(bundle: dict[str, Any], files: dict[str, Path],
     input_keys = {}
     warnings.append(f"could not read input keys from {primary.name}: {exc}")
 
-  recorded = bundle.get("frame_skip")
+  recorded, disagreeing_skips = _recorded_frame_skip(bundle)
+  if disagreeing_skips:
+    warnings.append(f"halves record different frame_skip values {disagreeing_skips}; "
+                    "use the host build's value and investigate before driving")
   frame_skip = host_frame_skip if host_frame_skip is not None else recorded
   if host_frame_skip is not None and recorded is not None and host_frame_skip != recorded:
     warnings.append(
@@ -273,13 +296,13 @@ def plan_bundle(bundle: dict[str, Any], files: dict[str, Path],
   if by_role:
     # Halves came from different commits. Collapsing is only honest when they agree; when they
     # disagree the fork must choose, because merging invents a configuration nobody ran.
-    seen = {tuple(sorted(r.items())) for r in by_role.values() if r}
+    seen = {tuple(sorted(r.items())) for r in by_role.values()}
     if len(seen) > 1:
       warnings.append(
         f"halves carry different host constants {by_role}; choose deliberately -- merging them "
         f"would invent a configuration nobody ran"
       )
-    elif seen:
+    elif seen and next(iter(seen)):
       constants = constants or dict(next(iter(seen)))
   if absent := bundle.get("host_constants_missing"):
     warnings.append(

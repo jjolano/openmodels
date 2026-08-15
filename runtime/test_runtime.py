@@ -6,6 +6,7 @@ bundle, and whether a half-finished download can be mistaken for an installed mo
 """
 
 import json
+import hashlib
 import os
 import sys
 import tempfile
@@ -111,7 +112,8 @@ def test_plan_refuses_a_bundle_whose_files_are_absent():
 def test_store_activation_and_constants():
   with tempfile.TemporaryDirectory() as tmp:
     store = ModelStore(Path(tmp) / "models")
-    prov = {"files": [{"role": "vision", "filename": "v.onnx", "oid": "a" * 64, "size": 1}],
+    oid = hashlib.sha256(b"x").hexdigest()
+    prov = {"files": [{"role": "vision", "filename": "v.onnx", "oid": oid, "size": 1}],
             "host_constants": {"LAT_SMOOTH_SECONDS": 0.0}, "frame_skip": 4}
     assert store.active() is None and store.active_constants() == {}
 
@@ -129,8 +131,30 @@ def test_store_activation_and_constants():
     assert store.active() == "b1"
     assert store.active_constants() == {"LAT_SMOOTH_SECONDS": 0.0}
 
+    (store.path_for("b1") / "v.onnx").write_bytes(b"corrupt")
+    assert not store.is_installed("b1"), "installed files must be re-hashed before activation"
+    (store.path_for("b1") / "v.onnx").write_bytes(b"x")
+
     store.remove("b1")
     assert store.active() is None and not store.is_installed("b1")
+
+
+def test_store_preserves_composed_provenance_without_collapsing_it():
+  with tempfile.TemporaryDirectory() as tmp:
+    store = ModelStore(Path(tmp))
+    provenance = {
+      "files": [], "source": "composed", "attested": False,
+      "host_constants_by_role": {"vision": {}, "on_policy": {"MODEL_FREQ": 20}},
+      "host_constants_missing_by_role": {"vision": ["MODEL_FREQ"], "on_policy": []},
+      "frame_skip_by_role": {"vision": None, "on_policy": 1},
+      "cautions": ["host configuration unresolved"],
+    }
+    store.record("composed", provenance)
+    saved = store.installed()["composed"]
+    assert not store.is_installed("composed")
+  assert saved["attested"] is False
+  assert saved["host_constants_by_role"] == provenance["host_constants_by_role"]
+  assert saved["cautions"] == provenance["cautions"]
 
 
 def test_missing_file_means_not_installed():
@@ -151,9 +175,8 @@ def test_catalog_filters_and_groups_real_index():
   everything = cat.list(kind="driving")
   merged = cat.list(kind="driving", allow_statuses=MERGED_ONLY)
   assert len(everything) > len(merged), "default listing must include withdrawn models"
-  assert all("status" in b for b in everything), "every entry must carry its status"
-  assert any(b["withdrawn"] for b in everything), "withdrawn models must be flagged, not hidden"
-  assert all(not b["withdrawn"] for b in merged)
+  assert all("statuses" in b for b in everything), "every entry must carry occurrence statuses"
+  assert all("merged" in b["statuses"] for b in merged)
   years = cat.group_by_year(kind="driving")
   assert list(years) == sorted(years, reverse=True), "newest year first"
   sc = cat.list(kind="driving", family="supercombo")
@@ -193,12 +216,29 @@ def test_support_gaps_aggregate_into_a_roadmap():
   assert gaps == sorted(gaps, key=lambda g: g[1], reverse=True), "largest win first"
 
 
-def test_withdrawn_status_is_a_caution_not_a_blocker():
+def test_reverted_occurrence_is_a_caution_not_a_blocker():
   caps = Capabilities(compilers=frozenset({UPSTREAM, MULTI_ERA}))
-  bundle = _bundle(["vision", "on_policy"], variant="standard", status="reverted")
+  bundle = _bundle(["vision", "on_policy"], variant="standard", statuses=["reverted"])
   verdict = check_compatibility(bundle, caps)
   assert verdict.runnable, "a reverted model is still mechanically runnable"
-  assert any("withdrawn" in c for c in verdict.cautions), verdict.cautions
+  assert any("reverted occurrence" in c for c in verdict.cautions), verdict.cautions
+
+
+def test_api_summary_roles_are_enough_for_capability_checks():
+  bundle = {"bundle_id": "summary", "kind": "driving", "variant": "standard",
+            "family": "split", "roles": ["vision", "on_policy"], "status": "merged",
+            "introduced_by": {"date": "2026-01-01T00:00:00Z"}}
+  cat = Catalog({"bundles": [bundle]}, "api", "https://example.test")
+  listed = cat.list(capabilities=Capabilities(compilers=frozenset({UPSTREAM})))
+  assert listed[0]["compatibility"]["runnable"] is True, listed
+
+
+def test_catalog_uses_recorded_release_without_a_live_api():
+  oid = "a" * 64
+  cat = Catalog({"release_repo": "owner/repo",
+                 "files": [{"oid": oid, "release": "blobs-0003"}]}, "mirror", "")
+  assert cat.download_url(oid) == \
+    f"https://github.com/owner/repo/releases/download/blobs-0003/{oid}.onnx"
 
 
 
@@ -208,9 +248,11 @@ def _stub_compiler(tmp: Path, behaviour: str) -> Path:
   """A fake compile_modeld.py that fails in a specific, realistic way."""
   script = tmp / "stub_compiler.py"
   script.write_text(f"""
-import sys, pickle
+import sys, pickle, time
 out = sys.argv[sys.argv.index("--output") + 1]
 behaviour = {behaviour!r}
+if behaviour == "hang":
+    time.sleep(30)
 if behaviour == "exit_nonzero":
     print("tinygrad: unsupported opset", file=sys.stderr); sys.exit(3)
 if behaviour == "no_output":
@@ -258,12 +300,24 @@ def test_build_failures_leave_nothing_behind():
       assert not list(out.glob(".build-*")), f"{behaviour} left staging behind"
 
 
+def test_build_timeout_kills_a_silent_compiler():
+  with tempfile.TemporaryDirectory() as t:
+    tmp = Path(t)
+    try:
+      build(_plan(tmp), _stub_compiler(tmp, "hang"), tmp / "out",
+            model_size="512x256", camera_resolutions=["1928x1208"], timeout=0.1)
+      raise AssertionError("hung compiler should have timed out")
+    except BuildError as exc:
+      assert "exceeded" in str(exc), exc
+
+
 def test_failed_build_restores_the_previously_active_model():
   with tempfile.TemporaryDirectory() as t:
     tmp = Path(t)
     store = ModelStore(tmp / "models")
+    oid = hashlib.sha256(b"x").hexdigest()
     store.record("old", {"files": [{"role": "vision", "filename": "v.onnx",
-                                    "oid": "a" * 64, "size": 1}]})
+                                    "oid": oid, "size": 1}]})
     store.path_for("old").mkdir(parents=True, exist_ok=True)
     (store.path_for("old") / "v.onnx").write_bytes(b"x")
     store.set_active("old")
@@ -333,6 +387,30 @@ def test_agreeing_halves_collapse_to_one_configuration():
   assert plan.host_constants == both, plan.host_constants
   assert not any("different host constants" in w for w in plan.warnings), plan.warnings
   assert plan.host_constants_by_role["on_policy"] == both
+
+
+def test_unknown_half_does_not_borrow_the_other_halfs_constants():
+  with tempfile.TemporaryDirectory() as tmp:
+    both = {"LAT_SMOOTH_SECONDS": 0.2}
+    bundle = _bundle(["vision", "on_policy"], source="composed", attested=False,
+                     host_constants_by_role={"vision": {}, "on_policy": both})
+    files = {role: Path(tmp) / f"{role}.onnx" for role in ("vision", "on_policy")}
+    for path in files.values():
+      path.write_bytes(b"")
+    plan = plan_bundle(bundle, files, host_frame_skip=4)
+  assert plan.host_constants == {}
+  assert any("different host constants" in warning for warning in plan.warnings)
+
+
+def test_composed_frame_skip_is_compared_to_the_host():
+  with tempfile.TemporaryDirectory() as tmp:
+    bundle = _bundle(["vision", "on_policy"], source="composed", attested=False,
+                     frame_skip_by_role={"vision": 1, "on_policy": 1})
+    files = {role: Path(tmp) / f"{role}.onnx" for role in ("vision", "on_policy")}
+    for path in files.values():
+      path.write_bytes(b"")
+    plan = plan_bundle(bundle, files, host_frame_skip=4)
+  assert any("frame_skip mismatch" in warning for warning in plan.warnings)
 
 
 if __name__ == "__main__":

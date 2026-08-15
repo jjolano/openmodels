@@ -34,6 +34,7 @@ def test_parse_lineage_handles_every_real_shape():
   assert parse_lineage("") is None
   assert parse_lineage("not-a-checkpoint") is None      # odd number of parts
   assert parse_lineage("a/1/b") is None                 # ragged
+  assert parse_lineage("a/1/b/2/c/3") is None          # only a two-half fusion is understood
 
 
 def _file(oid, ckpt=None, *, seam=None, buffer_depth=None, name="m.onnx", size=1000):
@@ -52,12 +53,28 @@ def test_attested_pairings_from_cooccurrence_and_from_fusion():
     "sc": _file("sc", f"{V2}/{PX}", seam=512, buffer_depth=24),
   }
   bundles = [
-    {"files": [{"role": "vision", "oid": "v"}, {"role": "on_policy", "oid": "p"}]},
-    {"files": [{"role": "supercombo", "oid": "sc"}]},
+    {"occurrences": [{"status": "merged"}],
+     "files": [{"role": "vision", "oid": "v"}, {"role": "on_policy", "oid": "p"}]},
+    {"occurrences": [{"status": "reverted"}],
+     "files": [{"role": "supercombo", "oid": "sc"}]},
   ]
   pairs = attested_pairings(bundles, files)
   assert [V1, P1] in pairs, pairs        # co-occurred in a bundle
   assert [V2, PX] in pairs, pairs        # named inside the supercombo's own checkpoint
+
+
+def test_pr_only_and_non_supercombo_metadata_never_attest_a_pairing():
+  files = {
+    "v": _file("v", V1), "p": _file("p", P1),
+    "fake": _file("fake", f"{V2}/{PX}"),
+  }
+  bundles = [
+    {"occurrences": [{"status": "pr_only"}],
+     "files": [{"role": "vision", "oid": "v"}, {"role": "on_policy", "oid": "p"}]},
+    {"occurrences": [{"status": "merged"}],
+     "files": [{"role": "vision", "oid": "fake"}]},
+  ]
+  assert attested_pairings(bundles, files) == []
 
 
 def test_partners_of_answers_the_browsing_question():
@@ -73,6 +90,7 @@ def _files():
     "pol1": _file("pol1", P1, buffer_depth=25, name="driving_on_policy.onnx"),
     "polx": _file("polx", PX, buffer_depth=25, name="driving_on_policy.onnx"),
     "pol99": _file("pol99", P2, buffer_depth=99, name="driving_on_policy.onnx"),
+    "off99": _file("off99", P2, buffer_depth=99, name="driving_off_policy.onnx"),
     "wide": _file("wide", P2, buffer_depth=25, name="w.onnx"),
     "sc": _file("sc", f"{V2}/{PX}", seam=512, name="driving_supercombo.onnx"),
     "bigvis": _file("bigvis", V1, seam=512, name="big_driving_vision.onnx"),
@@ -99,14 +117,15 @@ def test_cross_lineage_composes_but_says_so():
 
 def test_unknown_lineage_is_a_caution_not_a_refusal():
   files = _files()
-  files["nolin"] = _file("nolin", None, buffer_depth=25)
+  files["nolin"] = _file("nolin", None, buffer_depth=25, name="driving_on_policy.onnx")
   out = compose({"vision": "vis1", "on_policy": "nolin"}, files, [[V1, P1]])
   assert any("lineage unknown" in c for c in out["cautions"]), out["cautions"]
 
 
 def test_seam_width_mismatch_is_refused():
   files = _files()
-  files["narrow"] = _file("narrow", P1, buffer_depth=25)
+  files["narrow"] = _file("narrow", P1, buffer_depth=25,
+                           name="driving_on_policy.onnx")
   files["narrow"]["metadata"]["input_shapes"]["features_buffer"] = [1, 25, 256]
   try:
     compose({"vision": "vis1", "on_policy": "narrow"}, files, [])
@@ -124,7 +143,7 @@ def test_buffer_depth_implies_frame_skip():
 
 
 def test_policies_disagreeing_on_depth_are_flagged():
-  out = compose({"vision": "vis1", "on_policy": "pol1", "off_policy": "pol99"}, _files(), [])
+  out = compose({"vision": "vis1", "on_policy": "pol1", "off_policy": "off99"}, _files(), [])
   assert any("disagree" in c for c in out["cautions"]), out["cautions"]
 
 
@@ -175,14 +194,51 @@ def test_unknown_oid_is_refused():
     assert "unknown oid" in str(exc)
 
 
+def test_a_file_cannot_be_relabelled_as_another_role():
+  try:
+    compose({"vision": "vis1", "on_policy": "vis1"}, _files(), [])
+    raise AssertionError("a vision blob must not be accepted as a policy")
+  except ComposeError as exc:
+    assert "never recorded with role 'on_policy'" in str(exc), exc
+
+
 def test_constants_stay_separated_by_role():
   files = _files()
-  files["vis1"]["metadata"]["host_constants"] = {"LAT_SMOOTH_SECONDS": 0.0}
-  files["pol1"]["metadata"]["host_constants"] = {"LAT_SMOOTH_SECONDS": 0.1}
+  files["vis1"]["host_contexts"] = [
+    {"role": "vision", "host_constants": {"LAT_SMOOTH_SECONDS": 0.0},
+     "host_constants_missing": []},
+  ]
+  files["pol1"]["host_contexts"] = [
+    {"role": "on_policy", "host_constants": {"LAT_SMOOTH_SECONDS": 0.1},
+     "host_constants_missing": []},
+  ]
   out = compose({"vision": "vis1", "on_policy": "pol1"}, files, [[V1, P1]])
   # Merging these would invent a configuration nobody ran.
   assert out["host_constants_by_role"]["vision"]["LAT_SMOOTH_SECONDS"] == 0.0
   assert out["host_constants_by_role"]["on_policy"]["LAT_SMOOTH_SECONDS"] == 0.1
+
+
+def test_ambiguous_host_context_is_reported_not_guessed():
+  files = _files()
+  files["vis1"]["host_contexts"] = [
+    {"role": "vision", "host_constants": {"LAT_SMOOTH_SECONDS": value},
+     "host_constants_missing": []}
+    for value in (0.0, 0.1)
+  ]
+  out = compose({"vision": "vis1", "on_policy": "pol1"}, files, [[V1, P1]])
+  assert out["host_constants_by_role"]["vision"] == {}
+  assert any("multiple host configurations" in c for c in out["cautions"])
+
+
+def test_missing_host_constants_remain_visible_after_composition():
+  files = _files()
+  files["vis1"]["host_contexts"] = [
+    {"role": "vision", "host_constants": {},
+     "host_constants_missing": ["LAT_SMOOTH_SECONDS"]},
+  ]
+  out = compose({"vision": "vis1", "on_policy": "pol1"}, files, [[V1, P1]])
+  assert out["host_constants_missing_by_role"]["vision"] == ["LAT_SMOOTH_SECONDS"]
+  assert any("absent, not zero" in caution for caution in out["cautions"])
 
 
 def test_bundle_id_is_content_addressed_and_order_free():

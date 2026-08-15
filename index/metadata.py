@@ -24,6 +24,7 @@ _DTYPES = {
 
 # A crafted model could otherwise make us allocate unboundedly.
 MAX_PICKLE_BYTES = 1 << 20
+MAX_PICKLE_TEXT_BYTES = 2 << 20
 MAX_SLICES = 4096
 
 
@@ -54,6 +55,8 @@ def loads_output_slices(encoded: str) -> dict[str, list[int | None]]:
 
   Returns {name: [start, stop, step]}. Raises UnsafePickle on anything unexpected.
   """
+  if len(encoded) > MAX_PICKLE_TEXT_BYTES:
+    raise UnsafePickle(f"encoded pickle too large: {len(encoded)} bytes")
   # openpilot writes this with codecs.encode(..., "base64"), which wraps at 76 chars.
   # Strip the wrapping, then still validate the payload strictly.
   raw = base64.b64decode("".join(encoded.split()), validate=True)
@@ -105,6 +108,8 @@ def parse_lineage(model_checkpoint: str | None) -> dict[str, Any] | None:
   if len(parts) < 2 or len(parts) % 2:
     return None
   checkpoints = [f"{parts[i]}/{parts[i + 1]}" for i in range(0, len(parts), 2)]
+  if len(checkpoints) > 2:
+    return None
 
   lineage: dict[str, Any] = {"checkpoints": checkpoints, "fused": len(checkpoints) > 1}
   if len(checkpoints) == 1:

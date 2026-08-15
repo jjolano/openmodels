@@ -23,6 +23,7 @@ import json
 import shutil
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -32,7 +33,7 @@ CHUNK = 1 << 20
 
 # Every status is listed by default. Withdrawn models are the reason this archive exists, so
 # hiding them sends people to look somewhere less careful; they are surfaced with their status
-# instead. A picker MUST render that status — see Catalog.status_of and is_withdrawn.
+# instead. A picker MUST render those occurrence statuses — see Catalog.statuses_of.
 ALL_STATUSES = frozenset({"merged", "reverted", "pr_only"})
 MERGED_ONLY = frozenset({"merged"})
 
@@ -76,6 +77,20 @@ def _get(url: str, timeout: int = 20) -> bytes:
     return response.read()
 
 
+def _component(value: str, label: str) -> str:
+  if not value or Path(value).name != value or value in (".", ".."):
+    raise ValueError(f"unsafe {label}: {value!r}")
+  return value
+
+
+def _sha256(path: Path) -> str:
+  digest = hashlib.sha256()
+  with open(path, "rb") as handle:
+    while chunk := handle.read(CHUNK):
+      digest.update(chunk)
+  return digest.hexdigest()
+
+
 @dataclass
 class Catalog:
   """The model catalog, from the API with a static-mirror fallback."""
@@ -95,7 +110,7 @@ class Catalog:
       return cls(json.loads(cache.read_text()), "cache", api)
 
     failures = []
-    sources = [(f"{api}/v1/models?limit=1000", "api")]
+    sources = [(f"{api.rstrip('/')}/v1/models?limit=1000", "api")] if api else []
     if mirror:
       sources.append((f"{mirror}/index.json", "mirror"))
     for url, source in sources:
@@ -117,10 +132,12 @@ class Catalog:
     return self.data.get("generated_at")
 
   @staticmethod
-  def status_of(bundle: dict[str, Any]) -> str:
-    if "status" in bundle:
-      return bundle["status"]
-    return max(bundle["occurrences"], key=lambda o: o["date"])["status"]
+  def statuses_of(bundle: dict[str, Any]) -> frozenset[str]:
+    if "statuses" in bundle:
+      return frozenset(bundle["statuses"])
+    if "status" in bundle:  # schema-1/API compatibility
+      return frozenset({bundle["status"]})
+    return frozenset(o["status"] for o in bundle["occurrences"])
 
   @property
   def suspect_oids(self) -> frozenset[str]:
@@ -145,8 +162,8 @@ class Catalog:
     for bundle in self.data.get("bundles", []):
       if kind and bundle.get("kind") != kind:
         continue
-      status = self.status_of(bundle)
-      if status not in allowed:
+      statuses = self.statuses_of(bundle)
+      if not statuses & allowed:
         continue
       if family and bundle.get("family") != family:
         continue
@@ -155,10 +172,10 @@ class Catalog:
       if search and search.lower() not in f"{bundle.get('name','')} {bundle['bundle_id']}".lower():
         continue
 
-      entry = dict(bundle, status=status, withdrawn=status != "merged")
+      entry = dict(bundle, statuses=sorted(statuses))
       if capabilities is not None:
         from runtime.plan import check_compatibility
-        verdict = check_compatibility(bundle, capabilities, self.suspect_oids)
+        verdict = check_compatibility(entry, capabilities, self.suspect_oids)
         if only_runnable and not verdict.runnable:
           continue
         entry["compatibility"] = {
@@ -196,13 +213,31 @@ class Catalog:
   def provenance(self, bundle_id: str) -> dict[str, Any]:
     """Full record, including host constants. Requires the API (the mirror has no per-bundle
     endpoint), so fall back to the catalog entry when offline."""
-    try:
-      return json.loads(_get(f"{self.api}/v1/models/{bundle_id}/provenance"))
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-      for bundle in self.data.get("bundles", []):
-        if bundle["bundle_id"] == bundle_id and "files" in bundle:
-          return bundle
-      raise CatalogUnavailable(f"provenance for {bundle_id}: {exc}") from exc
+    failure: Exception | None = None
+    if self.api:
+      try:
+        return json.loads(_get(f"{self.api.rstrip('/')}/v1/models/{bundle_id}/provenance"))
+      except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        failure = exc
+    for bundle in self.data.get("bundles", []):
+      if bundle["bundle_id"] == bundle_id and "files" in bundle:
+        return bundle
+    raise CatalogUnavailable(f"provenance for {bundle_id}: {failure or 'not in catalog'}")
+
+  def download_url(self, oid: str, api: str | None = None) -> str:
+    """Prefer the recorded release placement; fall back to a live API redirect."""
+    record = next((f for f in self.data.get("files", []) if f["oid"] == oid), None)
+    repo = self.data.get("release_repo")
+    if record and record.get("release") and repo:
+      repo = urllib.parse.quote(repo, safe="/")
+      release = urllib.parse.quote(record["release"], safe="")
+      return f"https://github.com/{repo}/releases/download/{release}/{oid}.onnx"
+    endpoint = self.api if api is None else api
+    if endpoint:
+      return f"{endpoint.rstrip('/')}/v1/files/{oid}/download"
+    if oid in self.data.get("mirror_unavailable", []):
+      raise CatalogUnavailable(f"file {oid} is no longer available upstream")
+    raise CatalogUnavailable(f"file {oid} has no recorded download location")
 
 
 @dataclass
@@ -236,15 +271,19 @@ class ModelStore:
     return self._read()["active"]
 
   def path_for(self, bundle_id: str) -> Path:
-    return self.root / bundle_id
+    return self.root / _component(bundle_id, "bundle id")
 
   def is_installed(self, bundle_id: str) -> bool:
     """Installed means every file is present *and* still hashes correctly."""
     record = self.installed().get(bundle_id)
-    if not record:
+    if not record or not record.get("files"):
       return False
     base = self.path_for(bundle_id)
-    return all((base / f["filename"]).exists() for f in record["files"])
+    return all(
+      (path := base / _component(f["filename"], "filename")).is_file()
+      and _sha256(path) == f["oid"]
+      for f in record["files"]
+    )
 
   def record(self, bundle_id: str, provenance: dict[str, Any]) -> None:
     state = self._read()
@@ -253,10 +292,14 @@ class ModelStore:
                 for f in provenance["files"]],
       "host_constants": provenance.get("host_constants", {}),
       "host_constants_missing": provenance.get("host_constants_missing", []),
+      "host_constants_by_role": provenance.get("host_constants_by_role", {}),
+      "host_constants_missing_by_role": provenance.get("host_constants_missing_by_role", {}),
       "frame_skip": provenance.get("frame_skip"),
+      "frame_skip_by_role": provenance.get("frame_skip_by_role", {}),
       # A picker must be able to mark a composed model as unattested.
       "source": provenance.get("source", "upstream"),
       "attested": provenance.get("attested", True),
+      "cautions": provenance.get("cautions", []),
       "installed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
     self._write(state)
@@ -315,7 +358,6 @@ def download_bundle(catalog: Catalog, bundle: str | dict[str, Any], store: Model
   Files land in a temporary directory and are moved into place only once all of them verify,
   so an interrupted download can never leave a half-installed bundle that looks usable.
   """
-  api = api or catalog.api
   record = bundle if isinstance(bundle, dict) else catalog.provenance(bundle)
   bundle_id = record["bundle_id"]
   files = record["files"]
@@ -331,8 +373,8 @@ def download_bundle(catalog: Catalog, bundle: str | dict[str, Any], store: Model
   try:
     for index, entry in enumerate(files):
       digest = hashlib.sha256()
-      target = staging / entry["filename"]
-      with urllib.request.urlopen(f"{api}/v1/files/{entry['oid']}/download", timeout=120) as r, \
+      target = staging / _component(entry["filename"], "filename")
+      with urllib.request.urlopen(catalog.download_url(entry["oid"], api), timeout=120) as r, \
            open(target, "wb") as handle:
         while chunk := r.read(CHUNK):
           digest.update(chunk)

@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,6 +21,8 @@ DISCLAIMER = (
   "This registry asserts <strong>blob identity and upstream provenance</strong>. It does not "
   "assert that a model is safe to drive, or that two models are interchangeable."
 )
+API_BASE = os.environ.get("OPENMODELS_API_BASE", "").rstrip("/")
+BLOB_BACKEND = os.environ.get("BLOB_BACKEND", "github")
 
 CSS = """
 *,*::before,*::after{box-sizing:border-box}
@@ -101,7 +104,8 @@ FILTER_JS = """
   function apply(){
     var t=q.value.toLowerCase(), kk=k.value, ss=s.value, shown=0;
     cards.forEach(function(c){
-      var ok=(!t||c.dataset.search.indexOf(t)>-1)&&(!kk||c.dataset.kind===kk)&&(!ss||c.dataset.status===ss);
+    var statuses=(c.dataset.statuses||"").split(" ");
+    var ok=(!t||c.dataset.search.indexOf(t)>-1)&&(!kk||c.dataset.kind===kk)&&(!ss||statuses.indexOf(ss)>-1);
       c.style.display=ok?'':'none'; if(ok)shown++;
     });
     document.getElementById('count').textContent=shown;
@@ -113,6 +117,7 @@ FILTER_JS = """
 
 def shell(title: str, body: str, depth: int = 0) -> str:
   root = "../" * depth
+  api_link = f'<a href="{html.escape(API_BASE, quote=True)}/docs">API</a>' if API_BASE else ""
   return f"""<!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -127,15 +132,16 @@ def shell(title: str, body: str, depth: int = 0) -> str:
     <a href="{root}index.html">Models</a>
     <a href="{root}compose.html">Compose</a>
     <a href="{root}integrate.html">Integrate</a>
-    <a href="/docs">API</a>
+    {api_link}
     <a href="https://github.com/commaai/openpilot">openpilot</a>
   </nav>
 </header>
 {body}
 <footer>
   <p>{DISCLAIMER}</p>
-  <p>Models &copy; comma.ai, MIT licensed, sourced from
-     <a href="https://github.com/commaai/openpilot">commaai/openpilot</a>.
+  <p>Models &copy; comma.ai, distributed under the
+     <a href="https://github.com/commaai/openpilot/blob/master/LICENSE">openpilot MIT license</a>
+     and sourced from <a href="https://github.com/commaai/openpilot">commaai/openpilot</a>.
      Not affiliated with or endorsed by comma.ai.
      For subjective comparisons of how models drive, see
      <a href="https://sunnylink.wiki/models">sunnylink.wiki</a>.</p>
@@ -162,8 +168,8 @@ def ago(iso: str) -> str:
   return f"{delta.days} days ago"
 
 
-def latest_status(bundle: dict[str, Any]) -> str:
-  return max(bundle["occurrences"], key=lambda o: o["date"])["status"]
+def statuses(bundle: dict[str, Any]) -> list[str]:
+  return sorted({o["status"] for o in bundle["occurrences"]})
 
 
 def plain_roles(bundle: dict[str, Any]) -> str:
@@ -177,26 +183,31 @@ def render_browse(index: dict[str, Any]) -> str:
   bundles = sorted(index["bundles"], key=lambda b: b["introduced_by"]["date"], reverse=True)
   cards = []
   for b in bundles:
-    status = latest_status(b)
+    bundle_statuses = statuses(b)
     size = sum(f["size"] for f in b["files"])
     search = f"{b['name']} {b['slug']} {b['bundle_id']} {plain_roles(b)}".lower()
     head = '<span class="badge head">in HEAD</span>' if b["in_head"] else ""
+    archived = ('<span class="badge pr_only">upstream ref gone</span>'
+                if not b.get("upstream_reachable", True) else "")
     pr = b["introduced_by"]["pr"]
     pr_link = (f' · <a href="https://github.com/commaai/openpilot/pull/{pr}">#{pr}</a>'
                if pr else "")
-    cards.append(f"""<article class="card" data-kind="{b['kind']}" data-status="{status}"
+    badges = "".join(f'<span class="badge {s}">{s.replace("_", " ")}</span>'
+                      for s in bundle_statuses)
+    cards.append(f"""<article class="card" data-kind="{b['kind']}"
+   data-statuses="{' '.join(bundle_statuses)}"
    data-search="{html.escape(search, quote=True)}">
   <h3><a href="models/{b['bundle_id']}.html">{html.escape(b['name'])}</a></h3>
   <div class="meta"><span>{b['introduced_by']['date'][:10]}</span><span>{human_bytes(size)}</span>
     <span>{b['kind']}</span></div>
-  <div class="badges"><span class="badge {status}">{status.replace('_',' ')}</span>
-    <span class="badge">{b['family']}</span><span class="badge">{b['variant']}</span>{head}</div>
+  <div class="badges">{badges}<span class="badge">{b['family']}</span>
+    <span class="badge">{b['variant']}</span>{head}{archived}</div>
   <div class="feat">{html.escape(plain_roles(b))}</div>
   <div class="meta">{b['bundle_id']}{pr_link}</div>
 </article>""")
 
   kinds = sorted({b["kind"] for b in bundles})
-  statuses = sorted({latest_status(b) for b in bundles})
+  all_statuses = sorted({s for b in bundles for s in statuses(b)})
   body = f"""
 <p class="note">{DISCLAIMER} Each entry links to the exact upstream commit so you can verify
    every claim yourself.</p>
@@ -206,7 +217,7 @@ def render_browse(index: dict[str, Any]) -> str:
   <select id="k" aria-label="Filter by kind"><option value="">All kinds</option>
     {''.join(f'<option value="{k}">{k}</option>' for k in kinds)}</select>
   <select id="s" aria-label="Filter by status"><option value="">Any status</option>
-    {''.join(f'<option value="{s}">{s.replace("_"," ")}</option>' for s in statuses)}</select>
+    {''.join(f'<option value="{s}">{s.replace("_"," ")}</option>' for s in all_statuses)}</select>
 </div>
 <p class="meta"><span id="count">{len(bundles)}</span> of {len(bundles)} models ·
    indexed {ago(index['generated_at'])}</p>
@@ -217,14 +228,18 @@ def render_browse(index: dict[str, Any]) -> str:
 
 
 def render_detail(index: dict[str, Any], bundle: dict[str, Any]) -> str:
-  status = latest_status(bundle)
+  bundle_statuses = statuses(bundle)
+  status_badges = "".join(
+    f'<span class="badge {s}">{s.replace("_", " ")}</span>' for s in bundle_statuses
+  )
   constants = bundle.get("host_constants") or {}
   sources = bundle.get("host_constants_sources") or {}
   missing = bundle.get("host_constants_missing") or []
 
   if constants:
     rows = "".join(
-      f"<tr><td class='mono'>{html.escape(k)}</td><td class='mono'>{v}</td>"
+      f"<tr><td class='mono'>{html.escape(k)}</td>"
+      f"<td class='mono'>{html.escape(str(v))}</td>"
       f"<td class='mono'>{html.escape(str(sources.get(k,'—')))}</td></tr>"
       for k, v in sorted(constants.items())
     )
@@ -239,11 +254,28 @@ def render_detail(index: dict[str, Any], bundle: dict[str, Any]) -> str:
                     f"than defaulted &mdash; a wrong smoothing constant silently changes "
                     f"steering.</p>")
 
+  records = {f["oid"]: f for f in index.get("files", [])}
+  unavailable = set(index.get("mirror_unavailable", []))
+
+  def download_href(member: dict[str, Any]) -> str | None:
+    if BLOB_BACKEND == "local":
+      return f"../blobs/{member['oid']}.onnx" if records.get(
+        member["oid"], {}).get("local_mirrored") else None
+    record = records.get(member["oid"], {})
+    release, repo = record.get("release"), index.get("release_repo", "")
+    if release and repo:
+      return f"https://github.com/{repo}/releases/download/{release}/{member['oid']}.onnx"
+    return None
+
+  def download_cell(member: dict[str, Any]) -> str:
+    if url := download_href(member):
+      return f'<a href="{html.escape(url, quote=True)}">download</a>'
+    return "unavailable upstream" if member["oid"] in unavailable else "mirror pending"
+
   files = "".join(
     f"<tr><td>{html.escape(f['role'])}</td><td class='mono'>{html.escape(f['filename'])}</td>"
     f"<td>{human_bytes(f['size'])}</td>"
-    f"<td class='mono'>{f['oid'][:16]}…</td>"
-    f"<td><a href='/v1/files/{f['oid']}/download'>download</a></td></tr>"
+    f"<td class='mono'>{f['oid'][:16]}…</td><td>{download_cell(f)}</td></tr>"
     for f in bundle["files"]
   )
 
@@ -258,8 +290,9 @@ def render_detail(index: dict[str, Any], bundle: dict[str, Any]) -> str:
   )
 
   verify = "\n".join(
-    f"curl -L https://openmodels.example/v1/files/{f['oid']}/download -o {f['filename']}\n"
-    f"echo '{f['oid']}  {f['filename']}' | sha256sum -c   # must pass"
+    ((f"curl -L '{download_href(f)}' -o {f['filename']}\n"
+      f"echo '{f['oid']}  {f['filename']}' | sha256sum -c   # must pass")
+     if download_href(f) else f"# {f['filename']}: not currently downloadable")
     for f in bundle["files"]
   )
 
@@ -297,7 +330,7 @@ def render_detail(index: dict[str, Any], bundle: dict[str, Any]) -> str:
 
   body = f"""
 <h1 class="title">{html.escape(bundle['name'])}</h1>
-<p class="meta"><span class="badge {status}">{status.replace('_',' ')}</span>
+<p class="meta">{status_badges}
   <span class="badge">{bundle['kind']}</span><span class="badge">{bundle['family']}</span>
   <span class="badge">{bundle['variant']}</span>
   <code>{bundle['bundle_id']}</code></p>
@@ -351,14 +384,15 @@ INTEGRATE = """
 <h1 class="title">Integrating openmodels into a fork</h1>
 <p class="note">Read this before wiring the API into anything that drives. The registry hands you
    <strong>source weights and provenance</strong>. Turning that into something a car runs is your
-   fork's job, and so is deciding whether it is safe. Replace
-   <code>openmodels.example</code> below with the instance you are using.</p>
+   fork's job, and so is deciding whether it is safe. API examples assume
+   <code>API=https://models.example.com</code>; the reference client needs only the public static
+   mirror.</p>
 
 <section class="required">
   <h2>Start here: use the reference client</h2>
   <p class="meta">Everything below is what <code>clients/reference.py</code> already does
-     correctly &mdash; oid verification, default-denying withdrawn models, and falling back to
-     the static mirror when the API is down. Copy it into your fork rather than hand-rolling
+     correctly &mdash; oid verification, visible withdrawal status, and direct downloads from the
+     recorded release. Copy it into your fork rather than hand-rolling
      curl. The rest of this page explains what it is doing and why.</p>
   <pre>python clients/reference.py --list
 python clients/reference.py --pull &lt;bundle_id&gt; --out selfdrive/modeld/models</pre>
@@ -367,7 +401,7 @@ python clients/reference.py --pull &lt;bundle_id&gt; --out selfdrive/modeld/mode
 <section>
   <h2>1. Pick a model by provenance, not by shape</h2>
   <p class="meta">Ask what configuration a model ran in, then compare it to your own:</p>
-  <pre>curl -s https://openmodels.example/v1/models/&lt;bundle_id&gt;/provenance</pre>
+  <pre>curl -s "$API/v1/models/&lt;bundle_id&gt;/provenance"</pre>
   <p class="meta">You get the upstream commit, the host constants in effect there, and every
      occurrence with its status. There is deliberately no endpoint that tells you two models are
      compatible &mdash; that claim cannot be made from the available data. Check
@@ -383,14 +417,15 @@ python clients/reference.py --pull &lt;bundle_id&gt; --out selfdrive/modeld/mode
      filenames from <code>/provenance</code>; the build looks them up by name.</p>
   <p class="meta">The oid is the sha256. Refuse any blob that does not match &mdash; that check is
      the only thing standing between your fork and a swapped artifact.</p>
-  <pre>curl -s https://openmodels.example/v1/models/&lt;bundle_id&gt;/provenance \\
+  <pre>curl -s "$API/v1/models/&lt;bundle_id&gt;/provenance" \\
   | jq -r '.files[] | "\\(.oid) \\(.filename)"' \\
   | while read oid name; do
-      curl -sL "https://openmodels.example/v1/files/$oid/download" -o "$name"
+      curl -sL "$API/v1/files/$oid/download" -o "$name"
       echo "$oid  $name" | sha256sum -c || exit 1
     done</pre>
   <p class="meta">A <code>503</code> means the blob is indexed but not yet mirrored &mdash; retry
-     later. Two files in the archive are flagged <code>suspect</code>: they are upstream git
+     later. A <code>410</code> means the upstream LFS object disappeared before it could be
+     archived. Files flagged <code>suspect</code> are upstream git
      conflict debris rather than models, and they mirror faithfully while being unusable.</p>
   <p class="meta"><strong>Map files to compiler inputs by <code>role</code>, never by
      filename.</strong> Names changed across eras &mdash; commit <code>249cafe</code> renamed
@@ -407,7 +442,7 @@ python clients/reference.py --pull &lt;bundle_id&gt; --out selfdrive/modeld/mode
      constants is the most likely way to get a model that appears to work and steers wrong.</p>
   <p class="meta"><strong>When <code>host_constants_missing</code> is non-empty, that is real
      information, not a gap to paper over.</strong> Older eras predate these constants entirely
-     &mdash; 41 of the 142 driving bundles here have none. The registry reports them absent
+     in some historical eras. The registry reports them absent
      rather than defaulting them to zero, because a wrong smoothing constant changes steering
      silently. If you cannot determine a value, treat the model as unqualified.</p>
 </section>
@@ -420,17 +455,8 @@ python clients/reference.py --pull &lt;bundle_id&gt; --out selfdrive/modeld/mode
   <p class="meta"><strong>Upstream's compiler only accepts a vision + on-policy pair.</strong>
      <code>compile_modeld.py</code> requires <code>--vision-onnx</code> and
      <code>--on-policy-onnx</code>; there is no <code>--supercombo-onnx</code> and no off-policy
-     input. Of the 142 driving bundles here, <strong>66 are vision+on_policy and compile with
-     upstream today</strong>, while <strong>76 are combined supercombo</strong> and need a
-     multi-era compiler such as sunnypilot's.</p>
-  <p class="meta">In practice that split falls almost entirely along age. openpilot went
-     supercombo &rarr; split &rarr; supercombo, so the format is both its oldest and its newest:
-     <strong>75 of the 76 supercombo bundles are the legacy <code>supercombo.onnx</code>
-     (2020&ndash;2024)</strong>, and the remaining one is the June 2026
-     <code>driving_supercombo.onnx</code> from the combined-onnx change. <strong>Every driving
-     model from 2025 onward is vision+on_policy</strong> and builds with stock tooling &mdash;
-     the compiler gap is mostly historical archive, not models you would run. Check the
-     bundle's roles regardless.</p>
+     input. Combined supercombos need a multi-era compiler such as sunnypilot's. Check the
+     bundle's roles rather than relying on an era-wide count.</p>
   <p class="meta"><code>--frame-skip</code> is also required, and scons derives it from
      <em>your</em> <code>ModelConstants.MODEL_RUN_FREQ // MODEL_CONTEXT_FREQ</code> &mdash; it is
      a host property, not a model property. Provenance reports what the model ran with upstream,
@@ -448,13 +474,13 @@ python clients/reference.py --pull &lt;bundle_id&gt; --out selfdrive/modeld/mode
 </section>
 
 <section>
-  <h2>5. Default-deny what upstream withdrew</h2>
+  <h2>5. Make withdrawal status impossible to miss</h2>
   <p class="meta">Filter to <code>status=merged</code> unless a human explicitly opted in. A
      reverted model is one comma pulled back, and "merged" is not the same as "approved" &mdash;
      several models landed and were reverted days later. PR-only models never cleared review at
-     all. The reference client applies this by default; if you query directly, apply it
-     yourself.</p>
-  <pre>curl -s "https://openmodels.example/v1/models?status=merged&amp;kind=driving"</pre>
+     all. The reference client shows every status and offers <code>--merged-only</code> when a
+     product chooses to hide withdrawn entries.</p>
+  <pre>curl -s "$API/v1/models?status=merged&amp;kind=driving"</pre>
 </section>
 
 <section>
@@ -611,19 +637,27 @@ COMPOSE = """
 """
 
 
+def write_atomic(path: Path, content: str) -> None:
+  tmp = path.with_suffix(path.suffix + ".tmp")
+  tmp.write_text(content)
+  tmp.replace(path)
+
+
 def render(index_path: Path, out_dir: Path) -> int:
   index = json.loads(index_path.read_text())
   (out_dir / "models").mkdir(parents=True, exist_ok=True)
 
-  (out_dir / "index.html").write_text(render_browse(index))
-  (out_dir / "integrate.html").write_text(shell("Integrate — openmodels", INTEGRATE))
-  (out_dir / "compose.html").write_text(
-    shell("Compose — openmodels", COMPOSE + f"<script>{COMPOSE_JS}</script>"))
+  write_atomic(out_dir / "integrate.html", shell("Integrate — openmodels", INTEGRATE))
+  write_atomic(out_dir / "compose.html",
+               shell("Compose — openmodels", COMPOSE + f"<script>{COMPOSE_JS}</script>"))
   for bundle in index["bundles"]:
-    (out_dir / "models" / f"{bundle['bundle_id']}.html").write_text(render_detail(index, bundle))
+    write_atomic(out_dir / "models" / f"{bundle['bundle_id']}.html",
+                 render_detail(index, bundle))
 
-  # index.json alongside the HTML: this tree is the CDN fallback the clients read.
-  (out_dir / "index.json").write_text(json.dumps(index))
+  # Publish discovery surfaces last: every detail page they name already exists.
+  write_atomic(out_dir / "index.json", json.dumps(index))
+  write_atomic(out_dir / "index.html", render_browse(index))
+  write_atomic(out_dir / ".nojekyll", "")
   return len(index["bundles"]) + 2
 
 

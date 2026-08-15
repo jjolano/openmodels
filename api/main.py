@@ -26,8 +26,9 @@ DATA_DIR = Path(os.environ.get("OPENMODELS_DATA", "data"))
 INDEX_PATH = DATA_DIR / "index.json"
 BLOB_BACKEND = os.environ.get("BLOB_BACKEND", "github")
 # Fallback only; the index records the repo it was published to.
-RELEASE_REPO = os.environ.get("RELEASE_REPO", "OWNER/openmodels")
+RELEASE_REPO = os.environ.get("RELEASE_REPO", "jjolano/openmodels")
 RELOAD_SECONDS = int(os.environ.get("RELOAD_SECONDS", "60"))
+LOCAL_BLOB_DIR = Path(os.environ.get("LOCAL_BLOB_DIR", DATA_DIR / "public" / "blobs"))
 
 DISCLAIMER = (
   "Provenance only. This registry asserts blob identity and upstream history. It does not "
@@ -60,10 +61,9 @@ def load_index() -> dict[str, Any]:
   return _cache["index"]
 
 
-def bundle_status(bundle: dict[str, Any]) -> str:
-  """Worst-case-last status: what happened most recently to this file set."""
-  latest = max(bundle["occurrences"], key=lambda o: o["date"])
-  return latest["status"]
+def bundle_statuses(bundle: dict[str, Any]) -> list[str]:
+  """Occurrence statuses without inventing one status for a reused file set."""
+  return sorted({o["status"] for o in bundle["occurrences"]})
 
 
 @app.get("/v1/status")
@@ -76,6 +76,13 @@ def status() -> dict[str, Any]:
     "file_count": index["file_count"],
     "schema": index["schema"],
     "blob_backend": BLOB_BACKEND,
+    "mirrored_count": index.get("mirrored_count", 0),
+    "mirror_unavailable_count": len(index.get("mirror_unavailable", [])),
+    "mirror_failure_count": len(index.get("mirror_failures", [])),
+    "metadata_count": sum("metadata" in f for f in index["files"]),
+    "attested_pairing_count": len(index.get("attested_pairings", [])),
+    "archived_ref_count": sum(not b.get("upstream_reachable", True)
+                              for b in index["bundles"]),
     "disclaimer": DISCLAIMER,
   }
 
@@ -89,8 +96,8 @@ def list_models(
   status: str | None = Query(None, description="merged | reverted | pr_only"),
   in_head: bool | None = Query(None, description="present in upstream HEAD"),
   since: str | None = Query(None, description="ISO date; introduced on or after"),
-  limit: int = Query(200, le=1000),
-  offset: int = 0,
+  limit: int = Query(200, ge=1, le=1000),
+  offset: int = Query(0, ge=0),
 ) -> dict[str, Any]:
   bundles = load_index()["bundles"]
 
@@ -103,7 +110,7 @@ def list_models(
   if role:
     bundles = [b for b in bundles if any(f["role"] == role for f in b["files"])]
   if status:
-    bundles = [b for b in bundles if bundle_status(b) == status]
+    bundles = [b for b in bundles if status in bundle_statuses(b)]
   if in_head is not None:
     bundles = [b for b in bundles if b["in_head"] == in_head]
   if since:
@@ -129,8 +136,9 @@ def list_models(
         "kind": b["kind"],
         "family": b["family"],
         "variant": b["variant"],
-        "status": bundle_status(b),
+        "statuses": bundle_statuses(b),
         "in_head": b["in_head"],
+        "upstream_reachable": b.get("upstream_reachable", True),
         "introduced_by": b["introduced_by"],
         "roles": [f["role"] for f in b["files"]],
         "total_bytes": sum(f["size"] for f in b["files"]),
@@ -161,6 +169,8 @@ def get_provenance(bundle_id: str) -> dict[str, Any]:
   """
   bundle = _find(bundle_id)
   introduced = bundle["introduced_by"]
+  shipped = [o for o in bundle["occurrences"]
+             if o["status"] in ("merged", "reverted")]
   index = load_index()
   pairings = index.get("attested_pairings", [])
   files_by_oid = {f["oid"]: f for f in index["files"]}
@@ -177,8 +187,9 @@ def get_provenance(bundle_id: str) -> dict[str, Any]:
   return {
     "bundle_id": bundle["bundle_id"],
     "source": "upstream",
-    "attested": True,          # this exact file set ran at the commit below
-    "ran_in": f"commaai/openpilot@{introduced['commit']}",
+    "attested": bool(shipped),
+    "ran_in": (f"commaai/openpilot@{min(shipped, key=lambda o: o['date'])['commit']}"
+               if shipped else None),
     "lineage": lineage,
     "attested_partners": partners,
     "introduced_by": introduced,
@@ -280,12 +291,16 @@ def download_file(oid: str) -> RedirectResponse:
     raise HTTPException(404, f"no file {oid}")
 
   if BLOB_BACKEND == "local":
+    if not (LOCAL_BLOB_DIR / f"{oid}.onnx").is_file():
+      raise HTTPException(503, f"file {oid} is indexed but not present in the local mirror")
     return RedirectResponse(f"/blobs/{oid}.onnx", status_code=302)
 
   # Blobs are sharded across releases (1000 assets each), so the shard is data, not a formula.
   # Without one the blob simply isn't mirrored yet — say so rather than 302 to a 404.
   release = record.get("release")
   if not release:
+    if oid in index.get("mirror_unavailable", []):
+      raise HTTPException(410, f"file {oid} is no longer available from the upstream LFS store")
     raise HTTPException(
       503,
       f"file {oid} is indexed but not yet mirrored; retry once the publisher has run",

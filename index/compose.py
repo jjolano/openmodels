@@ -39,6 +39,12 @@ def bundle_id(members: list[dict[str, Any]]) -> str:
   return hashlib.sha256(json.dumps(key).encode()).hexdigest()[:16]
 
 
+def shipped_upstream(bundle: dict[str, Any]) -> bool:
+  """Whether this exact file set ever landed upstream, including one later reverted."""
+  return any(o.get("status") in ("merged", "reverted")
+             for o in bundle.get("occurrences", ()))
+
+
 def attested_pairings(bundles: list[dict[str, Any]],
                       files_by_oid: dict[str, dict[str, Any]]) -> list[list[str]]:
   """Every (vision_ckpt, policy_ckpt) pair upstream actually shipped.
@@ -50,15 +56,17 @@ def attested_pairings(bundles: list[dict[str, Any]],
   pairs: set[tuple[str, str]] = set()
 
   for bundle in bundles:
+    if not shipped_upstream(bundle):
+      continue
     ckpts: dict[str, str] = {}
     for member in bundle.get("files", []):
       record = files_by_oid.get(member["oid"], {})
       lineage = (record.get("metadata") or {}).get("lineage")
       if not lineage:
         continue
-      if lineage.get("fused"):
+      if member.get("role") == "supercombo" and lineage.get("fused"):
         pairs.add((lineage["vision"], lineage["policy"]))
-      elif "self" in lineage:
+      elif member.get("role") in ("vision", "on_policy", "off_policy") and "self" in lineage:
         ckpts[member["role"]] = lineage["self"]
 
     vision = ckpts.get("vision")
@@ -119,20 +127,27 @@ def compose(selection: dict[str, str], files_by_oid: dict[str, dict[str, Any]],
   if not selection:
     raise ComposeError("no files selected")
 
+  # Deferred import: indexer imports us to derive attested pairings.
+  from index.indexer import classify
+
   members: list[dict[str, Any]] = []
   for role, oid in sorted(selection.items()):
     record = files_by_oid.get(oid)
     if record is None:
       raise ComposeError(f"unknown oid for role {role!r}: {oid}")
-    filename = record["filenames"][0] if record.get("filenames") else f"{role}.onnx"
+    filenames = [name for name in record.get("filenames", ())
+                 if (spec := classify(name)) and spec[2] == role]
+    if not filenames:
+      raise ComposeError(f"file {oid} was never recorded with role {role!r}")
+    filename = filenames[0]
     members.append({"role": role, "filename": filename, "oid": oid,
-                    "size": record["size"], "metadata": record.get("metadata") or {}})
+                    "size": record["size"], "metadata": record.get("metadata") or {},
+                    "host_contexts": record.get("host_contexts") or []})
 
   # Hardware target and model kind are properties of the *filename*, not of the role: the indexer
   # reads big_driving_vision.onnx as ("driving", "big", "vision"). A big_ half is a USBGPU/AMD
   # artifact and a standard one is QCOM, so a bundle that mixes them cannot run anywhere — the
-  # same reason the indexer never groups them together. Deferred import: indexer imports us.
-  from index.indexer import classify
+  # same reason the indexer never groups them together.
   specs = [s for s in (classify(m["filename"]) for m in members) if s]
   kinds = {s[0] for s in specs}
   variants = {s[1] for s in specs}
@@ -214,8 +229,45 @@ def compose(selection: dict[str, str], files_by_oid: dict[str, dict[str, Any]],
   ) if (policies and vision is not None) else False
 
   # Constants stay per-half: they came from different commits, and silently merging them would
-  # invent a configuration nobody ran.
-  constants = {m["role"]: (m["metadata"].get("host_constants") or {}) for m in members}
+  # invent a configuration nobody ran. A reused oid may have multiple real upstream contexts;
+  # select constants only when every context for this role agrees.
+  constants: dict[str, dict[str, Any]] = {}
+  missing: dict[str, list[str]] = {}
+  frame_skips: dict[str, int | None] = {}
+  contexts_by_role: dict[str, list[dict[str, Any]]] = {}
+  for member in members:
+    role = member["role"]
+    contexts = [c for c in member["host_contexts"] if c.get("role") == role]
+    contexts_by_role[role] = contexts
+    configurations = {
+      json.dumps({"values": c.get("host_constants", {}),
+                  "missing": c.get("host_constants_missing", []),
+                  "frame_skip": c.get("frame_skip")}, sort_keys=True)
+      for c in contexts
+    }
+    if len(configurations) == 1:
+      configuration = json.loads(next(iter(configurations)))
+      constants[role] = configuration["values"]
+      missing[role] = configuration["missing"]
+      frame_skips[role] = configuration["frame_skip"]
+      if configuration["missing"]:
+        cautions.append(
+          f"{role} host constants were not recorded upstream: "
+          f"{', '.join(configuration['missing'])}. They are absent, not zero."
+        )
+    elif len(configurations) > 1:
+      constants[role] = {}
+      missing[role] = []
+      frame_skips[role] = None
+      cautions.append(
+        f"{role} weights appeared with multiple host configurations; none was selected. "
+        "Inspect host_contexts_by_role and choose deliberately."
+      )
+    else:
+      constants[role] = {}
+      missing[role] = []
+      frame_skips[role] = None
+      cautions.append(f"{role} has no recorded host-constant context")
 
   return {
     "bundle_id": bundle_id(members),
@@ -225,6 +277,9 @@ def compose(selection: dict[str, str], files_by_oid: dict[str, dict[str, Any]],
     "checks": checks,
     "cautions": cautions,
     "host_constants_by_role": constants,
+    "host_constants_missing_by_role": missing,
+    "frame_skip_by_role": frame_skips,
+    "host_contexts_by_role": contexts_by_role,
     "verify": "sha256 of each downloaded file MUST equal its oid; refuse the blob otherwise",
     "disclaimer": (
       "Composed from indexed halves. This exact combination has never run upstream and is not "
