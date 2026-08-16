@@ -52,9 +52,9 @@ def test_browse_and_client_list_newest_first():
 
 def test_compose_page_supports_three_halves():
   """The compose page can mint the 3-file shape upstream actually ships: vision + on + off policy."""
-  assert 'id="psel2"' in render.COMPOSE
+  assert 'id="p2grid"' in render.COMPOSE
   assert 'id="manifest"' in render.COMPOSE
-  assert "at least one policy half" in render.COMPOSE
+  assert "Pick a vision half and an on-policy half." in render.COMPOSE
   # The off-policy role travels with the option, so a 3-file selection names what the user picked.
   assert "off_policy" in render.COMPOSE_JS
 
@@ -67,10 +67,19 @@ def test_compose_page_is_filterable_and_guided():
   assert "attestedBundle" in render.COMPOSE_JS
 
 
-def test_compose_js_refuses_mixed_hardware_and_same_role_pairs():
-  """Both failure modes must be visible in the page before a code is minted."""
+def test_compose_page_is_role_based():
+  """Three role-fixed grids: vision and on-policy required, off-policy optional."""
+  assert "vision <span class=\"sub\">required</span>" in render.COMPOSE
+  assert "on-policy <span class=\"sub\">required</span>" in render.COMPOSE
+  assert "off-policy <span class=\"sub\">optional</span>" in render.COMPOSE
+  # Cards carry the same status badges as the browse page, from the newest bundle per oid.
+  assert "STATUS" in render.COMPOSE_JS
+  assert "in HEAD" in render.COMPOSE_JS
+
+
+def test_compose_js_refuses_mixed_hardware():
+  """Mixing big_ (USBGPU/AMD) and standard (QCOM) halves must be visible before a code is minted."""
   assert "disagree on hardware target" in render.COMPOSE_JS
-  assert "Both policies are" in render.COMPOSE_JS
   # Names come from the newest bundle shipping each oid (PR title or training-run reference).
   assert "Training run" in render.COMPOSE_JS
 
@@ -81,5 +90,6 @@ if __name__ == "__main__":
   test_browse_and_client_list_newest_first()
   test_compose_page_supports_three_halves()
   test_compose_page_is_filterable_and_guided()
-  test_compose_js_refuses_mixed_hardware_and_same_role_pairs()
+  test_compose_page_is_role_based()
+  test_compose_js_refuses_mixed_hardware()
   print("web/render checks passed")
