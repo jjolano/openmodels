@@ -57,6 +57,11 @@ nav.top{margin-top:14px;display:flex;gap:16px;flex-wrap:wrap;font-size:14px}
 .controls input{flex:1;min-width:220px}
 .pick{display:flex;flex-direction:column;gap:6px;flex:1;min-width:240px}
 .pick input{font-size:13px;padding:6px 10px}
+.pick .grid{grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
+.card{cursor:pointer}
+.card .name{font-size:14px;font-weight:600;line-height:1.35;letter-spacing:-.01em}
+.card.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.badge.ok{color:var(--accent);border-color:currentColor}
 .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
   padding:15px 17px;display:flex;flex-direction:column;gap:9px}
@@ -615,30 +620,34 @@ COMPOSE_JS = """
     return !!(vc&&pc) && (D.attested_pairings||[]).some(function(pr){
       return pr[0]===vc && pr[1]===pc; });
   }
-  // Fill a select. variant/attest constrain the options; each select is role-fixed, so the
-  // role never has to be detected from the pick. Attested options sort first and carry a check.
+  function esc(s){
+    return String(s).replace(/[&<>"]/g, function(ch){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]; });
+  }
+  // Selection state: one card per role, mirroring the shape the code will mint.
+  var SEL={vision:null, on_policy:null, off_policy:null};
+  // Per-file status and HEAD flag come from the newest bundle shipping each oid -- the same
+  // bundle that names it. Mirrors statuses() on the browse page: every occurrence status shows.
+  var STATUS={}, IN_HEAD={};
   var FILTERS={};
   function applyFilter(id){
     var t=(FILTERS[id]||"").toLowerCase(), el=document.getElementById(id);
-    Array.prototype.forEach.call(el.options, function(o){
-      if(!o.value) return;
-      o.hidden = o.textContent.toLowerCase().indexOf(t)<0;
+    Array.prototype.forEach.call(el.children, function(c){
+      c.hidden = c.dataset.search.indexOf(t)<0;
     });
   }
-  // With the checkbox on, policy options that were never attested with the picked vision hide.
+  // With the checkbox on, policy cards never attested with the picked vision hide.
   function applyAttestedFilter(){
     if(!document.getElementById("attestedOnly").checked) return;
-    var v=document.getElementById("vsel").value;
-    var vc=v?ck(byOid[v]):null;
-    ["psel","psel2"].forEach(function(id){
+    var vc=SEL.vision?ck(byOid[SEL.vision]):null;
+    ["pgrid","p2grid"].forEach(function(id){
       var el=document.getElementById(id);
-      Array.prototype.forEach.call(el.options, function(o){
-        if(!o.value) return;
-        o.hidden = !(vc&&attested(vc,ck(byOid[o.value])));
+      Array.prototype.forEach.call(el.children, function(c){
+        c.hidden = !(vc&&attested(vc,ck(byOid[c.dataset.oid])));
       });
     });
   }
-  function fill(id, role, variant, vc){
+  function renderCards(id, role, variant, vc){
     var el=document.getElementById(id); el.innerHTML="";
     options(role).filter(function(f){
       if(variant && variantOf(f)!==variant) return false;
@@ -648,15 +657,36 @@ COMPOSE_JS = """
       if(vc){ var aa=attested(vc,ck(a))?1:0, ab=attested(vc,ck(b))?1:0; if(aa!==ab) return ab-aa; }
       return da<db?1:da>db?-1:0; })
     .forEach(function(f){
-      var o=document.createElement("option");
-      o.value=f.oid;
-      var mark = vc&&attested(vc,ck(f)) ? "\\u2713 attested  " : "";
-      o.textContent=mark+nameOf(f)+"  "+f.filenames[0]+"  "+
-                    (dateOf(f).slice(0,10)||"undated")+"  "+Math.round(f.size/1048576)+" MB";
-      el.appendChild(o);
+      var c=document.createElement("div");
+      c.className="card"+(SEL[role]===f.oid?" sel":"");
+      c.dataset.oid=f.oid;
+      c.dataset.search=(nameOf(f)+" "+f.filenames.join(" ")+" "+dateOf(f)).toLowerCase();
+      var badges="";
+      (STATUS[f.oid]||[]).forEach(function(s){
+        badges+="<span class='badge "+s+"'>"+s.replace("_"," ")+"</span>"; });
+      if(IN_HEAD[f.oid]) badges+="<span class='badge head'>in HEAD</span>";
+      badges+="<span class='badge'>"+variantOf(f)+"</span>";
+      if(vc&&attested(vc,ck(f))) badges+="<span class='badge ok'>attested</span>";
+      c.innerHTML="<div class='name'>"+esc(nameOf(f))+"</div>"+
+        "<div class='feat'>"+esc(f.filenames[0])+"</div>"+
+        "<div class='meta'><span>"+(dateOf(f).slice(0,10)||"undated")+"</span>"+
+        "<span>"+Math.round(f.size/1048576)+" MB</span></div>"+
+        "<div class='badges'>"+badges+"</div>";
+      c.addEventListener("click", function(){
+        SEL[role] = SEL[role]===f.oid ? null : f.oid;
+        renderAll(); update();
+      });
+      el.appendChild(c);
     });
     if(FILTERS[id]) applyFilter(id);
     if(role!=="vision") applyAttestedFilter();
+  }
+  function renderAll(){
+    var v=SEL.vision;
+    var vv=v?variantOf(byOid[v]):null, vc=v?ck(byOid[v]):null;
+    renderCards("vgrid","vision",null,null);
+    renderCards("pgrid","on_policy",vv,vc);
+    renderCards("p2grid","off_policy",vv,vc);
   }
   // A bundle is a quick pick when every vision/policy pair in it is attested: it is a
   // combination comma actually shipped, so it is the honest starting point for composing.
@@ -669,23 +699,14 @@ COMPOSE_JS = """
     return !!(vc&&pols.length) && pols.every(function(pc){ return attested(vc,pc); });
   }
   function selectQuick(b){
-    var byRole={}; b.files.forEach(function(m){ byRole[m.role]=m.oid; });
-    var vsel=document.getElementById("vsel"), psel=document.getElementById("psel"),
-        psel2=document.getElementById("psel2");
-    vsel.value=byRole.vision||"";
-    var vv=vsel.value?variantOf(byOid[vsel.value]):null, vc=vsel.value?ck(byOid[vsel.value]):null;
-    fill("psel","on_policy",vv,vc);
-    psel.value=byRole.on_policy||"";
-    fill("psel2","off_policy",vv,vc);
-    psel2.value=byRole.off_policy||"";
-    update();
+    SEL={vision:null, on_policy:null, off_policy:null};
+    b.files.forEach(function(m){ SEL[m.role]=m.oid; });
+    renderAll(); update();
   }
   async function update(){
-    var vsel=document.getElementById("vsel"), psel=document.getElementById("psel"),
-        psel2=document.getElementById("psel2");
     var out=document.getElementById("out"), note=document.getElementById("note"),
         man=document.getElementById("manifest");
-    var v=vsel.value, p=psel.value, p2=psel2.value;
+    var v=SEL.vision, p=SEL.on_policy, p2=SEL.off_policy;
     if(!v||!p){ out.textContent="Pick a vision half and an on-policy half.";
       note.textContent=""; man.innerHTML=""; return; }
     var vf=byOid[v], pf=byOid[p];
@@ -717,8 +738,8 @@ COMPOSE_JS = """
     var rows="";
     Object.keys(sel).forEach(function(r){
       var f=byOid[sel[r]], s=seam(f);
-      rows+="<tr><td>"+r+"</td><td class='mono'>"+f.filenames[0]+"</td><td>"+
-            Math.round(f.size/1048576)+" MB</td><td class='mono'>"+(ck(f)||"\\u2014")+
+      rows+="<tr><td>"+r+"</td><td class='mono'>"+esc(f.filenames[0])+"</td><td>"+
+            Math.round(f.size/1048576)+" MB</td><td class='mono'>"+esc(ck(f)||"\\u2014")+
             "</td><td>"+(s?s:"\\u2014")+"</td></tr>";
     });
     man.innerHTML="<table><thead><tr><th>role</th><th>file</th><th>size</th>"+
@@ -731,13 +752,16 @@ COMPOSE_JS = """
     (D.bundles||[]).forEach(function(b){
       var dt=(b.introduced_by||{}).date||"";
       (b.files||[]).forEach(function(m){
-        if(dt>(NEWEST[m.oid]||"")){ NEWEST[m.oid]=dt; NAME[m.oid]=prettyName(b.name||""); }
+        if(dt>(NEWEST[m.oid]||"")){
+          NEWEST[m.oid]=dt; NAME[m.oid]=prettyName(b.name||"");
+          STATUS[m.oid]=(b.occurrences||[]).map(function(o){return o.status;})
+            .filter(function(s,i,a){return a.indexOf(s)===i;}).sort();
+          IN_HEAD[m.oid]=!!b.in_head;
+        }
       });
     });
     (D.files||[]).forEach(function(f){ byOid[f.oid]=f; });
-    fill("vsel","vision");
-    fill("psel","on_policy");
-    fill("psel2","off_policy");
+    renderAll();
     // Guided entry: the newest attested bundles, one click fills all three halves.
     var quick=(D.bundles||[]).slice().sort(function(a,b){
       return (a.introduced_by||{}).date<(b.introduced_by||{}).date?1:-1; })
@@ -750,21 +774,12 @@ COMPOSE_JS = """
       btn.addEventListener("click", function(){ selectQuick(b); });
       qel.appendChild(btn);
     });
-    [["vfilter","vsel"],["pfilter","psel"],["p2filter","psel2"]].forEach(function(pair){
+    [["vfilter","vgrid"],["pfilter","pgrid"],["p2filter","p2grid"]].forEach(function(pair){
       document.getElementById(pair[0]).addEventListener("input", function(){
         FILTERS[pair[1]]=this.value; applyFilter(pair[1]);
       });
     });
     document.getElementById("attestedOnly").addEventListener("change", applyAttestedFilter);
-    document.getElementById("vsel").addEventListener("change", function(){
-      var v=document.getElementById("vsel").value;
-      var vv=v?variantOf(byOid[v]):null, vc=v?ck(byOid[v]):null;
-      fill("psel","on_policy",vv,vc);
-      fill("psel2","off_policy",vv,vc);
-      update();
-    });
-    document.getElementById("psel").addEventListener("change", update);
-    document.getElementById("psel2").addEventListener("change", update);
     update();
   }).catch(function(e){
     document.getElementById("out").textContent="could not load catalog: "+e;
@@ -790,22 +805,22 @@ COMPOSE = """
   <div id="quick" class="controls" aria-label="attested quick picks"></div>
   <div class="controls">
     <div class="pick">
+      <p class="meta">vision <span class="sub">required</span></p>
       <input id="vfilter" type="search" placeholder="filter vision halves\u2026"
              aria-label="Filter vision halves">
-      <select id="vsel" aria-label="vision half (required)">
-        <option value="">vision half (required)\u2026</option></select>
+      <div id="vgrid" class="grid" aria-label="vision halves"></div>
     </div>
     <div class="pick">
+      <p class="meta">on-policy <span class="sub">required</span></p>
       <input id="pfilter" type="search" placeholder="filter on-policy halves\u2026"
              aria-label="Filter on-policy halves">
-      <select id="psel" aria-label="on-policy half (required)">
-        <option value="">on-policy half (required)\u2026</option></select>
+      <div id="pgrid" class="grid" aria-label="on-policy halves"></div>
     </div>
     <div class="pick">
+      <p class="meta">off-policy <span class="sub">optional</span></p>
       <input id="p2filter" type="search" placeholder="filter off-policy halves\u2026"
              aria-label="Filter off-policy halves">
-      <select id="psel2" aria-label="off-policy half (optional)">
-        <option value="">off-policy half (optional)\u2026</option></select>
+      <div id="p2grid" class="grid" aria-label="off-policy halves"></div>
     </div>
   </div>
   <label class="meta"><input id="attestedOnly" type="checkbox">

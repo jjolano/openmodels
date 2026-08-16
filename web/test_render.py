@@ -52,7 +52,7 @@ def test_browse_and_client_list_newest_first():
 
 def test_compose_page_supports_three_halves():
   """The compose page can mint the 3-file shape upstream actually ships: vision + on + off policy."""
-  assert 'id="psel2"' in render.COMPOSE
+  assert 'id="p2grid"' in render.COMPOSE
   assert 'id="manifest"' in render.COMPOSE
   assert "Pick a vision half and an on-policy half." in render.COMPOSE
   # The off-policy role travels with the option, so a 3-file selection names what the user picked.
@@ -68,13 +68,13 @@ def test_compose_page_is_filterable_and_guided():
 
 
 def test_compose_page_is_role_based():
-  """Three role-fixed slots: vision and on-policy required, off-policy optional."""
-  assert "vision half (required)" in render.COMPOSE
-  assert "on-policy half (required)" in render.COMPOSE
-  assert "off-policy half (optional)" in render.COMPOSE
-  # Each select is role-fixed, so no role detection or same-role guard is needed.
-  assert "skipRole" not in render.COMPOSE_JS
-  assert "Both policies are" not in render.COMPOSE_JS
+  """Three role-fixed grids: vision and on-policy required, off-policy optional."""
+  assert "vision <span class=\"sub\">required</span>" in render.COMPOSE
+  assert "on-policy <span class=\"sub\">required</span>" in render.COMPOSE
+  assert "off-policy <span class=\"sub\">optional</span>" in render.COMPOSE
+  # Cards carry the same status badges as the browse page, from the newest bundle per oid.
+  assert "STATUS" in render.COMPOSE_JS
+  assert "in HEAD" in render.COMPOSE_JS
 
 
 def test_compose_js_refuses_mixed_hardware():
