@@ -152,18 +152,18 @@ def compose(selection: dict[str, str], files_by_oid: dict[str, dict[str, Any]],
   kinds = {s[0] for s in specs}
   variants = {s[1] for s in specs}
   if len(variants) > 1:
-    raise ComposeError("cannot combine big_ (USBGPU/AMD) and standard (QCOM) halves: they target "
+    raise ComposeError("cannot combine big_ (USBGPU/AMD) and standard (QCOM) components: they target "
                        "different hardware and are different architectures")
   if len(kinds) > 1:
     raise ComposeError(f"cannot combine {sorted(kinds)} models in one bundle")
 
   roles = {m["role"] for m in members}
   if "supercombo" in roles and len(roles) > 1:
-    raise ComposeError("a supercombo is self-contained and cannot be combined with other halves")
+    raise ComposeError("a supercombo is self-contained and cannot be combined with other components")
   if "supercombo" not in roles and "vision" not in roles:
-    raise ComposeError(f"a composed driving model needs a vision half; got {sorted(roles)}")
+    raise ComposeError(f"a composed driving model needs a vision component; got {sorted(roles)}")
   if "supercombo" not in roles and not ({"on_policy", "off_policy"} & roles):
-    raise ComposeError(f"a composed driving model needs a policy half; got {sorted(roles)}")
+    raise ComposeError(f"a composed driving model needs a policy component; got {sorted(roles)}")
 
   checks: dict[str, Any] = {}
   cautions: list[str] = []
@@ -214,7 +214,7 @@ def compose(selection: dict[str, str], files_by_oid: dict[str, dict[str, Any]],
       lineage[policy["role"]] = p_ckpt
       if not v_ckpt or not p_ckpt:
         cautions.append(
-          f"lineage unknown for vision or {policy['role']}; cannot tell whether these halves "
+          f"lineage unknown for vision or {policy['role']}; cannot tell whether these components "
           f"were built for each other"
         )
       elif (v_ckpt, p_ckpt) not in known:
@@ -283,7 +283,7 @@ def compose(selection: dict[str, str], files_by_oid: dict[str, dict[str, Any]],
     "host_contexts_by_role": contexts_by_role,
     "verify": "sha256 of each downloaded file MUST equal its oid; refuse the blob otherwise",
     "disclaimer": (
-      "Composed from indexed halves. This exact combination has never run upstream and is not "
+      "Composed from indexed components. This exact combination has never run upstream and is not "
       "attested by anyone. Structural checks passing does not mean it drives correctly."
     ),
   }

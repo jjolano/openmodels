@@ -360,15 +360,15 @@ def render_detail(index: dict[str, Any], bundle: dict[str, Any]) -> str:
   if lineage_rows:
     lineage_html = f"""
 <section>
-  <h2>Lineage<span class="sub">which training runs produced these halves</span></h2>
+  <h2>Lineage<span class="sub">which training runs produced these components</span></h2>
   <p class="meta">comma records the training checkpoint in each model, and a fused supercombo
     names both of its halves. That makes "these were built for each other" a fact rather than a
-    guess &mdash; and it is the only sound basis for combining halves, because the latent between
+    guess &mdash; and it is the only sound basis for combining components, because the latent between
     vision and policy is untyped and will accept anything of the right width.</p>
   <div class="scroll"><table>
     <tr><th>role</th><th>checkpoint</th><th>attested partners</th></tr>{''.join(lineage_rows)}
   </table></div>
-  <p class="meta">Combine halves with <code>POST /v1/compose</code>. A pairing without recorded
+  <p class="meta">Combine components with <code>POST /v1/compose</code>. A pairing without recorded
     attestation is returned with a cross-lineage caution: it will load and run either way.</p>
 </section>"""
 
@@ -456,7 +456,7 @@ python clients/reference.py --pull &lt;bundle_id&gt; --out selfdrive/modeld/mode
 <section>
   <h2>2. Download every file in the bundle, and verify each one</h2>
   <p class="meta"><strong>A bundle is usually more than one file.</strong> A split model needs its
-     vision <em>and</em> policy halves together &mdash; vision alone has no
+     vision <em>and</em> policy components together &mdash; vision alone has no
      <code>plan</code>, <code>lead</code>, or <code>lane_lines</code> and cannot drive. Keep the
      filenames from <code>/provenance</code>; the build looks them up by name.</p>
   <p class="meta">The oid is the sha256. Refuse any blob that does not match &mdash; that check is
@@ -704,13 +704,13 @@ COMPOSE_JS = """
     var out=document.getElementById("out"), note=document.getElementById("note"),
         man=document.getElementById("manifest");
     var v=SEL.vision, p=SEL.on_policy, p2=SEL.off_policy;
-    if(!v||!p){ out.textContent="Pick a vision half and an on-policy half.";
+    if(!v||!p){ out.textContent="Pick a vision component and an on-policy component.";
       note.textContent=""; man.innerHTML=""; return; }
     var vf=byOid[v], pf=byOid[p];
     if(variantOf(vf)!==variantOf(pf)||(p2&&variantOf(byOid[p2])!==variantOf(vf))){
       out.textContent=""; man.innerHTML="";
       note.className="note warn";
-      note.innerHTML="<strong>Halves disagree on hardware target.</strong> "+variantOf(vf)+
+      note.innerHTML="<strong>Components disagree on hardware target.</strong> "+variantOf(vf)+
         " and "+variantOf(pf)+" run on different devices (QCOM vs USBGPU/AMD) \\u2014 compose refuses this combination.";
       return;
     }
@@ -721,15 +721,15 @@ COMPOSE_JS = """
     var a1=attested(vc,pc1), a2=p2?attested(vc,pc2):null;
     note.className = unknown||(!p2&&!a1)||(p2&&!(a1&&a2)) ? "note warn" : "note ok";
     if(unknown)
-      note.innerHTML="<strong>Lineage unknown</strong> for one half \\u2014 whether these were built for each other cannot be determined.";
+      note.innerHTML="<strong>Lineage unknown</strong> for one component \\u2014 whether these were built for each other cannot be determined.";
     else if(p2&&a1&&a2)
-      note.innerHTML="<strong>Attested pairing.</strong> All three halves shipped together upstream.";
+      note.innerHTML="<strong>Attested pairing.</strong> All three components shipped together upstream.";
     else if(p2&&a1)
-      note.innerHTML="<strong>on-policy attested</strong> with this vision; the off-policy half is <strong>cross-lineage</strong>.";
+      note.innerHTML="<strong>on-policy attested</strong> with this vision; the off-policy component is <strong>cross-lineage</strong>.";
     else if(p2&&a2)
-      note.innerHTML="<strong>off-policy attested</strong> with this vision; the on-policy half is <strong>cross-lineage</strong>.";
+      note.innerHTML="<strong>off-policy attested</strong> with this vision; the on-policy component is <strong>cross-lineage</strong>.";
     else if(!p2&&a1)
-      note.innerHTML="<strong>Attested pairing.</strong> These halves shipped together upstream.";
+      note.innerHTML="<strong>Attested pairing.</strong> These components shipped together upstream.";
     else
       note.innerHTML="<strong>Cross-lineage.</strong> No shipped pairing is recorded in this catalog. The latent between them is untyped, so this will load and run regardless of whether the numbers mean the same thing.";
     var rows="";
@@ -778,7 +778,7 @@ COMPOSE_JS = """
         return "<span class='badge "+s+"'>"+s.replace("_"," ")+"</span>"; }).join("");
       if(b.in_head) badges+="<span class='badge head'>in HEAD</span>";
       if(b.files.some(function(m){return m.role==="off_policy";}))
-        badges+="<span class='badge'>3 halves</span>";
+        badges+="<span class='badge'>3 components</span>";
       row.innerHTML="<span class='name'>"+esc(nm)+"</span>"+
         "<span class='meta'>"+(b.introduced_by||{}).date.slice(0,10)+"</span>"+
         "<span class='badges'>"+badges+"</span>";
@@ -811,37 +811,37 @@ COMPOSE_JS = """
 
 COMPOSE = """
 <h1 class="title">Compose a model</h1>
-<p class="note">Combine a vision half with an on-policy half &mdash; and optionally an off-policy
-   half alongside it &mdash; and get a code you can paste into a model picker. The on-policy half
-   carries the control outputs and is what compiles on device; the off-policy half carries the
-   full plan and is the optional extra comma trains alongside it. But <strong>the exact
-   combination you build here has never been driven</strong>.</p>
+<p class="note">Combine a vision component with an on-policy component &mdash; and optionally an
+   off-policy component alongside it &mdash; and get a code you can paste into a model picker. The
+   on-policy component carries the control outputs and is what compiles on device; the off-policy
+   component carries the full plan and is the optional extra comma trains alongside it. But
+   <strong>the exact combination you build here has never been driven</strong>.</p>
 
 <section>
-  <h2>Pick the halves</h2>
+  <h2>Pick the components</h2>
   <p class="meta">Every shipped combination is a preset &mdash; merged or PR-only. Pick one to
-     fill the halves exactly as it shipped upstream:</p>
+     fill the components exactly as it shipped upstream:</p>
   <input id="presetFilter" type="search" placeholder="filter presets\u2026"
          aria-label="Filter presets">
   <div id="presets" class="presets" aria-label="compose presets"></div>
   <div class="controls">
     <div class="pick">
       <p class="meta">vision <span class="sub">required</span></p>
-      <input id="vfilter" type="search" placeholder="filter vision halves\u2026"
-             aria-label="Filter vision halves">
-      <div id="vgrid" class="grid" aria-label="vision halves"></div>
+      <input id="vfilter" type="search" placeholder="filter vision components\u2026"
+             aria-label="Filter vision components">
+      <div id="vgrid" class="grid" aria-label="vision components"></div>
     </div>
     <div class="pick">
       <p class="meta">on-policy <span class="sub">required</span></p>
-      <input id="pfilter" type="search" placeholder="filter on-policy halves\u2026"
-             aria-label="Filter on-policy halves">
-      <div id="pgrid" class="grid" aria-label="on-policy halves"></div>
+      <input id="pfilter" type="search" placeholder="filter on-policy components\u2026"
+             aria-label="Filter on-policy components">
+      <div id="pgrid" class="grid" aria-label="on-policy components"></div>
     </div>
     <div class="pick">
       <p class="meta">off-policy <span class="sub">optional</span></p>
-      <input id="p2filter" type="search" placeholder="filter off-policy halves\u2026"
-             aria-label="Filter off-policy halves">
-      <div id="p2grid" class="grid" aria-label="off-policy halves"></div>
+      <input id="p2filter" type="search" placeholder="filter off-policy components\u2026"
+             aria-label="Filter off-policy components">
+      <div id="p2grid" class="grid" aria-label="off-policy components"></div>
     </div>
   </div>
   <label class="meta"><input id="attestedOnly" type="checkbox">
@@ -852,7 +852,7 @@ COMPOSE = """
 <section class="required">
   <h2>Your code<span class="sub">paste this into a picker</span></h2>
   <div id="manifest" class="scroll"></div>
-  <pre id="out">Pick a vision half and an on-policy half.</pre>
+  <pre id="out">Pick a vision component and an on-policy component.</pre>
   <button id="copy" class="controls">Copy</button>
   <p class="meta">14 characters &mdash; the <code>OM3-</code> prefix is for recognition and does
      not need typing. The code carries which files you picked, not a promise about them. Redeeming it
@@ -863,7 +863,7 @@ COMPOSE = """
 
 <section>
   <h2>Before you drive it</h2>
-  <p class="meta">Structural checks passing is not a safety result. The halves may carry
+  <p class="meta">Structural checks passing is not a safety result. The components may carry
      different host constants, since they came from different commits &mdash; redeem the code to
      see both and choose deliberately. Then compile on-device and qualify it yourself.</p>
 </section>

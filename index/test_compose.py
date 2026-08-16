@@ -149,8 +149,8 @@ def test_policies_disagreeing_on_depth_are_flagged():
 
 def test_role_set_must_be_runnable():
   for selection, expect in [
-    ({"on_policy": "pol1"}, "vision half"),
-    ({"vision": "vis1"}, "policy half"),
+    ({"on_policy": "pol1"}, "vision component"),
+    ({"vision": "vis1"}, "policy component"),
     ({"vision": "vis1", "supercombo": "sc"}, "self-contained"),
     ({}, "no files"),
   ]:

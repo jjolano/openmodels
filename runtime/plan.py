@@ -141,7 +141,7 @@ def check_compatibility(bundle: dict[str, Any], caps: Capabilities,
                     f"you must determine them yourself")
   recorded, disagreeing_skips = _recorded_frame_skip(bundle)
   if disagreeing_skips:
-    cautions.append(f"halves record different frame_skip values {disagreeing_skips}; "
+    cautions.append(f"components record different frame_skip values {disagreeing_skips}; "
                     "use the host build's value and investigate before driving")
   if caps.frame_skip is not None and recorded is not None and caps.frame_skip != recorded:
     cautions.append(f"ran upstream with frame_skip={recorded}, your build uses {caps.frame_skip}")
@@ -270,7 +270,7 @@ def plan_bundle(bundle: dict[str, Any], files: dict[str, Path],
 
   recorded, disagreeing_skips = _recorded_frame_skip(bundle)
   if disagreeing_skips:
-    warnings.append(f"halves record different frame_skip values {disagreeing_skips}; "
+    warnings.append(f"components record different frame_skip values {disagreeing_skips}; "
                     "use the host build's value and investigate before driving")
   frame_skip = host_frame_skip if host_frame_skip is not None else recorded
   if host_frame_skip is not None and recorded is not None and host_frame_skip != recorded:
@@ -286,7 +286,7 @@ def plan_bundle(bundle: dict[str, Any], files: dict[str, Path],
   # A composed bundle never ran anywhere; that outranks every other warning here.
   if bundle.get("source") == "composed" or bundle.get("attested") is False:
     warnings.append(
-      "UNATTESTED: this combination was composed from separately indexed halves and has never "
+      "UNATTESTED: this combination was composed from separately indexed components and has never "
       "run upstream. Structural checks passing does not mean it drives correctly."
     )
     warnings.extend(bundle.get("cautions", []))
@@ -299,7 +299,7 @@ def plan_bundle(bundle: dict[str, Any], files: dict[str, Path],
     seen = {tuple(sorted(r.items())) for r in by_role.values()}
     if len(seen) > 1:
       warnings.append(
-        f"halves carry different host constants {by_role}; choose deliberately -- merging them "
+        f"components carry different host constants {by_role}; choose deliberately -- merging them "
         f"would invent a configuration nobody ran"
       )
     elif seen and next(iter(seen)):
