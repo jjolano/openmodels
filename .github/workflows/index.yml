@@ -149,7 +149,22 @@ jobs:
                               "--notes-file", "THIRD_PARTY_NOTICES.md"], check=True)
           PY
 
+      - uses: pnpm/action-setup@a7487c7e89a18df4991b71d9e58ed52044af75a016 # v4.1.0
+        with:
+          version: 9
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7b20b55c # v6.1.0
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - name: Build frontend (Appica islands)
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
       # After publishing, so the rendered pages and the mirrored index.json carry release tags.
+      # Runs AFTER frontend build so _vite_tags() resolves hashed /assets/* via manifest.
       - name: Render site
         run: python web/render.py --index data/index.json --out data/public
 
