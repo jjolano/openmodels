@@ -55,19 +55,20 @@ nav.top{margin-top:14px;display:flex;gap:16px;flex-wrap:wrap;font-size:14px}
 .controls input,.controls select{background:var(--panel);color:var(--ink);
   border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:inherit;font-size:14px}
 .controls input{flex:1;min-width:220px}
-.pick{display:flex;flex-direction:column;gap:6px;flex:1;min-width:240px}
+.pick{display:flex;flex-direction:column;gap:6px;flex:1;min-width:min(240px,100%)}
 .pick input{font-size:13px;padding:6px 10px}
-.pick .grid{grid-template-columns:repeat(auto-fill,minmax(230px,1fr));max-height:52vh;overflow:auto}
+.pick .grid{grid-template-columns:repeat(auto-fill,minmax(min(230px,100%),1fr));max-height:52vh;overflow:auto}
+.pick .grid > *{min-width:0}
 .card{cursor:pointer}
-.card .name{font-size:14px;font-weight:600;line-height:1.35;letter-spacing:-.01em}
+.card .name{font-size:14px;font-weight:600;line-height:1.35;letter-spacing:-.01em;overflow-wrap:anywhere}
 .card.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .badge.ok{color:var(--accent);border-color:currentColor}
 .presets{display:flex;flex-direction:column;gap:6px;max-height:280px;overflow:auto;margin-bottom:20px}
 .preset{display:flex;align-items:center;gap:10px;text-align:left;width:100%;padding:8px 12px}
-.preset .name{flex:1;font-weight:600}
+.preset .name{flex:1;font-weight:600;min-width:0;overflow-wrap:anywhere}
 .preset .meta{font-size:12px;color:var(--muted)}
-.preset .badges{display:flex;gap:6px}
-.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
+.preset .badges{display:flex;gap:6px;flex-wrap:wrap}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr))}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
   padding:15px 17px;display:flex;flex-direction:column;gap:9px}
 .card h3{margin:0;font-size:15.5px;line-height:1.35;letter-spacing:-.01em}
