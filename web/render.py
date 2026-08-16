@@ -294,8 +294,7 @@ def render_detail(index: dict[str, Any], bundle: dict[str, Any]) -> str:
   if missing:
     consts_html += (f"<p class='meta'>Not found at this commit: "
                     f"<code>{html.escape(', '.join(missing))}</code>. Reported as absent rather "
-                    f"than defaulted &mdash; a wrong smoothing constant silently changes "
-                    f"steering.</p>")
+                    f"than defaulted.</p>")
 
   records = {f["oid"]: f for f in index.get("files", [])}
   unavailable = set(index.get("mirror_unavailable", []))
@@ -485,10 +484,9 @@ python clients/reference.py --pull &lt;bundle_id&gt; --out selfdrive/modeld/mode
      changes them in the same commit that swaps a model. Shipping new weights against stale
      constants is the most likely way to get a model that appears to work and steers wrong.</p>
   <p class="meta"><strong>When <code>host_constants_missing</code> is non-empty, that is real
-     information, not a gap to paper over.</strong> Older eras predate these constants entirely
-     in some historical eras. The registry reports them absent
-     rather than defaulting them to zero, because a wrong smoothing constant changes steering
-     silently. If you cannot determine a value, treat the model as unqualified.</p>
+     information, not a gap to paper over.</strong> Older eras predate these constants entirely.
+     The registry reports them absent rather than defaulting them to zero. If you cannot
+     determine a value, treat the model as unqualified.</p>
 </section>
 
 <section>
