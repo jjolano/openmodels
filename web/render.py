@@ -54,11 +54,12 @@ nav.top{margin-top:14px;display:flex;gap:16px;flex-wrap:wrap;font-size:14px}
 .controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
 .controls input,.controls select{background:var(--panel);color:var(--ink);
   border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:inherit;font-size:14px}
-.controls input{flex:1;min-width:220px}
+.controls > input{flex:1;min-width:220px}
 .pick{display:flex;flex-direction:column;gap:6px;flex:1;min-width:min(240px,100%)}
 .pick input{font-size:13px;padding:6px 10px}
-.pick .grid{grid-template-columns:repeat(auto-fill,minmax(min(230px,100%),1fr));max-height:52vh;overflow:auto}
+.pick .grid{grid-template-columns:repeat(auto-fill,minmax(min(230px,100%),1fr));flex:1;max-height:52vh;overflow:auto}
 .pick .grid > *{min-width:0}
+[hidden]{display:none!important}
 .card{cursor:pointer}
 .card .name{font-size:14px;font-weight:600;line-height:1.35;letter-spacing:-.01em;overflow-wrap:anywhere}
 .card.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
