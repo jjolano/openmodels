@@ -130,6 +130,42 @@ FILTER_JS = """
 """
 
 
+def _vite_tags(depth: int = 0) -> str:
+  """Asset tags for Appica island bundle, resolved from Vite manifest when present.
+
+  Manifest is written by `pnpm build` to data/public/assets/.vite/manifest.json.
+  When absent (tests, pre-build), returns "" so pages degrade to inline CSS
+  and the vanilla FILTER_JS/COMPOSE_JS fallback.
+  """
+  root = "../" * depth
+  # ponytail: try cwd-relative first, then repo-relative; silent fallback preserves JS-off rendering
+  candidates = [
+    Path("data/public/assets/.vite/manifest.json"),
+    Path(__file__).resolve().parents[1] / "data" / "public" / "assets" / ".vite" / "manifest.json",
+  ]
+  manifest: dict[str, Any] | None = None
+  for p in candidates:
+    if p.is_file():
+      try:
+        manifest = json.loads(p.read_text())
+        break
+      except Exception:
+        manifest = None
+  if not manifest:
+    return ""
+  entry = manifest.get("web/src/main.tsx") or next(iter(manifest.values()), None)
+  if not entry or not isinstance(entry, dict):
+    return ""
+  js = entry.get("file")
+  css_list = entry.get("css") or []
+  tags = ""
+  for css in css_list:
+    tags += f'<link rel="stylesheet" href="{html.escape(root + "assets/" + css, quote=True)}">'
+  if js:
+    tags += f'<script type="module" src="{html.escape(root + "assets/" + js, quote=True)}"></script>'
+  return tags
+
+
 def shell(title: str, body: str, depth: int = 0) -> str:
   root = "../" * depth
   if API_BASE:
@@ -142,7 +178,7 @@ def shell(title: str, body: str, depth: int = 0) -> str:
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{html.escape(title)}</title>
-<style>{CSS}</style>
+<style>{CSS}</style>{_vite_tags(depth)}
 </head><body><div class="wrap">
 <header class="top">
   <h1><a href="{root}index.html">openmodels</a></h1>
@@ -254,6 +290,8 @@ def render_browse(index: dict[str, Any]) -> str:
   kinds = sorted({b["kind"] for b in bundles})
   all_statuses = sorted({s for b in bundles for s in statuses(b)})
   body = f"""
+<div data-island="browse"></div>
+<div id="fallback-browse">
 <p class="note">{DISCLAIMER} Each entry links to the exact upstream commit so you can verify
    every claim yourself.</p>
 <div class="controls">
@@ -268,6 +306,7 @@ def render_browse(index: dict[str, Any]) -> str:
    indexed {ago(index['generated_at'])}</p>
 <div class="grid">{''.join(cards)}</div>
 <script>{FILTER_JS}</script>
+</div>
 """
   return shell("openmodels — openpilot model archive", body)
 
@@ -881,8 +920,11 @@ def render(index_path: Path, out_dir: Path) -> int:
   (out_dir / "models").mkdir(parents=True, exist_ok=True)
 
   write_atomic(out_dir / "integrate.html", shell("Integrate — openmodels", INTEGRATE))
+  # ponytail: Appica islands mount into [data-island]; fallback wrappers preserve JS-off rendering
   write_atomic(out_dir / "compose.html",
-               shell("Compose — openmodels", COMPOSE + f"<script>{COMPOSE_JS}</script>"))
+               shell("Compose — openmodels",
+                     f'<div data-island="compose"></div>\n'
+                     f'<div id="fallback-compose">\n' + COMPOSE + f"<script>{COMPOSE_JS}</script>\n</div>"))
   for bundle in index["bundles"]:
     write_atomic(out_dir / "models" / f"{bundle['bundle_id']}.html",
                  render_detail(index, bundle))
