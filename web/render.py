@@ -57,7 +57,7 @@ nav.top{margin-top:14px;display:flex;gap:16px;flex-wrap:wrap;font-size:14px}
 .controls input{flex:1;min-width:220px}
 .pick{display:flex;flex-direction:column;gap:6px;flex:1;min-width:240px}
 .pick input{font-size:13px;padding:6px 10px}
-.pick .grid{grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
+.pick .grid{grid-template-columns:repeat(auto-fill,minmax(230px,1fr));max-height:52vh;overflow:auto}
 .card{cursor:pointer}
 .card .name{font-size:14px;font-weight:600;line-height:1.35;letter-spacing:-.01em}
 .card.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
