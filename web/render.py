@@ -62,6 +62,11 @@ nav.top{margin-top:14px;display:flex;gap:16px;flex-wrap:wrap;font-size:14px}
 .card .name{font-size:14px;font-weight:600;line-height:1.35;letter-spacing:-.01em}
 .card.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 .badge.ok{color:var(--accent);border-color:currentColor}
+.presets{display:flex;flex-direction:column;gap:6px;max-height:280px;overflow:auto;margin-bottom:20px}
+.preset{display:flex;align-items:center;gap:10px;text-align:left;width:100%;padding:8px 12px}
+.preset .name{flex:1;font-weight:600}
+.preset .meta{font-size:12px;color:var(--muted)}
+.preset .badges{display:flex;gap:6px}
 .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
   padding:15px 17px;display:flex;flex-direction:column;gap:9px}
@@ -688,16 +693,8 @@ COMPOSE_JS = """
     renderCards("pgrid","on_policy",vv,vc);
     renderCards("p2grid","off_policy",vv,vc);
   }
-  // A bundle is a quick pick when every vision/policy pair in it is attested: it is a
-  // combination comma actually shipped, so it is the honest starting point for composing.
-  function attestedBundle(b){
-    var vc=null, pols=[];
-    b.files.forEach(function(m){
-      var f=byOid[m.oid]; if(!f) return;
-      if(m.role==="vision") vc=ck(f); else pols.push(ck(f));
-    });
-    return !!(vc&&pols.length) && pols.every(function(pc){ return attested(vc,pc); });
-  }
+  // Every shipped bundle with a compose shape is a preset: one click fills the halves exactly
+  // as they shipped upstream, merged or PR-only. Status badges say which one this is.
   function selectQuick(b){
     SEL={vision:null, on_policy:null, off_policy:null};
     b.files.forEach(function(m){ SEL[m.role]=m.oid; });
@@ -762,17 +759,38 @@ COMPOSE_JS = """
     });
     (D.files||[]).forEach(function(f){ byOid[f.oid]=f; });
     renderAll();
-    // Guided entry: the newest attested bundles, one click fills all three halves.
-    var quick=(D.bundles||[]).slice().sort(function(a,b){
-      return (a.introduced_by||{}).date<(b.introduced_by||{}).date?1:-1; })
-      .filter(attestedBundle).slice(0,4);
-    var qel=document.getElementById("quick");
-    quick.forEach(function(b){
-      var btn=document.createElement("button");
-      btn.type="button";
-      btn.textContent=prettyName(b.name||"")+"  "+(b.introduced_by||{}).date.slice(0,10);
-      btn.addEventListener("click", function(){ selectQuick(b); });
-      qel.appendChild(btn);
+    // Presets: every shipped bundle with a compose shape, newest first. A preset is the
+    // honest starting point -- these files shipped together, whatever their status.
+    var presets=(D.bundles||[]).filter(function(b){
+      var roles={}; b.files.forEach(function(m){ roles[m.role]=true; });
+      return roles.vision&&roles.on_policy;
+    }).sort(function(a,b){
+      return (a.introduced_by||{}).date<(b.introduced_by||{}).date?1:-1; });
+    var pel=document.getElementById("presets");
+    presets.forEach(function(b){
+      var row=document.createElement("button");
+      row.type="button";
+      row.className="preset";
+      var nm=prettyName(b.name||"");
+      var st=(b.occurrences||[]).map(function(o){return o.status;})
+        .filter(function(s,i,a){return a.indexOf(s)===i;}).sort();
+      var badges=st.map(function(s){
+        return "<span class='badge "+s+"'>"+s.replace("_"," ")+"</span>"; }).join("");
+      if(b.in_head) badges+="<span class='badge head'>in HEAD</span>";
+      if(b.files.some(function(m){return m.role==="off_policy";}))
+        badges+="<span class='badge'>3 halves</span>";
+      row.innerHTML="<span class='name'>"+esc(nm)+"</span>"+
+        "<span class='meta'>"+(b.introduced_by||{}).date.slice(0,10)+"</span>"+
+        "<span class='badges'>"+badges+"</span>";
+      row.dataset.search=(nm+" "+(b.introduced_by||{}).date).toLowerCase();
+      row.addEventListener("click", function(){ selectQuick(b); });
+      pel.appendChild(row);
+    });
+    document.getElementById("presetFilter").addEventListener("input", function(){
+      var t=this.value.toLowerCase();
+      Array.prototype.forEach.call(pel.children, function(r){
+        r.hidden = r.dataset.search.indexOf(t)<0;
+      });
     });
     [["vfilter","vgrid"],["pfilter","pgrid"],["p2filter","p2grid"]].forEach(function(pair){
       document.getElementById(pair[0]).addEventListener("input", function(){
@@ -801,8 +819,11 @@ COMPOSE = """
 
 <section>
   <h2>Pick the halves</h2>
-  <p class="meta">Start from the newest combinations that shipped together upstream:</p>
-  <div id="quick" class="controls" aria-label="attested quick picks"></div>
+  <p class="meta">Every shipped combination is a preset &mdash; merged or PR-only. Pick one to
+     fill the halves exactly as it shipped upstream:</p>
+  <input id="presetFilter" type="search" placeholder="filter presets\u2026"
+         aria-label="Filter presets">
+  <div id="presets" class="presets" aria-label="compose presets"></div>
   <div class="controls">
     <div class="pick">
       <p class="meta">vision <span class="sub">required</span></p>

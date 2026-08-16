@@ -60,11 +60,13 @@ def test_compose_page_supports_three_halves():
 
 
 def test_compose_page_is_filterable_and_guided():
-  """Filter inputs per half, an attested-only toggle, and one-click attested quick picks."""
+  """Filter inputs per half, an attested-only toggle, and one-click presets from shipped bundles."""
   assert 'id="vfilter"' in render.COMPOSE and 'id="pfilter"' in render.COMPOSE
   assert 'id="attestedOnly"' in render.COMPOSE
-  assert 'id="quick"' in render.COMPOSE
-  assert "attestedBundle" in render.COMPOSE_JS
+  assert 'id="presets"' in render.COMPOSE and 'id="presetFilter"' in render.COMPOSE
+  # Every shipped bundle with a compose shape is a preset, merged or PR-only.
+  assert "preset" in render.COMPOSE_JS
+  assert "3 halves" in render.COMPOSE_JS
 
 
 def test_compose_page_is_role_based():
