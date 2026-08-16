@@ -149,11 +149,11 @@ jobs:
                               "--notes-file", "THIRD_PARTY_NOTICES.md"], check=True)
           PY
 
-      - uses: pnpm/action-setup@a7487c7e89a18df4991b71d9e58ed52044af75a016 # v4.1.0
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: 9
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7b20b55c # v6.1.0
+      - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
         with:
           node-version: "22"
           cache: pnpm
