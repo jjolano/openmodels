@@ -55,6 +55,8 @@ nav.top{margin-top:14px;display:flex;gap:16px;flex-wrap:wrap;font-size:14px}
 .controls input,.controls select{background:var(--panel);color:var(--ink);
   border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:inherit;font-size:14px}
 .controls input{flex:1;min-width:220px}
+.pick{display:flex;flex-direction:column;gap:6px;flex:1;min-width:240px}
+.pick input{font-size:13px;padding:6px 10px}
 .grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
   padding:15px 17px;display:flex;flex-direction:column;gap:9px}
@@ -536,16 +538,27 @@ COMPOSE_JS = """
               ["dmonitoring"],["navmodel"]];
   var VERSION=3;
 
-  function ck(f){ var l=(f.metadata||{}).lineage||{}; return l.self||l.vision||null; }
-  // A truncated UUID reads as noise; the run/step it encodes is what a human recognises.
-  function ckLabel(f){
-    var c=ck(f); if(!c) return "lineage unknown";
-    var p=c.split("/");
-    return "run "+p[0].slice(0,8)+(p[1]?" step "+p[1]:"");
+  // Files carry no date or name of their own; both come from the newest bundle shipping each oid.
+  // Merged bundles carry comma's PR title ("Nicki Minaj Model"); PR-only ones carry the bare
+  // training-run reference, which renders as the run/step a human recognises.
+  var NEWEST={}, NAME={};
+  function prettyName(n){
+    var m=/^([0-9a-f]{8})-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:\\/(\\d+))?$/i.exec(n||"");
+    if(!m) return n||"";
+    return "Training run "+m[1]+(m[2]?" \\u00b7 step "+m[2]:"");
   }
-  // Files carry no date of their own, so recency comes from the newest bundle shipping each oid.
-  var NEWEST={};
   function dateOf(f){ return NEWEST[f.oid]||""; }
+  function nameOf(f){ return NAME[f.oid]||(f.filenames[0]||"?"); }
+  function ck(f){ var l=(f.metadata||{}).lineage||{}; return l.self||l.vision||null; }
+  // The policy consumes the vision encoder's hidden state through features_buffer; its width is
+  // the seam compose() checks. The vision side does not declare it, so only policies show it.
+  function seam(f){ var s=(f.metadata||{}).input_shapes||{}; return (s.features_buffer||[])[2]||null; }
+  // big_ is a bundle-level hardware variant (USBGPU/AMD vs QCOM), not a role: the indexer reads
+  // big_driving_vision.onnx as plain vision. Halves must agree on it or nothing can run them.
+  function variantOf(f){
+    return (f.filenames||[]).some(function(n){ return n.indexOf("big_")===0; })
+      ? "big" : "standard";
+  }
   // Mirrors index/code.py. Base26 over an alphabet with no confusable characters, so a
   // misread self-corrects on entry rather than merely failing.
   var ALPHABET="0123456789ACDEFHJKMNPRVWXY";
@@ -587,8 +600,7 @@ COMPOSE_JS = """
   function options(role){
     return (D.files||[]).filter(function(f){
       return (f.filenames||[]).some(function(n){
-        return role==="vision" ? n.indexOf("vision")>-1 && n.indexOf("big_")<0
-             : n.indexOf("policy")>-1 && n.indexOf("big_")<0; });
+        return role==="vision" ? n.indexOf("vision")>-1 : n.indexOf("policy")>-1; });
     });
   }
   // off_policy is a distinct role in the index, not a flavour of on_policy. Encoding one as the
@@ -598,46 +610,181 @@ COMPOSE_JS = """
     return (f.filenames||[]).some(function(n){ return n.indexOf("off_policy")>-1; })
       ? "off_policy" : "on_policy";
   }
-  function fill(id, role){
-    var el=document.getElementById(id);
-    options(role).sort(function(a,b){
-      return dateOf(a)<dateOf(b) ? 1 : dateOf(a)>dateOf(b) ? -1 : 0; })
+  function attested(vc, pc){
+    return !!(vc&&pc) && (D.attested_pairings||[]).some(function(pr){
+      return pr[0]===vc && pr[1]===pc; });
+  }
+  // Fill a select. variant/attest constrain the options; skipRole keeps the two policy selects
+  // from offering the same role twice. Attested options sort first and carry a check mark.
+  var FILTERS={};
+  function applyFilter(id){
+    var t=(FILTERS[id]||"").toLowerCase(), el=document.getElementById(id);
+    Array.prototype.forEach.call(el.options, function(o){
+      if(!o.value) return;
+      o.hidden = o.textContent.toLowerCase().indexOf(t)<0;
+    });
+  }
+  // With the checkbox on, policy options that were never attested with the picked vision hide.
+  function applyAttestedFilter(){
+    if(!document.getElementById("attestedOnly").checked) return;
+    var v=document.getElementById("vsel").value;
+    var vc=v?ck(byOid[v]):null;
+    ["psel","psel2"].forEach(function(id){
+      var el=document.getElementById(id);
+      Array.prototype.forEach.call(el.options, function(o){
+        if(!o.value) return;
+        o.hidden = !(vc&&attested(vc,ck(byOid[o.value])));
+      });
+    });
+  }
+  function fill(id, role, variant, vc, skipRole){
+    var el=document.getElementById(id); el.innerHTML="";
+    options(role).filter(function(f){
+      if(variant && variantOf(f)!==variant) return false;
+      if(skipRole && policyRole(f)===skipRole) return false;
+      return true; })
+    .sort(function(a,b){
+      var da=dateOf(a), db=dateOf(b);
+      if(vc){ var aa=attested(vc,ck(a))?1:0, ab=attested(vc,ck(b))?1:0; if(aa!==ab) return ab-aa; }
+      return da<db?1:da>db?-1:0; })
     .forEach(function(f){
       var o=document.createElement("option");
       o.value=f.oid;
       o.dataset.role = role==="vision" ? "vision" : policyRole(f);
-      o.textContent=(f.filenames[0]||"?")+"  "+(dateOf(f).slice(0,10)||"undated")+"  "+
-                    ckLabel(f)+"  ("+Math.round(f.size/1048576)+" MB)";
+      var mark = vc&&attested(vc,ck(f)) ? "\\u2713 attested  " : "";
+      o.textContent=mark+nameOf(f)+"  "+f.filenames[0]+"  "+
+                    (dateOf(f).slice(0,10)||"undated")+"  "+Math.round(f.size/1048576)+" MB";
       el.appendChild(o);
     });
+    if(FILTERS[id]) applyFilter(id);
+    if(role!=="vision") applyAttestedFilter();
+  }
+  function selRole(id){
+    var el=document.getElementById(id);
+    return el.selectedOptions[0] ? el.selectedOptions[0].dataset.role : null;
+  }
+  // A bundle is a quick pick when every vision/policy pair in it is attested: it is a
+  // combination comma actually shipped, so it is the honest starting point for composing.
+  function attestedBundle(b){
+    var vc=null, pols=[];
+    b.files.forEach(function(m){
+      var f=byOid[m.oid]; if(!f) return;
+      if(m.role==="vision") vc=ck(f); else pols.push(ck(f));
+    });
+    return !!(vc&&pols.length) && pols.every(function(pc){ return attested(vc,pc); });
+  }
+  function selectQuick(b){
+    var byRole={}; b.files.forEach(function(m){ byRole[m.role]=m.oid; });
+    var vsel=document.getElementById("vsel"), psel=document.getElementById("psel"),
+        psel2=document.getElementById("psel2");
+    vsel.value=byRole.vision||"";
+    var vv=vsel.value?variantOf(byOid[vsel.value]):null, vc=vsel.value?ck(byOid[vsel.value]):null;
+    fill("psel","policy",vv,vc,null);
+    psel.value=byRole.on_policy||byRole.off_policy||"";
+    fill("psel2","policy",vv,vc,selRole("psel"));
+    psel2.value=(byRole.on_policy&&byRole.off_policy)?byRole.off_policy:"";
+    update();
   }
   async function update(){
-    var psel=document.getElementById("psel");
-    var v=document.getElementById("vsel").value, p=psel.value;
-    var out=document.getElementById("out"), note=document.getElementById("note");
-    if(!v||!p){ out.textContent="Pick a vision half and a policy half."; note.textContent=""; return; }
-    var prole=psel.selectedOptions[0].dataset.role || "on_policy";
-    var byOid={}; (D.files||[]).forEach(function(f){ byOid[f.oid]=f; });
-    var vc=ck(byOid[v]), pc=ck(byOid[p]);
-    var attested=(D.attested_pairings||[]).some(function(pr){ return pr[0]===vc && pr[1]===pc; });
-    note.className = attested ? "note ok" : "note warn";
-    note.innerHTML = !vc||!pc
-      ? "<strong>Lineage unknown</strong> for one half \\u2014 whether these were built for each other cannot be determined."
-      : attested
-        ? "<strong>Attested pairing.</strong> These halves shipped together upstream."
-        : "<strong>Cross-lineage.</strong> No shipped pairing is recorded in this catalog. The latent between them is untyped, so this will load and run regardless of whether the numbers mean the same thing.";
-    var sel={vision:v}; sel[prole]=p;
+    var vsel=document.getElementById("vsel"), psel=document.getElementById("psel"),
+        psel2=document.getElementById("psel2");
+    var out=document.getElementById("out"), note=document.getElementById("note"),
+        man=document.getElementById("manifest");
+    var v=vsel.value, p=psel.value, p2=psel2.value;
+    if(!v||!p){ out.textContent="Pick a vision half and at least one policy half.";
+      note.textContent=""; man.innerHTML=""; return; }
+    var vf=byOid[v], pf=byOid[p];
+    if(variantOf(vf)!==variantOf(pf)||(p2&&variantOf(byOid[p2])!==variantOf(vf))){
+      out.textContent=""; man.innerHTML="";
+      note.className="note warn";
+      note.innerHTML="<strong>Halves disagree on hardware target.</strong> "+variantOf(vf)+
+        " and "+variantOf(pf)+" run on different devices (QCOM vs USBGPU/AMD) \\u2014 compose refuses this combination.";
+      return;
+    }
+    var r1=policyRole(pf);
+    var sel={vision:v}; sel[r1]=p;
+    if(p2){
+      var r2=policyRole(byOid[p2]);
+      if(r1===r2){
+        out.textContent=""; man.innerHTML="";
+        note.className="note warn";
+        note.innerHTML="<strong>Both policies are "+r1+".</strong> The second slot must be the other role \\u2014 clear it or pick again.";
+        return;
+      }
+      sel[r2]=p2;
+    }
+    var vc=ck(vf), pc1=ck(pf), pc2=p2?ck(byOid[p2]):null;
+    var unknown=!vc||!pc1||(p2&&!pc2);
+    var a1=attested(vc,pc1), a2=p2?attested(vc,pc2):null;
+    note.className = unknown||(!p2&&!a1)||(p2&&!(a1&&a2)) ? "note warn" : "note ok";
+    if(unknown)
+      note.innerHTML="<strong>Lineage unknown</strong> for one half \\u2014 whether these were built for each other cannot be determined.";
+    else if(p2&&a1&&a2)
+      note.innerHTML="<strong>Attested pairing.</strong> All three halves shipped together upstream.";
+    else if(p2&&a1)
+      note.innerHTML="<strong>on-policy attested</strong> with this vision; the off-policy half is <strong>cross-lineage</strong>.";
+    else if(p2&&a2)
+      note.innerHTML="<strong>off-policy attested</strong> with this vision; the on-policy half is <strong>cross-lineage</strong>.";
+    else if(!p2&&a1)
+      note.innerHTML="<strong>Attested pairing.</strong> These halves shipped together upstream.";
+    else
+      note.innerHTML="<strong>Cross-lineage.</strong> No shipped pairing is recorded in this catalog. The latent between them is untyped, so this will load and run regardless of whether the numbers mean the same thing.";
+    var rows="";
+    Object.keys(sel).forEach(function(r){
+      var f=byOid[sel[r]], s=seam(f);
+      rows+="<tr><td>"+r+"</td><td class='mono'>"+f.filenames[0]+"</td><td>"+
+            Math.round(f.size/1048576)+" MB</td><td class='mono'>"+(ck(f)||"\\u2014")+
+            "</td><td>"+(s?s:"\\u2014")+"</td></tr>";
+    });
+    man.innerHTML="<table><thead><tr><th>role</th><th>file</th><th>size</th>"+
+      "<th>checkpoint</th><th>seam width</th></tr></thead><tbody>"+rows+"</tbody></table>";
     out.textContent = await makeCode(sel);
   }
+  var byOid={};
   fetch("index.json").then(function(r){return r.json();}).then(function(d){
     D=d;
     (D.bundles||[]).forEach(function(b){
       var dt=(b.introduced_by||{}).date||"";
-      (b.files||[]).forEach(function(m){ if(dt>(NEWEST[m.oid]||"")) NEWEST[m.oid]=dt; });
+      (b.files||[]).forEach(function(m){
+        if(dt>(NEWEST[m.oid]||"")){ NEWEST[m.oid]=dt; NAME[m.oid]=prettyName(b.name||""); }
+      });
     });
-    fill("vsel","vision"); fill("psel","policy");
-    ["vsel","psel"].forEach(function(id){
-      document.getElementById(id).addEventListener("change", update); });
+    (D.files||[]).forEach(function(f){ byOid[f.oid]=f; });
+    fill("vsel","vision");
+    fill("psel","policy");
+    fill("psel2","policy");
+    // Guided entry: the newest attested bundles, one click fills all three halves.
+    var quick=(D.bundles||[]).slice().sort(function(a,b){
+      return (a.introduced_by||{}).date<(b.introduced_by||{}).date?1:-1; })
+      .filter(attestedBundle).slice(0,4);
+    var qel=document.getElementById("quick");
+    quick.forEach(function(b){
+      var btn=document.createElement("button");
+      btn.type="button";
+      btn.textContent=prettyName(b.name||"")+"  "+(b.introduced_by||{}).date.slice(0,10);
+      btn.addEventListener("click", function(){ selectQuick(b); });
+      qel.appendChild(btn);
+    });
+    [["vfilter","vsel"],["pfilter","psel"],["p2filter","psel2"]].forEach(function(pair){
+      document.getElementById(pair[0]).addEventListener("input", function(){
+        FILTERS[pair[1]]=this.value; applyFilter(pair[1]);
+      });
+    });
+    document.getElementById("attestedOnly").addEventListener("change", applyAttestedFilter);
+    document.getElementById("vsel").addEventListener("change", function(){
+      var v=document.getElementById("vsel").value;
+      var vv=v?variantOf(byOid[v]):null, vc=v?ck(byOid[v]):null;
+      fill("psel","policy",vv,vc,null);
+      fill("psel2","policy",vv,vc,selRole("psel"));
+      update();
+    });
+    document.getElementById("psel").addEventListener("change", function(){
+      var v=document.getElementById("vsel").value;
+      var vv=v?variantOf(byOid[v]):null, vc=v?ck(byOid[v]):null;
+      fill("psel2","policy",vv,vc,selRole("psel"));
+      update();
+    });
+    document.getElementById("psel2").addEventListener("change", update);
     update();
   }).catch(function(e){
     document.getElementById("out").textContent="could not load catalog: "+e;
@@ -651,23 +798,42 @@ COMPOSE_JS = """
 
 COMPOSE = """
 <h1 class="title">Compose a model</h1>
-<p class="note">Combine a vision half with a policy half and get a code you can paste into a
-   model picker. comma ships one vision encoder against several policies, so this is how upstream
-   already works &mdash; but <strong>the exact combination you build here has never been
-   driven</strong>.</p>
+<p class="note">Combine a vision half with one or two policy halves and get a code you can paste
+   into a model picker. comma ships one vision encoder against several policies &mdash; often an
+   on-policy and an off-policy together &mdash; so composing up to three files mirrors upstream.
+   But <strong>the exact combination you build here has never been driven</strong>.</p>
 
 <section>
   <h2>Pick the halves</h2>
+  <p class="meta">Start from the newest combinations that shipped together upstream:</p>
+  <div id="quick" class="controls" aria-label="attested quick picks"></div>
   <div class="controls">
-    <select id="vsel" aria-label="vision half"><option value="">vision half\u2026</option></select>
-    <select id="psel" aria-label="policy half"><option value="">policy half\u2026</option></select>
+    <div class="pick">
+      <input id="vfilter" type="search" placeholder="filter vision halves\u2026"
+             aria-label="Filter vision halves">
+      <select id="vsel" aria-label="vision half"><option value="">vision half\u2026</option></select>
+    </div>
+    <div class="pick">
+      <input id="pfilter" type="search" placeholder="filter policy halves\u2026"
+             aria-label="Filter policy halves">
+      <select id="psel" aria-label="policy half"><option value="">policy half\u2026</option></select>
+    </div>
+    <div class="pick">
+      <input id="p2filter" type="search" placeholder="filter second policy halves\u2026"
+             aria-label="Filter second policy halves">
+      <select id="psel2" aria-label="second policy half (optional)">
+        <option value="">second policy half (optional)\u2026</option></select>
+    </div>
   </div>
+  <label class="meta"><input id="attestedOnly" type="checkbox">
+    only show policies attested with the picked vision</label>
   <p id="note" class="meta"></p>
 </section>
 
 <section class="required">
   <h2>Your code<span class="sub">paste this into a picker</span></h2>
-  <pre id="out">Pick a vision half and a policy half.</pre>
+  <div id="manifest" class="scroll"></div>
+  <pre id="out">Pick a vision half and at least one policy half.</pre>
   <button id="copy" class="controls">Copy</button>
   <p class="meta">14 characters &mdash; the <code>OM3-</code> prefix is for recognition and does
      not need typing. The code carries which files you picked, not a promise about them. Redeeming it
@@ -678,7 +844,7 @@ COMPOSE = """
 
 <section>
   <h2>Before you drive it</h2>
-  <p class="meta">Structural checks passing is not a safety result. The two halves may carry
+  <p class="meta">Structural checks passing is not a safety result. The halves may carry
      different host constants, since they came from different commits &mdash; redeem the code to
      see both and choose deliberately. Then compile on-device and qualify it yourself.</p>
 </section>

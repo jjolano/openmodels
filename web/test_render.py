@@ -50,8 +50,36 @@ def test_browse_and_client_list_newest_first():
   assert [b["name"] for b in reference.select({"bundles": [old, new]})] == ["new", "old"]
 
 
+def test_compose_page_supports_three_halves():
+  """The compose page can mint the 3-file shape upstream actually ships: vision + on + off policy."""
+  assert 'id="psel2"' in render.COMPOSE
+  assert 'id="manifest"' in render.COMPOSE
+  assert "at least one policy half" in render.COMPOSE
+  # The off-policy role travels with the option, so a 3-file selection names what the user picked.
+  assert "off_policy" in render.COMPOSE_JS
+
+
+def test_compose_page_is_filterable_and_guided():
+  """Filter inputs per half, an attested-only toggle, and one-click attested quick picks."""
+  assert 'id="vfilter"' in render.COMPOSE and 'id="pfilter"' in render.COMPOSE
+  assert 'id="attestedOnly"' in render.COMPOSE
+  assert 'id="quick"' in render.COMPOSE
+  assert "attestedBundle" in render.COMPOSE_JS
+
+
+def test_compose_js_refuses_mixed_hardware_and_same_role_pairs():
+  """Both failure modes must be visible in the page before a code is minted."""
+  assert "disagree on hardware target" in render.COMPOSE_JS
+  assert "Both policies are" in render.COMPOSE_JS
+  # Names come from the newest bundle shipping each oid (PR title or training-run reference).
+  assert "Training run" in render.COMPOSE_JS
+
+
 if __name__ == "__main__":
   test_pretty_name_only_rewrites_training_run_refs()
   test_role_labels_reach_the_tables()
   test_browse_and_client_list_newest_first()
+  test_compose_page_supports_three_halves()
+  test_compose_page_is_filterable_and_guided()
+  test_compose_js_refuses_mixed_hardware_and_same_role_pairs()
   print("web/render checks passed")
