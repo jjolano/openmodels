@@ -50,11 +50,11 @@ def test_browse_and_client_list_newest_first():
   assert [b["name"] for b in reference.select({"bundles": [old, new]})] == ["new", "old"]
 
 
-def test_compose_page_supports_three_halves():
+def test_compose_page_supports_three_components():
   """The compose page can mint the 3-file shape upstream actually ships: vision + on + off policy."""
   assert 'id="p2grid"' in render.COMPOSE
   assert 'id="manifest"' in render.COMPOSE
-  assert "Pick a vision half and an on-policy half." in render.COMPOSE
+  assert "Pick a vision component and an on-policy component." in render.COMPOSE
   # The off-policy role travels with the option, so a 3-file selection names what the user picked.
   assert "off_policy" in render.COMPOSE_JS
 
@@ -66,7 +66,7 @@ def test_compose_page_is_filterable_and_guided():
   assert 'id="presets"' in render.COMPOSE and 'id="presetFilter"' in render.COMPOSE
   # Every shipped bundle with a compose shape is a preset, merged or PR-only.
   assert "preset" in render.COMPOSE_JS
-  assert "3 halves" in render.COMPOSE_JS
+  assert "3 components" in render.COMPOSE_JS
 
 
 def test_compose_page_is_role_based():
@@ -90,7 +90,7 @@ if __name__ == "__main__":
   test_pretty_name_only_rewrites_training_run_refs()
   test_role_labels_reach_the_tables()
   test_browse_and_client_list_newest_first()
-  test_compose_page_supports_three_halves()
+  test_compose_page_supports_three_components()
   test_compose_page_is_filterable_and_guided()
   test_compose_page_is_role_based()
   test_compose_js_refuses_mixed_hardware()
