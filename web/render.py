@@ -600,7 +600,8 @@ COMPOSE_JS = """
   function options(role){
     return (D.files||[]).filter(function(f){
       return (f.filenames||[]).some(function(n){
-        return role==="vision" ? n.indexOf("vision")>-1 : n.indexOf("policy")>-1; });
+        return role==="vision" ? n.indexOf("vision")>-1
+             : n.indexOf("policy")>-1 && policyRole(f)===role; });
     });
   }
   // off_policy is a distinct role in the index, not a flavour of on_policy. Encoding one as the
@@ -614,8 +615,8 @@ COMPOSE_JS = """
     return !!(vc&&pc) && (D.attested_pairings||[]).some(function(pr){
       return pr[0]===vc && pr[1]===pc; });
   }
-  // Fill a select. variant/attest constrain the options; skipRole keeps the two policy selects
-  // from offering the same role twice. Attested options sort first and carry a check mark.
+  // Fill a select. variant/attest constrain the options; each select is role-fixed, so the
+  // role never has to be detected from the pick. Attested options sort first and carry a check.
   var FILTERS={};
   function applyFilter(id){
     var t=(FILTERS[id]||"").toLowerCase(), el=document.getElementById(id);
@@ -637,11 +638,10 @@ COMPOSE_JS = """
       });
     });
   }
-  function fill(id, role, variant, vc, skipRole){
+  function fill(id, role, variant, vc){
     var el=document.getElementById(id); el.innerHTML="";
     options(role).filter(function(f){
       if(variant && variantOf(f)!==variant) return false;
-      if(skipRole && policyRole(f)===skipRole) return false;
       return true; })
     .sort(function(a,b){
       var da=dateOf(a), db=dateOf(b);
@@ -650,7 +650,6 @@ COMPOSE_JS = """
     .forEach(function(f){
       var o=document.createElement("option");
       o.value=f.oid;
-      o.dataset.role = role==="vision" ? "vision" : policyRole(f);
       var mark = vc&&attested(vc,ck(f)) ? "\\u2713 attested  " : "";
       o.textContent=mark+nameOf(f)+"  "+f.filenames[0]+"  "+
                     (dateOf(f).slice(0,10)||"undated")+"  "+Math.round(f.size/1048576)+" MB";
@@ -658,10 +657,6 @@ COMPOSE_JS = """
     });
     if(FILTERS[id]) applyFilter(id);
     if(role!=="vision") applyAttestedFilter();
-  }
-  function selRole(id){
-    var el=document.getElementById(id);
-    return el.selectedOptions[0] ? el.selectedOptions[0].dataset.role : null;
   }
   // A bundle is a quick pick when every vision/policy pair in it is attested: it is a
   // combination comma actually shipped, so it is the honest starting point for composing.
@@ -679,10 +674,10 @@ COMPOSE_JS = """
         psel2=document.getElementById("psel2");
     vsel.value=byRole.vision||"";
     var vv=vsel.value?variantOf(byOid[vsel.value]):null, vc=vsel.value?ck(byOid[vsel.value]):null;
-    fill("psel","policy",vv,vc,null);
-    psel.value=byRole.on_policy||byRole.off_policy||"";
-    fill("psel2","policy",vv,vc,selRole("psel"));
-    psel2.value=(byRole.on_policy&&byRole.off_policy)?byRole.off_policy:"";
+    fill("psel","on_policy",vv,vc);
+    psel.value=byRole.on_policy||"";
+    fill("psel2","off_policy",vv,vc);
+    psel2.value=byRole.off_policy||"";
     update();
   }
   async function update(){
@@ -691,7 +686,7 @@ COMPOSE_JS = """
     var out=document.getElementById("out"), note=document.getElementById("note"),
         man=document.getElementById("manifest");
     var v=vsel.value, p=psel.value, p2=psel2.value;
-    if(!v||!p){ out.textContent="Pick a vision half and at least one policy half.";
+    if(!v||!p){ out.textContent="Pick a vision half and an on-policy half.";
       note.textContent=""; man.innerHTML=""; return; }
     var vf=byOid[v], pf=byOid[p];
     if(variantOf(vf)!==variantOf(pf)||(p2&&variantOf(byOid[p2])!==variantOf(vf))){
@@ -701,18 +696,8 @@ COMPOSE_JS = """
         " and "+variantOf(pf)+" run on different devices (QCOM vs USBGPU/AMD) \\u2014 compose refuses this combination.";
       return;
     }
-    var r1=policyRole(pf);
-    var sel={vision:v}; sel[r1]=p;
-    if(p2){
-      var r2=policyRole(byOid[p2]);
-      if(r1===r2){
-        out.textContent=""; man.innerHTML="";
-        note.className="note warn";
-        note.innerHTML="<strong>Both policies are "+r1+".</strong> The second slot must be the other role \\u2014 clear it or pick again.";
-        return;
-      }
-      sel[r2]=p2;
-    }
+    var sel={vision:v, on_policy:p};
+    if(p2) sel.off_policy=p2;
     var vc=ck(vf), pc1=ck(pf), pc2=p2?ck(byOid[p2]):null;
     var unknown=!vc||!pc1||(p2&&!pc2);
     var a1=attested(vc,pc1), a2=p2?attested(vc,pc2):null;
@@ -751,8 +736,8 @@ COMPOSE_JS = """
     });
     (D.files||[]).forEach(function(f){ byOid[f.oid]=f; });
     fill("vsel","vision");
-    fill("psel","policy");
-    fill("psel2","policy");
+    fill("psel","on_policy");
+    fill("psel2","off_policy");
     // Guided entry: the newest attested bundles, one click fills all three halves.
     var quick=(D.bundles||[]).slice().sort(function(a,b){
       return (a.introduced_by||{}).date<(b.introduced_by||{}).date?1:-1; })
@@ -774,16 +759,11 @@ COMPOSE_JS = """
     document.getElementById("vsel").addEventListener("change", function(){
       var v=document.getElementById("vsel").value;
       var vv=v?variantOf(byOid[v]):null, vc=v?ck(byOid[v]):null;
-      fill("psel","policy",vv,vc,null);
-      fill("psel2","policy",vv,vc,selRole("psel"));
+      fill("psel","on_policy",vv,vc);
+      fill("psel2","off_policy",vv,vc);
       update();
     });
-    document.getElementById("psel").addEventListener("change", function(){
-      var v=document.getElementById("vsel").value;
-      var vv=v?variantOf(byOid[v]):null, vc=v?ck(byOid[v]):null;
-      fill("psel2","policy",vv,vc,selRole("psel"));
-      update();
-    });
+    document.getElementById("psel").addEventListener("change", update);
     document.getElementById("psel2").addEventListener("change", update);
     update();
   }).catch(function(e){
@@ -798,10 +778,11 @@ COMPOSE_JS = """
 
 COMPOSE = """
 <h1 class="title">Compose a model</h1>
-<p class="note">Combine a vision half with one or two policy halves and get a code you can paste
-   into a model picker. comma ships one vision encoder against several policies &mdash; often an
-   on-policy and an off-policy together &mdash; so composing up to three files mirrors upstream.
-   But <strong>the exact combination you build here has never been driven</strong>.</p>
+<p class="note">Combine a vision half with an on-policy half &mdash; and optionally an off-policy
+   half alongside it &mdash; and get a code you can paste into a model picker. The on-policy half
+   carries the control outputs and is what compiles on device; the off-policy half carries the
+   full plan and is the optional extra comma trains alongside it. But <strong>the exact
+   combination you build here has never been driven</strong>.</p>
 
 <section>
   <h2>Pick the halves</h2>
@@ -811,18 +792,20 @@ COMPOSE = """
     <div class="pick">
       <input id="vfilter" type="search" placeholder="filter vision halves\u2026"
              aria-label="Filter vision halves">
-      <select id="vsel" aria-label="vision half"><option value="">vision half\u2026</option></select>
+      <select id="vsel" aria-label="vision half (required)">
+        <option value="">vision half (required)\u2026</option></select>
     </div>
     <div class="pick">
-      <input id="pfilter" type="search" placeholder="filter policy halves\u2026"
-             aria-label="Filter policy halves">
-      <select id="psel" aria-label="policy half"><option value="">policy half\u2026</option></select>
+      <input id="pfilter" type="search" placeholder="filter on-policy halves\u2026"
+             aria-label="Filter on-policy halves">
+      <select id="psel" aria-label="on-policy half (required)">
+        <option value="">on-policy half (required)\u2026</option></select>
     </div>
     <div class="pick">
-      <input id="p2filter" type="search" placeholder="filter second policy halves\u2026"
-             aria-label="Filter second policy halves">
-      <select id="psel2" aria-label="second policy half (optional)">
-        <option value="">second policy half (optional)\u2026</option></select>
+      <input id="p2filter" type="search" placeholder="filter off-policy halves\u2026"
+             aria-label="Filter off-policy halves">
+      <select id="psel2" aria-label="off-policy half (optional)">
+        <option value="">off-policy half (optional)\u2026</option></select>
     </div>
   </div>
   <label class="meta"><input id="attestedOnly" type="checkbox">
@@ -833,7 +816,7 @@ COMPOSE = """
 <section class="required">
   <h2>Your code<span class="sub">paste this into a picker</span></h2>
   <div id="manifest" class="scroll"></div>
-  <pre id="out">Pick a vision half and at least one policy half.</pre>
+  <pre id="out">Pick a vision half and an on-policy half.</pre>
   <button id="copy" class="controls">Copy</button>
   <p class="meta">14 characters &mdash; the <code>OM3-</code> prefix is for recognition and does
      not need typing. The code carries which files you picked, not a promise about them. Redeeming it
