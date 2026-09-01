@@ -9,7 +9,7 @@ description = "Public archive of openpilot driving models: identity and provenan
 license = "MIT"
 license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 requires-python = ">=3.11"
-dependencies = ["fastapi==0.141.1", "uvicorn[standard]==0.52.3"]
+dependencies = ["fastapi==0.141.1", "uvicorn[standard]==0.52.4"]
 # index/ deliberately has no third-party deps: it must run on any CI runner.
 
 [tool.setuptools]
