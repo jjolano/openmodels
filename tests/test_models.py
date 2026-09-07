@@ -26,6 +26,8 @@ class ModelTests(unittest.TestCase):
     from web.models import detail
     page = detail(cat, cat.model('example/model'), lambda title, body: body, base_url='https://example.com/models/')
     self.assertIn('https://example.com/' + next(iter(data['locations'])), page)
+    page = detail(cat, cat.model('example/model'), lambda title, body: body)
+    self.assertIn('href="/' + next(iter(data['locations'])), page)
     for entry in data['entries']:
       entry['model']['archived'] = True
     cat = Catalog(dumps(data))

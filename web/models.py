@@ -46,7 +46,7 @@ def listing(catalog, shell, *, archive=False):
     <p>{'Named releases are in the <a href="index.html">model directory</a>.' if archive else 'Looking for a training run? Browse the <a href="archive.html">full archive</a>.'}</p></main>''' + SCRIPT)
 
 
-def detail(catalog, model, shell, *, base_url="https://jjolano.github.io/openmodels/"):
+def detail(catalog, model, shell, *, base_url=""):
   links = ''.join(f'<li><a href="{e(url, quote=True)}">Source {i + 1}</a></li>' for i, url in enumerate(model['links']) if urlparse(url).scheme in ('https', 'http'))
   variants = []
   for v in model['variants']:
@@ -56,7 +56,7 @@ def detail(catalog, model, shell, *, base_url="https://jjolano.github.io/openmod
       location = catalog._data['locations'].get(member['artifact']['sha256'], {})
       for location_url in location.get('urls', []):
         url = urljoin(catalog.base_url or base_url, location_url)
-        if urlparse(url).scheme in ('https', 'http'):
+        if urlparse(url).scheme in ('https', 'http') or (not urlparse(url).scheme and not urlparse(url).netloc and urlparse(url).path):
           downloads.append(f'<a href="{e(url, quote=True)}">Download {e(role.replace("_", " "))} weights</a>')
           break
     names = sorted({x['name'] for x in catalog._data['entries'] if x['recipe'] == v['recipe']})

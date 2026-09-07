@@ -108,7 +108,7 @@ def render(index_path: Path, out_dir: Path) -> int:
 
   index = json.loads(index_path.read_text())
   catalog = publish(index, out_dir, publishers=Path(__file__).resolve().parents[1] / "publishers",
-                    blob_base="/blobs" if BLOB_BACKEND == "local" else None)
+                    blob_base="blobs" if BLOB_BACKEND == "local" else None)
   for entry in catalog.data["entries"]:
     recipe = catalog.resolve(entry["recipe"])
     atomic_write(out_dir / "recipes" / f"{recipe.id}.json", catalog.export(recipe))
@@ -120,7 +120,7 @@ def render(index_path: Path, out_dir: Path) -> int:
   atomic_write(out_dir / "integrate.html", guide(shell))
   models = catalog.models(include_archive=True)
   for model in models:
-    atomic_write(out_dir / filename(model), detail(catalog, model, shell, base_url=(API_BASE + "/") if API_BASE else "https://jjolano.github.io/openmodels/"))
+    atomic_write(out_dir / filename(model), detail(catalog, model, shell))
   atomic_write(out_dir / ".nojekyll", "")
   return 4 + len(models)
 
