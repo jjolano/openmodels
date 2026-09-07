@@ -34,12 +34,13 @@ python web/render.py --index data/index.json --out data/public
 uvicorn api.main:app --host 127.0.0.1 --port 8000
 ```
 
-`index.html` is the directory and composer. `catalog.json` is the complete SDK snapshot;
+`index.html` is the named model directory, `archive.html` holds training runs, and
+`compose.html` is the advanced composer. `catalog.json` is the complete SDK snapshot;
 `manifests/`, `recipes/` and `schemas/` contain downloadable contracts. Importer state lives
 on the `archive-state` branch (locally, `data/index.json`) so it survives website rollback.
 [Publisher submissions](publishers/README.md) enter through reviewed JSON files.
 
-The API exposes `/v1/catalog`, `/v1/models`, `/v1/profiles`, `/v1/manifests/{digest}`,
+The API exposes `/v1/catalog`, `/v1/models`, `/v1/models/{identity}`, `/v1/profiles`, `/v1/manifests/{digest}`,
 `/v1/artifacts/{digest}`, `/v1/schemas/{name}`, `/v1/status` and `POST /v1/compose`.
 Interactive documentation is at `/docs`. Browser composition calls the same SDK validation
 through this API; static-only mirrors support recipe downloads and SDK composition.

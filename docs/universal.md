@@ -110,12 +110,15 @@ python -m openmodels --catalog catalog.json fetch RECIPE_ID --store ./models
 ## API, publication and directory
 
 `GET /v1/catalog` provides the complete snapshot. `/v1/models` supports query, publisher,
-kind, profile, offset and limit. `/v1/profiles`, `/v1/manifests/{digest}`,
+kind, include_archive, offset and limit, returning named groups in `models`.
+`/v1/models/{identity}` returns one group with exact recipe variants.
+`Catalog.search()` remains the recipe-level query with profile filtering. `/v1/profiles`, `/v1/manifests/{digest}`,
 `/v1/artifacts/{digest}`, `/v1/status`, and `/v1/schemas/{name}` expose the remaining data.
 FastAPI publishes the HTTP description at `/openapi.json` and `/docs`.
 
 `python web/render.py` publishes the universal catalog, digest-addressed snapshots,
-manifests, schemas, standalone recipe exports, and `index.html`. Third-party manifests enter through reviewed files in
+manifests, schemas, standalone recipe exports, `models.json`, a named `index.html` directory,
+individual model pages, `archive.html`, `integrate.html`, and `compose.html`. Third-party manifests enter through reviewed files in
 `publishers/<publisher>/*.json`; see [submission instructions](../publishers/README.md).
 
 The directory supports browsing and downloads without JavaScript. Its generic browser
