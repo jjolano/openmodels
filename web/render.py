@@ -35,11 +35,11 @@ body{margin:0;background:var(--bg);color:var(--ink);
   font:16px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
 .wrap{max-width:1080px;margin:0 auto;padding:0 20px 72px}
 a{color:var(--accent)}
-header.top{border-bottom:1px solid var(--line);margin-bottom:28px;padding:26px 0 20px}
+header.top{border-bottom:1px solid var(--line);margin-bottom:20px;padding:18px 0 12px}
 header.top h1{margin:0;font-size:23px;letter-spacing:-.02em}
 header.top h1 a{color:inherit;text-decoration:none}
 header.top p{margin:6px 0 0;color:var(--muted);max-width:62ch}
-nav.top{margin-top:14px;display:flex;gap:16px;flex-wrap:wrap;font-size:14px}
+nav.top{margin-top:14px;display:flex;column-gap:16px;row-gap:0;flex-wrap:wrap;font-size:14px}
 [hidden]{display:none!important}
 .meta{color:var(--muted);font-size:13px;display:flex;gap:9px;flex-wrap:wrap;align-items:center}
 code{background:var(--code);padding:1.5px 5px;border-radius:5px;font-size:13px}
@@ -79,13 +79,13 @@ def shell(title: str, body: str) -> str:
 </head><body><div class="wrap">
 <header class="top">
   <h1><a href="index.html">openmodels</a></h1>
-  <p>A model directory and composer, with an automatically preserved openpilot model archive.</p>
+  <p>Openpilot models for people and the forks they drive.</p>
   <nav class="top">
     <a href="index.html">Models</a>
-    <a href="#compose" onclick="document.getElementById('compose').open=true">Compose</a>
-    <a href="https://github.com/jjolano/openmodels/blob/main/docs/universal.md">Integrate</a>
+    <a href="integrate.html">Build a model switcher</a>
+    <a href="archive.html">Archive</a>
+    <a href="compose.html">Composer</a>
     {api_link}
-    <a href="https://github.com/commaai/openpilot">openpilot</a>
   </nav>
 </header>
 {body}
@@ -112,10 +112,17 @@ def render(index_path: Path, out_dir: Path) -> int:
   for entry in catalog.data["entries"]:
     recipe = catalog.resolve(entry["recipe"])
     atomic_write(out_dir / "recipes" / f"{recipe.id}.json", catalog.export(recipe))
-  atomic_write(out_dir / "index.html", render_directory(catalog, shell, api_base=API_BASE,
+  atomic_write(out_dir / "compose.html", render_directory(catalog, shell, api_base=API_BASE,
                                                         api_enabled=bool(API_BASE) or BLOB_BACKEND == "local"))
+  from web.models import listing, detail, guide, filename
+  atomic_write(out_dir / "index.html", listing(catalog, shell))
+  atomic_write(out_dir / "archive.html", listing(catalog, shell, archive=True))
+  atomic_write(out_dir / "integrate.html", guide(shell))
+  models = catalog.models(include_archive=True)
+  for model in models:
+    atomic_write(out_dir / filename(model), detail(catalog, model, shell, base_url=(API_BASE + "/") if API_BASE else "https://jjolano.github.io/openmodels/"))
   atomic_write(out_dir / ".nojekyll", "")
-  return 1
+  return 4 + len(models)
 
 
 def main() -> int:

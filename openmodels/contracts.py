@@ -54,7 +54,11 @@ SCHEMAS = {
   "snapshot": obj({"schema": {"const": 1}, "generated_at": TEXT, "sources": DATA,
                    "documents": {"type": "object", "additionalProperties": {"type": "string"}},
                    "entries": array(obj({"name": TEXT, "publisher": TEXT, "kind": TEXT,
-                                         "recipe": DIGEST, "occurrences": array(DATA)})),
+                                         "recipe": DIGEST, "occurrences": array(DATA),
+                                         "model": obj({"id": TEXT, "name": TEXT, "family": TEXT,
+                                                       "description": TEXT, "links": array(TEXT),
+                                                       "archived": {"type": "boolean"}})},
+                                        ["name", "publisher", "kind", "recipe", "occurrences"])),
                    "locations": {"type": "object", "additionalProperties": obj({
                      "urls": array(TEXT), "availability": {"enum": ["available", "pending", "gone"]}})},
                    "evidence": array(obj({"kind": {"enum": ["upstream_pairing", "publisher_semantics"]},

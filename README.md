@@ -65,3 +65,9 @@ python -m unittest discover -s tests -v
 The [integration guide](docs/universal.md) also describes pinned reference checks and the
 remaining device validation. Archived comma models retain the upstream MIT license; see
 [third-party notices](THIRD_PARTY_NOTICES.md).
+
+## Build a model switcher
+
+Browse named models and their exact source configurations on the [directory](https://jjolano.github.io/openmodels/). Use `Catalog.models()` and `ModelSwitcher` to apply your fork’s support policy, download with progress and cancellation, and prepare through a runner. See [the integration guide](docs/switcher.md) and run `python examples/switcher.py --demo`. Static `models.json` offers the same discovery view to other languages; the complete catalog provides immutable manifests and artifact locations.
+
+Model names imported from Sunnypilot are matched to exact upstream commits and artifact sets using the pinned source in `index/model_names.json`. These names identify source associations; Sunnypilot’s compiled packages and tuning are separate. Unnamed training runs remain in the archive.

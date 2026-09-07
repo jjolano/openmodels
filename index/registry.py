@@ -39,7 +39,21 @@ def convert(index, *, blob_base=None):
       urls = [f"https://github.com/{repo}/releases/download/{record['release']}/{oid}.onnx"]
     gone = oid in index.get("mirror_unavailable", [])
     result["locations"][oid] = {"urls": urls, "availability": "available" if urls else "gone" if gone else "pending"}
+  naming = loads(Path(__file__).with_name("model_names.json").read_bytes())
+  named = {r["bundle_id"]: r for r in naming["records"]}
   for bundle in index["bundles"]:
+    match = named.get(bundle["bundle_id"])
+    if match and (sorted(match["artifacts"], key=lambda a: a["role"]) !=
+                  sorted([{"role": f["role"], "sha256": f["oid"]} for f in bundle["files"]], key=lambda a: a["role"]) or
+                  match["ref"] not in {o["commit"] for o in bundle["occurrences"]}):
+      raise ContractError("named model source no longer matches archived artifacts")
+    date = str(bundle.get("introduced_by", {}).get("date", "undated"))[:10]
+    model = {"id": "commaai/" + bundle["bundle_id"],
+             "name": match["name"] if match else f"{bundle['kind'].capitalize()} archive · {date}",
+             "family": bundle.get("family", bundle["kind"]), "archived": match is None,
+             "description": "Original upstream model weights. Name matched by exact source commit to Sunnypilot’s catalog; its compiled packages and tuning are separate." if match else "Archived upstream weights and source configurations.",
+             "links": [naming["source_url"], "https://github.com/commaai/openpilot/commit/" + match["ref"]] if match else []}
+
     profile = archive_profile(bundle)
     result["documents"][profile.id] = profile.raw
     contexts = bundle.get("host_contexts") or [{
@@ -76,7 +90,7 @@ def convert(index, *, blob_base=None):
                                 "members": members, "configuration": configuration})
       result["documents"][recipe.id] = recipe.raw
       result["entries"].append({"name": bundle["name"], "publisher": "commaai", "kind": bundle["kind"],
-                                "recipe": recipe.id, "occurrences": bundle["occurrences"]})
+                                "recipe": recipe.id, "occurrences": bundle["occurrences"], "model": model})
     artifacts = sorted(f["oid"] for f in bundle["files"])
     if len(artifacts) > 1 and any(o["status"] in ("merged", "reverted") for o in bundle["occurrences"]):
       result["evidence"].append({"kind": "upstream_pairing", "source": {
@@ -124,6 +138,7 @@ def publish(index, out, *, publishers=None, blob_base=None):
   for name in SCHEMAS:
     atomic_write(out / "schemas" / f"{name}.json", dumps(schema(name)))
   atomic_write(out / "snapshots" / f"{catalog.revision}.json", raw)
+  atomic_write(out / "models.json", dumps({"schema": 1, "revision": catalog.revision, "models": catalog.models(include_archive=True)}))
   atomic_write(out / "catalog.json", raw)
   return catalog
 

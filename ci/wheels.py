@@ -24,7 +24,9 @@ def check(directory, tag=''):
     subprocess.run([python, '-m', 'pip', 'install', '--no-index', '--no-deps', str(sdk)], check=True, cwd=tmp)
     subprocess.run([python, '-c', '''
 import importlib.util
-from openmodels import Catalog, Manifest, ModelStore
+from openmodels import Catalog, Manifest, ModelStore, ModelSwitcher, DownloadCancelled
+from index.registry import convert
+assert convert({"generated_at": "fixture", "upstream_head": "fixture", "files": [], "bundles": []})["entries"] == []
 from openmodels.runner import Runner
 assert importlib.util.find_spec('numpy') is None
 assert importlib.util.find_spec('tinygrad') is None

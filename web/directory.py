@@ -150,10 +150,10 @@ def render(catalog, shell, *, api_base="", api_enabled=False):
         <p><a href="recipes/{recipe.id}.json" download>Download recipe and dependencies</a>
         · <a href="manifests/{recipe.id}.json">View manifest</a></p>
       </details></li>''')
-  body = f'''<h1 class="title">Model directory</h1>
+  body = f'''<h1 class="title">Advanced composer</h1>
     <p class="meta">Catalog updated {html.escape(catalog.data["generated_at"])} · {sum(v["availability"] == "available" for v in catalog.data["locations"].values())} of {len(catalog.data["locations"])} artifacts available</p>
     <p>Find model packages from comma and other publishers. Each recipe preserves its selected components and source configuration.</p>
-    <details id="compose" class="universal-composer"><summary>Compose a recipe</summary>
+    <details id="compose" class="universal-composer" open><summary>Compose a recipe</summary>
       <form id="recipe-composer" class="recipe-fields">
         <label for="execution-profile">Execution profile</label><select id="execution-profile" disabled></select>
         <fieldset id="recipe-slots"><legend>Model components</legend></fieldset>
