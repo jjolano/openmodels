@@ -34,7 +34,7 @@ python web/render.py --index data/index.json --out data/public
 uvicorn api.main:app --host 127.0.0.1 --port 8000
 ```
 
-`index.html` is the named model directory, `archive.html` holds training runs, and
+`index.html` includes every model, `archive.html` filters historical models, and
 `compose.html` is the advanced composer. `catalog.json` is the complete SDK snapshot;
 `manifests/`, `recipes/` and `schemas/` contain downloadable contracts. Importer state lives
 on the `archive-state` branch (locally, `data/index.json`) so it survives website rollback.
@@ -71,4 +71,4 @@ remaining device validation. Archived comma models retain the upstream MIT licen
 
 Browse named models and their exact source configurations on the [directory](https://jjolano.github.io/openmodels/). Use `Catalog.models()` and `ModelSwitcher` to apply your fork’s support policy, download with progress and cancellation, and prepare through a runner. See [the integration guide](docs/switcher.md) and run `python examples/switcher.py --demo`. Static `models.json` offers the same discovery view to other languages; the complete catalog provides immutable manifests and artifact locations.
 
-Model names imported from Sunnypilot are matched to exact upstream commits and artifact sets using the pinned source in `index/model_names.json`. These names identify source associations; Sunnypilot’s compiled packages and tuning are separate. Unnamed training runs remain in the archive.
+Names come from comma’s introducing commits, pinned community-wiki references and Sunnypilot’s catalog, matched to exact commits and complete artifact sets in `index/model_names.json`. Attributed aliases remain searchable. Unnamed models receive source-derived or generated labels and remain in the main directory. See [naming evidence and policy](docs/naming.md); a name never establishes runtime support or equivalent fork tuning.

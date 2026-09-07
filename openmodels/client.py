@@ -87,7 +87,7 @@ class Catalog:
     return {"revision": self.revision, "generated_at": self._data["generated_at"],
             "total": len(entries), "offset": offset, "entries": loads(dumps(entries[offset:offset + limit]))}
 
-  def models(self, *, include_archive=False, query="", kind=None, publisher=None):
+  def models(self, *, include_archive=True, query="", kind=None, publisher=None):
     from .models import models
     return models(self, include_archive=include_archive, query=query, kind=kind, publisher=publisher)
 

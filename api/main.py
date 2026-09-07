@@ -40,7 +40,7 @@ def snapshot():
 
 @app.get("/v1/models")
 def models(query: str = "", publisher: str | None = None, kind: str | None = None,
-           include_archive: bool = False, offset: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=1000)):
+           include_archive: bool = True, offset: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=1000)):
   cat = catalog()
   entries = cat.models(query=query, publisher=publisher, kind=kind, include_archive=include_archive)
   return {"revision": cat.revision, "total": len(entries), "offset": offset, "models": entries[offset:offset + limit]}
