@@ -15,6 +15,10 @@
 - **Release SDK** runs for `v*` tags. It requires the tagged commit to be on main, verifies both
   package versions match the tag, and publishes the tested wheels plus SHA256SUMS to a GitHub
   Release. It does not rebuild between verification and upload. PyPI publishing is not configured.
+- **Experimental QCOM build** runs manually on an ordinary Ubuntu x86-64 runner. It builds
+  the pinned stock model with the [off-device compiler](universal.md#experimental-off-device-compilation)
+  and uploads the pickle plus its evidence report as a 14-day Actions artifact. It has read-only
+  repository permissions and does not publish builds into the catalog or create runner receipts.
 
 CodeQL and Dependabot remain separate. Only archive/Release writers receive `contents: write`;
 Pages deployment receives `pages: write` and `id-token: write`. PR jobs have no publishing credentials.

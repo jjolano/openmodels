@@ -9,8 +9,17 @@ from openmodels.profiles import STOCK_INPUT_SHAPES, STOCK_SLICES
 from index.metadata import parse as read_onnx_metadata
 
 
-def main():
-  package_path, output, target_path = map(Path, sys.argv[1:])
+def check_metadata(metadata):
+  # ONNX uses [-2:] for padding; compare positions, not slice spelling.
+  slices = metadata.get("output_slices") or {}
+  if (metadata.get("input_shapes") != STOCK_INPUT_SHAPES or
+      metadata.get("output_shapes") != {"outputs": [1, 2576]} or
+      {k: slice(*v).indices(2576) for k, v in slices.items()} !=
+      {k: slice(*v).indices(2576) for k, v in STOCK_SLICES.items()}):
+    raise ContractError("pinned model metadata mismatch")
+
+
+def compile_package(package_path, output, target_path):
   recipe = Recipe(Manifest((package_path / "recipe.json").read_text()), Manifest((package_path / "profile.json").read_text()))
   package = Package(recipe, package_path)
   package.verify()
@@ -18,8 +27,7 @@ def main():
   check_recipe(recipe, loads(target_path.read_bytes()))
   # The metadata parser permits only primitive slices; it cannot execute ONNX metadata.
   metadata = read_onnx_metadata(package.artifact("supercombo"))
-  if metadata.get("input_shapes") != STOCK_INPUT_SHAPES or metadata.get("output_slices") != STOCK_SLICES:
-    raise ContractError("pinned model metadata mismatch")
+  check_metadata(metadata)
   metadata["output_slices"] = {k: slice(*v) for k, v in STOCK_SLICES.items()}
   from tinygrad.nn.onnx import OnnxRunner
   from tinygrad.engine.jit import TinyJit
@@ -38,6 +46,10 @@ def main():
     WARP_INPUTS, partial(make_warp_input_queues, STOCK_INPUT_SHAPES, 4))
   with (output / "model.pkl").open("wb") as handle:
     dump_oob(result, handle)
+
+
+def main():
+  compile_package(*map(Path, sys.argv[1:]))
 
 
 if __name__ == "__main__":
