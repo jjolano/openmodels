@@ -7,6 +7,7 @@ from pathlib import Path
 import tempfile
 
 from index.lineage import seam_width
+from index.names import model_metadata
 from openmodels import Catalog, ContractError, Manifest
 from openmodels.contracts import SCHEMAS, dumps, loads, schema
 
@@ -40,19 +41,8 @@ def convert(index, *, blob_base=None):
     gone = oid in index.get("mirror_unavailable", [])
     result["locations"][oid] = {"urls": urls, "availability": "available" if urls else "gone" if gone else "pending"}
   naming = loads(Path(__file__).with_name("model_names.json").read_bytes())
-  named = {r["bundle_id"]: r for r in naming["records"]}
   for bundle in index["bundles"]:
-    match = named.get(bundle["bundle_id"])
-    if match and (sorted(match["artifacts"], key=lambda a: a["role"]) !=
-                  sorted([{"role": f["role"], "sha256": f["oid"]} for f in bundle["files"]], key=lambda a: a["role"]) or
-                  match["ref"] not in {o["commit"] for o in bundle["occurrences"]}):
-      raise ContractError("named model source no longer matches archived artifacts")
-    date = str(bundle.get("introduced_by", {}).get("date", "undated"))[:10]
-    model = {"id": "commaai/" + bundle["bundle_id"],
-             "name": match["name"] if match else f"{bundle['kind'].capitalize()} archive · {date}",
-             "family": bundle.get("family", bundle["kind"]), "archived": match is None,
-             "description": "Original upstream model weights. Name matched by exact source commit to Sunnypilot’s catalog; its compiled packages and tuning are separate." if match else "Archived upstream weights and source configurations.",
-             "links": [naming["source_url"], "https://github.com/commaai/openpilot/commit/" + match["ref"]] if match else []}
+    model = model_metadata(bundle, naming["records"])
 
     profile = archive_profile(bundle)
     result["documents"][profile.id] = profile.raw

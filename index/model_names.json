@@ -1,6 +1,4 @@
 {
-  "source_revision": "947018e4697e2f68c898438c5aa7597bab651335",
-  "source_url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
   "records": [
     {
       "name": "LAv2 (January 24, 2024)",
@@ -11,7 +9,10 @@
           "role": "supercombo",
           "sha256": "763821410b35b06b598cacfa5bc3e312610b3f8de2729e0d5954d7571b6794be"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Certified Herbalist v2 (February 19, 2024)",
@@ -22,7 +23,10 @@
           "role": "supercombo",
           "sha256": "c11f99aab832242a604b1bb4c4cf391c9c3d5e90cbc07ab0d4c133473b56a3a4"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Recertified Herbalist (March 01, 2024)",
@@ -33,7 +37,10 @@
           "role": "supercombo",
           "sha256": "cd4b0cc83d5ff275ee77ec430ea686603ad50fd6ad874f599ea6e95b123afc3e"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Duck Amigo (March 18, 2024)",
@@ -44,7 +51,10 @@
           "role": "supercombo",
           "sha256": "b4fb2cec9ef759cb1164ee2d27b338338a5a9302f427ad95f9b021361b02e1a2"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "WD40 (April 09, 2024)",
@@ -55,7 +65,10 @@
           "role": "supercombo",
           "sha256": "a7a267b5026a0fab61095092d9af20c1dcd70311817c80749adcf6c0a0879061"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "North Dakota v2 (April 29, 2024)",
@@ -66,7 +79,10 @@
           "role": "supercombo",
           "sha256": "b31b504bc0b440d3bc72967507a00eb4f112285626fbfb3135011500325ee6d6"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Notre Dame (July 01, 2024)",
@@ -77,7 +93,10 @@
           "role": "supercombo",
           "sha256": "39786068cae1ed8c0dc34ef80c281dfcc67ed18a50e06b90765c49bcfdbf7db4"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Filet o Fish (March 07, 2025)",
@@ -92,7 +111,10 @@
           "role": "vision",
           "sha256": "897f80d0388250f99bba69b6a8434560cc0fd83157cbeb0bc134c67fe4e64624"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "SP Vikander Model (May 03, 2025)",
@@ -107,7 +129,10 @@
           "role": "vision",
           "sha256": "f222d2c528f1763828de01bb55e8979b1e4056e1dbb41350f521d2d2bb09d177"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Tomb Raider 7 (May 07, 2025)",
@@ -122,7 +147,10 @@
           "role": "vision",
           "sha256": "dad289ae367cefcb862ef1d707fb4919d008f0eeaa1ebaf18df58d8de5a7d96e"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Secret Good Openpilot (May 16, 2025)",
@@ -137,7 +165,10 @@
           "role": "vision",
           "sha256": "dad289ae367cefcb862ef1d707fb4919d008f0eeaa1ebaf18df58d8de5a7d96e"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Kerrygold Driving (June 08, 2025)",
@@ -152,7 +183,10 @@
           "role": "vision",
           "sha256": "f666317a34cbd7e46c4454a2d7c0bccaeda42d8d17635fe6a50b183f061e98bf"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Liquid Crystal Driving (June 21, 2025)",
@@ -167,7 +201,10 @@
           "role": "vision",
           "sha256": "3ac4867fbc618037e8d03143edbfeeae960f2025644b5dcf36c6665271b4f874"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Vegetarian Filet o Fish (June 21, 2025)",
@@ -182,7 +219,10 @@
           "role": "vision",
           "sha256": "3ac4867fbc618037e8d03143edbfeeae960f2025644b5dcf36c6665271b4f874"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Aggressive TR (June 28, 2025)",
@@ -197,7 +237,10 @@
           "role": "vision",
           "sha256": "3d2bd82ba42341dba1bda5426e45c4c646db604c9ac422156eaa2b9ef26194f9"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Simple Plan Driving (July 07, 2025)",
@@ -212,7 +255,10 @@
           "role": "vision",
           "sha256": "35ff4f4577002f2685e50c8346addae33fe8da27a41dd4d6a0f14d1f4b1af81b"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Down to Ride v5 (July 08, 2025)",
@@ -227,7 +273,10 @@
           "role": "vision",
           "sha256": "3d2bd82ba42341dba1bda5426e45c4c646db604c9ac422156eaa2b9ef26194f9"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Tomb Raider 15 (July 11, 2025)",
@@ -242,7 +291,10 @@
           "role": "vision",
           "sha256": "a83406a3e8d8ce8e786808c8604842b7d074a0f17b35747a3199675641a0396c"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Le Tomb Raider 14 (July 14, 2025)",
@@ -257,7 +309,10 @@
           "role": "vision",
           "sha256": "afee02876ed51f21883e731990a252fd57afda6a78700c41fbf22d8cb288b4b5"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Tomb Raider 16 (July 21, 2025)",
@@ -272,7 +327,10 @@
           "role": "vision",
           "sha256": "afee02876ed51f21883e731990a252fd57afda6a78700c41fbf22d8cb288b4b5"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Space Lab 2 (July 26, 2025)",
@@ -287,7 +345,10 @@
           "role": "vision",
           "sha256": "c824f68646a3b94f117f01c70dc8316fb466e05fbd42ccdba440b8a8dc86914b"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Space Lab 3 (August 08, 2025)",
@@ -302,7 +363,10 @@
           "role": "vision",
           "sha256": "c824f68646a3b94f117f01c70dc8316fb466e05fbd42ccdba440b8a8dc86914b"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Down to Ride v6 (August 12, 2025)",
@@ -317,7 +381,10 @@
           "role": "vision",
           "sha256": "c824f68646a3b94f117f01c70dc8316fb466e05fbd42ccdba440b8a8dc86914b"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "UV + DTR Model (August 13, 2025)",
@@ -332,7 +399,10 @@
           "role": "vision",
           "sha256": "05dcf22aa9e6de9cd1f20c8360ca96da372566112f24e161ac75708f9146b0b9"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Steam Powered Model (August 16, 2025)",
@@ -347,7 +417,10 @@
           "role": "vision",
           "sha256": "e66bb8d53eced3786ed71a59b55ffc6810944cb217f0518621cc76303260a1ef"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "gWM Model v3 (August 22, 2025)",
@@ -362,7 +435,10 @@
           "role": "vision",
           "sha256": "13117c848af25b9c5ff2363b32e039a7061f7a72cee8d39611b6fb12bebee056"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Firehose Model (August 31, 2025)",
@@ -377,7 +453,10 @@
           "role": "vision",
           "sha256": "befac016a247b7ad5dc5b55d339d127774ed7bd2b848f1583f72aa4caee37781"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Fly By Wire (September 04, 2025)",
@@ -392,7 +471,10 @@
           "role": "vision",
           "sha256": "68f5e41678767240af478ebfca37a0adca18b2191f94a7cbe47304cb9fd2c70d"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Nevada Model (September 07, 2025)",
@@ -407,7 +489,10 @@
           "role": "vision",
           "sha256": "befac016a247b7ad5dc5b55d339d127774ed7bd2b848f1583f72aa4caee37781"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "gWM v5 (September 09, 2025)",
@@ -422,7 +507,10 @@
           "role": "vision",
           "sha256": "befac016a247b7ad5dc5b55d339d127774ed7bd2b848f1583f72aa4caee37781"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "gWM v6 (September 20, 2025)",
@@ -437,7 +525,10 @@
           "role": "vision",
           "sha256": "cf6376aa9a090f0da26c280ef69eabf9bbdd51d1faac9ed392919c3db69be916"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "gWM v8 (September 28, 2025)",
@@ -452,7 +543,10 @@
           "role": "vision",
           "sha256": "cf6376aa9a090f0da26c280ef69eabf9bbdd51d1faac9ed392919c3db69be916"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "The Cool Peoples Model (October 03, 2025)",
@@ -467,7 +561,10 @@
           "role": "vision",
           "sha256": "cf6376aa9a090f0da26c280ef69eabf9bbdd51d1faac9ed392919c3db69be916"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "North Nevada Model (October 07, 2025)",
@@ -482,7 +579,10 @@
           "role": "vision",
           "sha256": "cf6376aa9a090f0da26c280ef69eabf9bbdd51d1faac9ed392919c3db69be916"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "North Nevada Model V2 (October 08, 2025)",
@@ -497,7 +597,10 @@
           "role": "vision",
           "sha256": "cf6376aa9a090f0da26c280ef69eabf9bbdd51d1faac9ed392919c3db69be916"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Nuggets in Digon (October 09, 2025)",
@@ -512,7 +615,10 @@
           "role": "vision",
           "sha256": "cf6376aa9a090f0da26c280ef69eabf9bbdd51d1faac9ed392919c3db69be916"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "The Cool Peoples Model v2 (October 09, 2025)",
@@ -527,7 +633,10 @@
           "role": "vision",
           "sha256": "8f16d548ea4eb5d01518a9e90d4527cd97c31a84bcaf6f695dead8f0015fecc4"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "The Cool Peoples Model v3 (October 10, 2025)",
@@ -542,7 +651,10 @@
           "role": "vision",
           "sha256": "8f16d548ea4eb5d01518a9e90d4527cd97c31a84bcaf6f695dead8f0015fecc4"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "GWM V9 (October 21, 2025)",
@@ -557,7 +669,10 @@
           "role": "vision",
           "sha256": "8f16d548ea4eb5d01518a9e90d4527cd97c31a84bcaf6f695dead8f0015fecc4"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Dark Souls Model (December 03, 2025)",
@@ -572,7 +687,10 @@
           "role": "vision",
           "sha256": "2194eaee8a8c40f79a6f783d198991b1bf70a54b5885053e63789eab040a5228"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Planplus v2 (December 11, 2025)",
@@ -587,7 +705,10 @@
           "role": "vision",
           "sha256": "8f16d548ea4eb5d01518a9e90d4527cd97c31a84bcaf6f695dead8f0015fecc4"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Dark Souls Model v2 (December 11, 2025)",
@@ -602,7 +723,10 @@
           "role": "vision",
           "sha256": "1dc66bc06f250b577653ccbeaa2c6521b3d46749f601d0a1a366419e929ca438"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Macrostiff (January 01, 2026)",
@@ -617,7 +741,10 @@
           "role": "vision",
           "sha256": "1dc66bc06f250b577653ccbeaa2c6521b3d46749f601d0a1a366419e929ca438"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "WMI V9 (January 07, 2026)",
@@ -632,7 +759,10 @@
           "role": "vision",
           "sha256": "1dc66bc06f250b577653ccbeaa2c6521b3d46749f601d0a1a366419e929ca438"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "SC Model (January 08, 2026)",
@@ -647,7 +777,10 @@
           "role": "vision",
           "sha256": "1dc66bc06f250b577653ccbeaa2c6521b3d46749f601d0a1a366419e929ca438"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "WMI V12 (January 13, 2026)",
@@ -662,7 +795,10 @@
           "role": "vision",
           "sha256": "1dc66bc06f250b577653ccbeaa2c6521b3d46749f601d0a1a366419e929ca438"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "CD210 Model (February 03, 2026)",
@@ -677,7 +813,10 @@
           "role": "vision",
           "sha256": "ee29ee5bce84d1ce23e9ff381280de9b4e4d96d2934cd751740354884e112c66"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Pop Model (March 20, 2026)",
@@ -692,7 +831,10 @@
           "role": "vision",
           "sha256": "b8b241824b91bc9747b172e6be9cadda80bafe3b2bbe7035d92acb1c3d4403f9"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Pop Model v2 (March 24, 2026)",
@@ -707,7 +849,10 @@
           "role": "vision",
           "sha256": "940e9006a25f27f0b6e85da798e6a8fd1f6dd492dd7d0b9ff1a9436460f46129"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "OP Model (April 01, 2026)",
@@ -726,7 +871,10 @@
           "role": "vision",
           "sha256": "7af05e03fd170653ff5771baf373a2c57b363da12c4c411cd416dee067b4cf58"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "OP Model 7 (April 03, 2026)",
@@ -745,7 +893,10 @@
           "role": "vision",
           "sha256": "6263aa3fbb44cde6c68a34cdb7cd8c389789dbc02b15c1911afdac4e018281ae"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "OP Model 16 Deep (June 03, 2026)",
@@ -764,7 +915,10 @@
           "role": "vision",
           "sha256": "bbd0761201b3b161587d097f173c66bf82cd02966e5f0d1edd888c970d6f6d87"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Rebel Legion Model (July 22, 2026)",
@@ -775,7 +929,10 @@
           "role": "supercombo",
           "sha256": "15e563da34889318e41321a2559682d417416602de9b6f5093c3be0e6766419d"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Get Your Hopes Up Model (July 25, 2026)",
@@ -786,7 +943,10 @@
           "role": "supercombo",
           "sha256": "add80301b0d3bdc8cad7bf64b898005fad5449f6fc912d450544d098a8b5afbe"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "Rebellious Hope Model (July 27, 2026)",
@@ -797,7 +957,10 @@
           "role": "supercombo",
           "sha256": "433f85f956837606ad1f1cbee4aa7e2158ad23c768dea914b20436c97232741b"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
     },
     {
       "name": "RDF Model (August 05, 2026)",
@@ -808,7 +971,504 @@
           "role": "supercombo",
           "sha256": "d0caa7d771cf9b905fca9db471d3413eed1b8b0611413f84c0da964e5992126e"
         }
-      ]
+      ],
+      "source": "sunnypilot",
+      "url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+      "method": "published"
+    },
+    {
+      "bundle_id": "5badb383a0b04f4d",
+      "ref": "9283040d847b120fdf7759d5bd12000863e12f73",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "96b60d0bfd1386c93b4f79195aa1c5e77b23e0250578a308ee2c58857ed5eb49"
+        }
+      ],
+      "name": "Rocket league",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/9283040d847b120fdf7759d5bd12000863e12f73",
+      "method": "published"
+    },
+    {
+      "bundle_id": "d766384a29ebca42",
+      "ref": "041458f632f197de3c954ed4a08650fbcb24690a",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "15d9eb01edd98998abceaa092d33fab149ff4a8942646b20a7c1403f999f4eca"
+        }
+      ],
+      "name": "Falcon Punch",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/041458f632f197de3c954ed4a08650fbcb24690a",
+      "method": "published"
+    },
+    {
+      "bundle_id": "1878dc8f3f524871",
+      "ref": "2f46fe5d856be0637cb55e460ea3f2d34be1703c",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "50c7fc8565ac69a4b9a0de122e961326820e78bf13659255a89d0ed04be030d5"
+        }
+      ],
+      "name": "Nuclear Grade",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/2f46fe5d856be0637cb55e460ea3f2d34be1703c",
+      "method": "published"
+    },
+    {
+      "bundle_id": "6364d4fd49601caa",
+      "ref": "cb0b7375b728d1b6e92db68c9ba55f0f54c09a3f",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "30f30bc1251c03db135564ecbf7dc0bc96cbb07be0ebd3691edd8d555dc087fa"
+        }
+      ],
+      "name": "Rocket Launcher",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/cb0b7375b728d1b6e92db68c9ba55f0f54c09a3f",
+      "method": "published"
+    },
+    {
+      "bundle_id": "95e0bc5caff50ea9",
+      "ref": "328b5d9d47ef24140b316c375665e1cfd00cef31",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "b8bf95f096b19cef1e473fb4f0caf5f727b74bbde23a642aa586036ad9824e55"
+        }
+      ],
+      "name": "Nicki Minaj",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/328b5d9d47ef24140b316c375665e1cfd00cef31",
+      "method": "published"
+    },
+    {
+      "bundle_id": "1a759d80d6909cad",
+      "ref": "7925232a349388f3435940c90989f957746d918a",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "4aa77af40335462062c6eb06632bb84cbc8e5c9e3ad759f66862711620e2a840"
+        }
+      ],
+      "name": "hot coffee",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/7925232a349388f3435940c90989f957746d918a",
+      "method": "published"
+    },
+    {
+      "bundle_id": "03b01beec670711f",
+      "ref": "4fcd82076aeea11e9636c59ed1d50f740f05c6d1",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "9a9a9ded468e0a5255b88d42f25075c63babfac9c8acab72259c1d5bffc1516b"
+        }
+      ],
+      "name": "Nicolas Cage",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/4fcd82076aeea11e9636c59ed1d50f740f05c6d1",
+      "method": "published"
+    },
+    {
+      "bundle_id": "2767035267e3510c",
+      "ref": "531c13f2acd8d15914aba34a40b356dcb7f02ced",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "d7f95f6bfa1c76567e186c806e75fc0ab900e3bd99f9514bdece99364ffaf8a8"
+        }
+      ],
+      "name": "Moonrise",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/531c13f2acd8d15914aba34a40b356dcb7f02ced",
+      "method": "published"
+    },
+    {
+      "bundle_id": "1dbf7c0936e35628",
+      "ref": "c04e5d12fce1801cd555a4846768b68db7090b17",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "c63ea3eb6c9b5a20c7420c2dc6d6d0f80a6949a39f6d8b74e574f52734154820"
+        }
+      ],
+      "name": "Non-Inflatable",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/c04e5d12fce1801cd555a4846768b68db7090b17",
+      "method": "published"
+    },
+    {
+      "bundle_id": "9153eee2089e82a9",
+      "ref": "3799fe46b3a629e491d4b8498b8ae83e4c88c304",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "af5b47a763454cd56a9f16ebe51dbcf54a001898444a9557b39cedb2303d4da3"
+        }
+      ],
+      "name": "Optimus Prime",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/3799fe46b3a629e491d4b8498b8ae83e4c88c304",
+      "method": "published"
+    },
+    {
+      "bundle_id": "b35a8e50c4152286",
+      "ref": "3c0a7d69862c52a7060b928162bd67cf55cc9c73",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "18e53fa5d0f9a185833d50fa0d777725ca715460062f3a2c050847588525d87c"
+        }
+      ],
+      "name": "Night Strike",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/3c0a7d69862c52a7060b928162bd67cf55cc9c73",
+      "method": "published"
+    },
+    {
+      "bundle_id": "e99899e45f587fc5",
+      "ref": "4c2bd853e4410db7f0d80e258291408e94c6c068",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "6330383805f2e64e750f61c47660d2ec8522f55d84217c0520584d2e0d7c3faf"
+        }
+      ],
+      "name": "(New) Lemon Pie",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/4c2bd853e4410db7f0d80e258291408e94c6c068",
+      "method": "published"
+    },
+    {
+      "bundle_id": "fd2a32cf1fa3aeba",
+      "ref": "9118973ed03c1ae1d40cf69a29507ec2cc78efd7",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "0b7184d46dc2ba3f84eb748252634205105a3742bac29942ae4380b0332fa850"
+        }
+      ],
+      "name": "Farmville",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/9118973ed03c1ae1d40cf69a29507ec2cc78efd7",
+      "method": "published"
+    },
+    {
+      "bundle_id": "16cf7d2cf105b1b3",
+      "ref": "dd54ec9aa8f1991b70d8a012bd0d854462b2c0ff",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "cf6133c5bff295a3ee69eeb01297ba77adb6b83dbc1d774442a48117dbaf4626"
+        }
+      ],
+      "name": "blue diamond",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/dd54ec9aa8f1991b70d8a012bd0d854462b2c0ff",
+      "method": "published"
+    },
+    {
+      "bundle_id": "3e960ff48742ba0e",
+      "ref": "7e71fd7baefef14d2987b28377e310df41251644",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "ae44fe832fe48b89998f09cebb1bcd129864a8f51497b636cd38e66e46d69a89"
+        }
+      ],
+      "name": "new delhi",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/7e71fd7baefef14d2987b28377e310df41251644",
+      "method": "published"
+    },
+    {
+      "bundle_id": "4afb929a58b83f19",
+      "ref": "0067cf3eb1fce18a4d9c548a0c136027c87d43aa",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "4b085c1ba231bc381f78462bda136172787371d5d83b6e1bcd340aad17290ebc"
+        }
+      ],
+      "name": "Los Angeles",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/0067cf3eb1fce18a4d9c548a0c136027c87d43aa",
+      "method": "published"
+    },
+    {
+      "bundle_id": "58437a9007dd1eb3",
+      "ref": "ba7f840a06dbc8ae3c45b3b4976c88a21895aed0",
+      "artifacts": [
+        {
+          "role": "dmonitoring",
+          "sha256": "9a667cbde6eca86c5b653f57853e3d33b9a875bceb557e193d1bef78c2df9c37"
+        }
+      ],
+      "name": "Quarter Pounder Deluxe",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/ba7f840a06dbc8ae3c45b3b4976c88a21895aed0",
+      "method": "published"
+    },
+    {
+      "bundle_id": "7dd2038dce0933ef",
+      "ref": "06bdc69a0229bece7b60178c421feda329522585",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "738ef0a3407e1f918d928dd195dc0e2a326f7610a38184c4801a0f717a8255ea"
+        }
+      ],
+      "name": "Certified Herbalist",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/06bdc69a0229bece7b60178c421feda329522585",
+      "method": "published"
+    },
+    {
+      "bundle_id": "2597abcdbc9346ce",
+      "ref": "26481d082fb0db02697691ba6b074e794322c652",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "c11f99aab832242a604b1bb4c4cf391c9c3d5e90cbc07ab0d4c133473b56a3a4"
+        }
+      ],
+      "name": "Certified Herbalist",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/26481d082fb0db02697691ba6b074e794322c652",
+      "method": "published"
+    },
+    {
+      "bundle_id": "e23a56be9f20a65e",
+      "ref": "f1cd16e36794093f5bcc4cdd648dde6b245ed93c",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "cd4b0cc83d5ff275ee77ec430ea686603ad50fd6ad874f599ea6e95b123afc3e"
+        }
+      ],
+      "name": "Recertified Herbalist",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/f1cd16e36794093f5bcc4cdd648dde6b245ed93c",
+      "method": "published"
+    },
+    {
+      "bundle_id": "86d7d891b159dfb8",
+      "ref": "2aaaa3f1674d5aa2f0d9c685f8257d2466141d5c",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "b4fb2cec9ef759cb1164ee2d27b338338a5a9302f427ad95f9b021361b02e1a2"
+        }
+      ],
+      "name": "duck amigo",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/2aaaa3f1674d5aa2f0d9c685f8257d2466141d5c",
+      "method": "published"
+    },
+    {
+      "bundle_id": "344a6a5c6acdd11d",
+      "ref": "b9994c7c95658024199ec8f6049c17ca2522bbc3",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "b31b504bc0b440d3bc72967507a00eb4f112285626fbfb3135011500325ee6d6"
+        }
+      ],
+      "name": "North Dakota",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/b9994c7c95658024199ec8f6049c17ca2522bbc3",
+      "method": "published"
+    },
+    {
+      "bundle_id": "1e4cf6aa8a8667f9",
+      "ref": "01c2174d5968266b87f1d1fecefce5affaeaa624",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "39786068cae1ed8c0dc34ef80c281dfcc67ed18a50e06b90765c49bcfdbf7db4"
+        }
+      ],
+      "name": "Notre Dame",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/01c2174d5968266b87f1d1fecefce5affaeaa624",
+      "method": "published"
+    },
+    {
+      "bundle_id": "29ac2fd8c7a42379",
+      "ref": "4d085424f80009ee5ea4ae8f4519ed871905b382",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "792fca7c24faadc1183327eec7e04d06dd6ec0e53ac7bb43cb2b9823c6cfb32f"
+        },
+        {
+          "role": "vision",
+          "sha256": "cf6376aa9a090f0da26c280ef69eabf9bbdd51d1faac9ed392919c3db69be916"
+        }
+      ],
+      "name": "North Nevada",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/4d085424f80009ee5ea4ae8f4519ed871905b382",
+      "method": "published"
+    },
+    {
+      "bundle_id": "b64c125f347bfefa",
+      "ref": "d24a14cb39d0d8b443fcf9f10c51e1a22e660af0",
+      "artifacts": [
+        {
+          "role": "dmonitoring",
+          "sha256": "9b2117ee4907add59e3fbe6829cda74e0ad71c0835b0ebb9373ba9425de0d336"
+        }
+      ],
+      "name": "Large Donut",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/d24a14cb39d0d8b443fcf9f10c51e1a22e660af0",
+      "method": "published"
+    },
+    {
+      "bundle_id": "2e13452bc2921631",
+      "ref": "cc8f6eadfe0e80ab23b5c281779dc5df7868a319",
+      "artifacts": [
+        {
+          "role": "dmonitoring",
+          "sha256": "3a53626ab84757813fb16a1441704f2ae7192bef88c331bdc2415be6981d204f"
+        }
+      ],
+      "name": "Medium Fanta",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/cc8f6eadfe0e80ab23b5c281779dc5df7868a319",
+      "method": "published"
+    },
+    {
+      "bundle_id": "697436428ac2e958",
+      "ref": "3c4ddba992b3ee52a9c881ee0eb9727d3a37af11",
+      "artifacts": [
+        {
+          "role": "dmonitoring",
+          "sha256": "5e8de9dc7df306700cce9c22b992e25b95a38f894c47adaea742a9cf8ba78e1a"
+        }
+      ],
+      "name": "Ford GT Le Mans",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/3c4ddba992b3ee52a9c881ee0eb9727d3a37af11",
+      "method": "published"
+    },
+    {
+      "bundle_id": "22ac89c26be23113",
+      "ref": "04dcdf46bc7c3d84f8a20f6e81cfb5b38dab8689",
+      "artifacts": [
+        {
+          "role": "dmonitoring",
+          "sha256": "7aff7ff1dc08bbaf562a8f77380ab5e5914f8557dba2f760d87e4d953f5604b0"
+        }
+      ],
+      "name": "Le Mans GT3",
+      "source": "comma",
+      "url": "https://github.com/commaai/openpilot/commit/04dcdf46bc7c3d84f8a20f6e81cfb5b38dab8689",
+      "method": "published"
+    },
+    {
+      "bundle_id": "58437a9007dd1eb3",
+      "ref": "ba7f840a06dbc8ae3c45b3b4976c88a21895aed0",
+      "artifacts": [
+        {
+          "role": "dmonitoring",
+          "sha256": "9a667cbde6eca86c5b653f57853e3d33b9a875bceb557e193d1bef78c2df9c37"
+        }
+      ],
+      "name": "Quarter Pounder Deluxe",
+      "source": "openpilot-wiki",
+      "url": "https://github.com/commaai/openpilot/wiki/Driving-Models/cccb02396dd1afe16ccc8eb172c33efc3f06f4a4",
+      "method": "published"
+    },
+    {
+      "bundle_id": "7dd2038dce0933ef",
+      "ref": "06bdc69a0229bece7b60178c421feda329522585",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "738ef0a3407e1f918d928dd195dc0e2a326f7610a38184c4801a0f717a8255ea"
+        }
+      ],
+      "name": "Certified Herbalist",
+      "source": "openpilot-wiki",
+      "url": "https://github.com/commaai/openpilot/wiki/Driving-Models/cccb02396dd1afe16ccc8eb172c33efc3f06f4a4",
+      "method": "published"
+    },
+    {
+      "bundle_id": "2597abcdbc9346ce",
+      "ref": "26481d082fb0db02697691ba6b074e794322c652",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "c11f99aab832242a604b1bb4c4cf391c9c3d5e90cbc07ab0d4c133473b56a3a4"
+        }
+      ],
+      "name": "Certified Herbalist",
+      "source": "openpilot-wiki",
+      "url": "https://github.com/commaai/openpilot/wiki/Driving-Models/cccb02396dd1afe16ccc8eb172c33efc3f06f4a4",
+      "method": "published"
+    },
+    {
+      "bundle_id": "e23a56be9f20a65e",
+      "ref": "f1cd16e36794093f5bcc4cdd648dde6b245ed93c",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "cd4b0cc83d5ff275ee77ec430ea686603ad50fd6ad874f599ea6e95b123afc3e"
+        }
+      ],
+      "name": "Recertified Herbalist",
+      "source": "openpilot-wiki",
+      "url": "https://github.com/commaai/openpilot/wiki/Driving-Models/cccb02396dd1afe16ccc8eb172c33efc3f06f4a4",
+      "method": "published"
+    },
+    {
+      "bundle_id": "86d7d891b159dfb8",
+      "ref": "2aaaa3f1674d5aa2f0d9c685f8257d2466141d5c",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "b4fb2cec9ef759cb1164ee2d27b338338a5a9302f427ad95f9b021361b02e1a2"
+        }
+      ],
+      "name": "Duck Amigo",
+      "source": "openpilot-wiki",
+      "url": "https://github.com/commaai/openpilot/wiki/Driving-Models/cccb02396dd1afe16ccc8eb172c33efc3f06f4a4",
+      "method": "published"
+    },
+    {
+      "bundle_id": "344a6a5c6acdd11d",
+      "ref": "b9994c7c95658024199ec8f6049c17ca2522bbc3",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "b31b504bc0b440d3bc72967507a00eb4f112285626fbfb3135011500325ee6d6"
+        }
+      ],
+      "name": "North Dakota",
+      "source": "openpilot-wiki",
+      "url": "https://github.com/commaai/openpilot/wiki/Driving-Models/cccb02396dd1afe16ccc8eb172c33efc3f06f4a4",
+      "method": "published"
+    },
+    {
+      "bundle_id": "1e4cf6aa8a8667f9",
+      "ref": "01c2174d5968266b87f1d1fecefce5affaeaa624",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "39786068cae1ed8c0dc34ef80c281dfcc67ed18a50e06b90765c49bcfdbf7db4"
+        }
+      ],
+      "name": "Notre Dame",
+      "source": "openpilot-wiki",
+      "url": "https://github.com/commaai/openpilot/wiki/Driving-Models/cccb02396dd1afe16ccc8eb172c33efc3f06f4a4",
+      "method": "published"
     }
   ]
 }

@@ -3,7 +3,7 @@ from copy import deepcopy
 from .contracts import ContractError, dumps, sha256
 
 
-def models(catalog, *, include_archive=False, query="", kind=None, publisher=None):
+def models(catalog, *, include_archive=True, query="", kind=None, publisher=None):
   groups = {}
   for entry in catalog._data["entries"]:
     recipe = catalog.resolve(entry["recipe"])
@@ -32,4 +32,6 @@ def models(catalog, *, include_archive=False, query="", kind=None, publisher=Non
             if (include_archive or not base["archived"]) and (kind is None or base["kind"] == kind)
             and (publisher is None or base["publisher"] == publisher)
             and (not query or query.casefold() in dumps(base).casefold())]
-  return sorted(result, key=lambda m: (m["updated_at"], m["name"], m["id"]), reverse=True)
+  # Named choices lead, but generated labels remain in the same complete directory.
+  result.sort(key=lambda m: (m["updated_at"], m["name"], m["id"]), reverse=True)
+  return sorted(result, key=lambda m: m.get("name_kind") == "generated")

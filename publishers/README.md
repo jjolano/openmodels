@@ -25,5 +25,8 @@ An entry can include `model` metadata with `id`, `name`, `family`, `description`
 as `example/model-name`; all entries sharing it must declare identical metadata. Their
 exact recipe IDs remain separate selectable variants. Entries without metadata use their
 publisher, kind and declared name for discovery grouping. Use distinct model IDs when
-identically named packages should not share a group. `archived: true` places a model in
-the archive rather than the named directory. No field implies consumer runtime support.
+identically named packages should not share a group. `archived: true` includes a model in
+the historical archive view. The main directory includes archived models by default. Optional `name_kind` is `published`, `source`, or `generated`. Optional `names` records
+contain `name`, `source`, `url`, and `method` (`published` or `source`) for attributed
+naming evidence and aliases. These fields affect discovery, never recipe identity.
+No field implies consumer runtime support.

@@ -57,7 +57,11 @@ SCHEMAS = {
                                          "recipe": DIGEST, "occurrences": array(DATA),
                                          "model": obj({"id": TEXT, "name": TEXT, "family": TEXT,
                                                        "description": TEXT, "links": array(TEXT),
-                                                       "archived": {"type": "boolean"}})},
+                                                       "archived": {"type": "boolean"},
+                                                       "name_kind": {"enum": ["published", "source", "generated"]},
+                                                       "names": array(obj({"name": TEXT, "source": TEXT, "url": TEXT,
+                                                                           "method": {"enum": ["published", "source"]}}))},
+                                                      ["id", "name", "family", "description", "links", "archived"])},
                                         ["name", "publisher", "kind", "recipe", "occurrences"])),
                    "locations": {"type": "object", "additionalProperties": obj({
                      "urls": array(TEXT), "availability": {"enum": ["available", "pending", "gone"]}})},
