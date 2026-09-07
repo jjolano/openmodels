@@ -124,7 +124,12 @@ manifests, schemas, standalone recipe exports, `models.json`, a complete `index.
 individual model pages, `archive.html`, `integrate.html`, and `compose.html`. Third-party manifests enter through reviewed files in
 `publishers/<publisher>/*.json`; see [submission instructions](../publishers/README.md).
 
-The directory supports browsing and downloads without JavaScript. Its generic browser
+The directory renders at most 30 model cards per page. All listing pages are generated
+as static HTML, so page links and downloads work without JavaScript. Interactive search
+loads a small, digest-addressed discovery index on demand, searches every model (including
+aliases), and renders only the selected result page. Query, type, naming filter and page
+are preserved in the URL and browser history. Full recipes stay in the SDK catalog and
+model detail pages. If the search index fails to load, static browsing remains available. Its generic browser
 composer sends requests to the same Python composer through the API; it does not implement
 a second set of validation rules. Self-hosted local deployments enable it automatically.
 Static-only mirrors offer SDK composition.

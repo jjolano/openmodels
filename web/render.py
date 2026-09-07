@@ -114,15 +114,25 @@ def render(index_path: Path, out_dir: Path) -> int:
     atomic_write(out_dir / "recipes" / f"{recipe.id}.json", catalog.export(recipe))
   atomic_write(out_dir / "compose.html", render_directory(catalog, shell, api_base=API_BASE,
                                                         api_enabled=bool(API_BASE) or BLOB_BACKEND == "local"))
-  from web.models import listing, detail, guide, filename
-  atomic_write(out_dir / "index.html", listing(catalog, shell))
-  atomic_write(out_dir / "archive.html", listing(catalog, shell, archive=True))
+  from web.models import listing, detail, guide, filename, discovery, page_filename, PAGE_SIZE
+  from openmodels.contracts import dumps, sha256
+  records = discovery(catalog)
+  raw = dumps(records)
+  discovery_url = "discovery-" + sha256(raw.encode()) + ".json"
+  atomic_write(out_dir / discovery_url, raw)
+  listing_pages = 0
+  for archive in (False, True):
+    count = sum(not archive or m["archived"] for m in records)
+    for page in range(1, max(1, (count + PAGE_SIZE - 1) // PAGE_SIZE) + 1):
+      atomic_write(out_dir / page_filename(page, archive), listing(catalog, shell, archive=archive, page=page,
+                                                                 records=records, discovery_url=discovery_url))
+      listing_pages += 1
   atomic_write(out_dir / "integrate.html", guide(shell))
   models = catalog.models(include_archive=True)
   for model in models:
     atomic_write(out_dir / filename(model), detail(catalog, model, shell))
   atomic_write(out_dir / ".nojekyll", "")
-  return 4 + len(models)
+  return 2 + listing_pages + len(models)
 
 
 def main() -> int:

@@ -17,39 +17,163 @@ STYLE = '''<style>
 .model-card p{margin:10px 0}.model-card a:last-child{display:inline-block;padding:10px 0}.filters{display:flex;gap:16px;flex-wrap:wrap;align-items:end}.filters label{display:grid;gap:6px;flex:1;min-width:160px}
 input,select{font:inherit;padding:12px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px}a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
 .variant{padding:20px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}.variant summary{cursor:pointer;padding:12px 0}pre{background:var(--code);padding:18px;overflow:auto}nav.top a{padding:8px 0;min-height:44px}
+#model-pages{display:flex;gap:8px;flex-wrap:wrap;margin-top:24px}#model-pages a{min-width:44px;min-height:44px;padding:8px 12px;text-align:center;border:1px solid var(--line);border-radius:6px}#model-pages [aria-current]{background:var(--accent);color:var(--panel);font-weight:600}
 </style>'''
-SCRIPT = '''<script>
-const search=document.querySelector('#model-search'), kind=document.querySelector('#model-kind'), naming=document.querySelector('#model-naming');
-function filter(){let count=0;document.querySelectorAll('[data-model]').forEach(row=>{row.hidden=!((row.textContent+row.dataset.aliases).toLowerCase().includes(search.value.toLowerCase())&&(!kind.value||row.dataset.kind===kind.value)&&(!naming.value||row.dataset.naming===naming.value));if(!row.hidden)count++;});document.querySelector('#model-count').textContent=count+(count===1?' model shown':' models shown');document.querySelector('#model-empty').hidden=count!==0;}
-search.addEventListener('input',filter);kind.addEventListener('change',filter);naming.addEventListener('change',filter);
-</script>'''
+SCRIPT = r"""<script>
+(async () => {
+  const grid = document.querySelector('.model-grid'), nav = document.querySelector('#model-pages');
+  const search = document.querySelector('#model-search'), kind = document.querySelector('#model-kind'), naming = document.querySelector('#model-naming');
+  const status = document.querySelector('#model-load-status');
+  const archive = grid.dataset.archive === 'true', size = 30;
+  function pageFile(page) { return page === 1 ? (archive ? 'archive.html' : 'index.html') : (archive ? 'archive-' : 'models-') + page + '.html'; }
+  function readState() {
+    const params = new URLSearchParams(location.search);
+    search.value = params.get('q') || '';
+    kind.value = params.get('kind') || '';
+    naming.value = params.get('naming') || '';
+    const pathPage = location.pathname.match(/(?:models|archive)-(\d+)\.html$/);
+    const value = params.get('page') || (pathPage ? pathPage[1] : '1');
+    return /^\d+$/.test(value) && Number.isSafeInteger(Number(value)) ? Math.max(1, Number(value)) : 1;
+  }
+  function pageURL(page) {
+    const params = new URLSearchParams();
+    if (search.value) params.set('q', search.value);
+    if (kind.value) params.set('kind', kind.value);
+    if (naming.value) params.set('naming', naming.value);
+    if (page > 1) params.set('page', page);
+    return pageFile(page) + (params.size ? '?' + params : '');
+  }
+  let records, loading, timer;
+  function load() {
+    if (!loading) loading = fetch(grid.dataset.discovery).then(response => {
+      if (!response.ok) throw Error('Discovery unavailable');
+      return response.json();
+    }).then(data => { records = data.map(m => ({...m, search: [m.name, m.aliases, m.publisher, m.kind, m.family, m.formats, m.name_label, m.summary].join(' ').toLowerCase()})); }).catch(error => { loading = null; throw error; });
+    return loading;
+  }
+  function element(tag, text, className) {
+    const node = document.createElement(tag);
+    if (text !== undefined) node.textContent = text;
+    if (className) node.className = className;
+    return node;
+  }
+  function card(model) {
+    const node = element('article', undefined, 'model-card');
+    node.dataset.model = '';
+    node.append(element('div', model.publisher + ' · ' + model.kind, 'meta'));
+    const heading = element('h2'), link = element('a', model.name);
+    link.href = model.href; heading.append(link); node.append(heading);
+    node.append(element('p', model.name_label, 'meta'));
+    if (model.aliases) node.append(element('p', 'Also listed as ' + model.aliases, 'meta'));
+    node.append(element('p', model.family + ' · ' + model.formats));
+    node.append(element('p', model.summary, 'meta'));
+    const view = element('a', 'View model →'); view.href = model.href; node.append(view);
+    return node;
+  }
+  function render(page, historyMode) {
+    const query = search.value.toLowerCase();
+    const found = records.filter(m => (!archive || m.archived) && (!kind.value || m.kind === kind.value) &&
+      (!naming.value || m.name_kind === naming.value) && m.search.includes(query));
+    const pages = Math.max(1, Math.ceil(found.length / size));
+    page = Math.max(1, Math.min(page, pages));
+    grid.replaceChildren(...found.slice((page - 1) * size, page * size).map(card));
+    document.querySelector('#model-count').textContent = found.length ?
+      'Showing ' + ((page - 1) * size + 1) + '–' + Math.min(page * size, found.length) + ' of ' + found.length + ' models' : '0 models';
+    document.querySelector('#model-empty').hidden = found.length !== 0;
+    nav.replaceChildren();
+    for (let i = 1; i <= pages; i++) {
+      const link = element('a', String(i)); link.href = pageURL(i); link.dataset.page = String(i);
+      link.setAttribute('aria-label', 'Page ' + i);
+      if (i === page) link.setAttribute('aria-current', 'page');
+      nav.append(link);
+    }
+    const url = pageURL(page);
+    const current = location.pathname.split('/').pop() + location.search;
+    if (url !== current) history[historyMode + 'State'](null, '', url);
+    status.textContent = '';
+  }
+  let request = 0;
+  async function update(page, historyMode = 'push', focusPage = false) {
+    const current = ++request;
+    status.textContent = 'Searching the catalog…';
+    try {
+      await load();
+      if (current === request) {
+        render(page, historyMode);
+        if (focusPage) nav.querySelector('[aria-current]').focus({preventScroll: true});
+      }
+    } catch (_) {
+      if (current === request) status.textContent = 'Search is unavailable. Showing the last loaded results; use the page links to browse or reload to retry.';
+    }
+  }
+  search.addEventListener('input', () => { clearTimeout(timer); ++request; timer = setTimeout(() => update(1), 200); });
+  for (const control of [kind, naming]) control.addEventListener('change', () => { clearTimeout(timer); update(1); });
+  nav.addEventListener('click', event => {
+    const link = event.target.closest('a[data-page]');
+    if (!link || event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || !records) return;
+    event.preventDefault(); clearTimeout(timer); update(Number(link.dataset.page), 'push', true);
+    document.querySelector('#model-count').scrollIntoView({block: 'start'});
+  });
+  window.addEventListener('popstate', () => { clearTimeout(timer); update(readState(), 'replace'); });
+  for (const control of [search, kind, naming]) control.disabled = false;
+  const page = readState();
+  if (location.search) update(page, 'replace');
+})();
+</script>
+"""
+
+PAGE_SIZE = 30
 
 
-def listing(catalog, shell, *, archive=False):
-  models = [m for m in catalog.models(include_archive=True) if not archive or m['archived']]
-  cards = []
-  for m in models:
-    formats = sorted({f for v in m['variants'] for f in v['formats']})
-    aliases = ', '.join(dict.fromkeys(n['name'] for n in m.get('names', []) if n['name'].casefold() != m['name'].casefold()))
-    name_kind = m.get('name_kind', 'published')
-    cards.append(f'''<article class="model-card" data-model data-kind="{e(m['kind'], quote=True)}" data-naming="{e(name_kind, quote=True)}" data-aliases="{e(aliases, quote=True)}">
-      <div class="meta">{e(m['publisher'])} · {e(m['kind'])}</div><h2><a href="{filename(m)}">{e(m['name'])}</a></h2>
-      <p class="meta">{NAME_KINDS[name_kind]}</p>
-      {f'<p class="meta">Also listed as {e(aliases)}</p>' if aliases else ""}
-      <p>{e(m['family'])} · {e(', '.join(formats).upper())}</p>
-      <p class="meta">{len(m['variants'])} source configurations · {'Downloads available' if any(v['available'] for v in m['variants']) else 'Downloads unavailable'}</p>
-      <a href="{filename(m)}">View model →</a></article>''')
+def page_filename(page, archive=False):
+  return ('archive.html' if archive else 'index.html') if page == 1 else f"{'archive' if archive else 'models'}-{page}.html"
+
+
+def discovery(catalog):
+  records = []
+  for model in catalog.models(include_archive=True):
+    name_kind = model.get('name_kind', 'published')
+    aliases = ', '.join(dict.fromkeys(n['name'] for n in model.get('names', []) if n['name'].casefold() != model['name'].casefold()))
+    records.append({
+      'name': model['name'], 'href': filename(model), 'publisher': model['publisher'], 'kind': model['kind'],
+      'family': model['family'], 'formats': ', '.join(sorted({f for v in model['variants'] for f in v['formats']})).upper(),
+      'aliases': aliases, 'name_kind': name_kind, 'name_label': NAME_KINDS[name_kind], 'archived': model['archived'],
+      'summary': f"{len(model['variants'])} source configurations · " + ('Downloads available' if any(v['available'] for v in model['variants']) else 'Downloads unavailable')})
+  return records
+
+
+def card(model):
+  return f'''<article class="model-card" data-model>
+    <div class="meta">{e(model['publisher'])} · {e(model['kind'])}</div>
+    <h2><a href="{model['href']}">{e(model['name'])}</a></h2>
+    <p class="meta">{e(model['name_label'])}</p>
+    {f'<p class="meta">Also listed as {e(model["aliases"])}</p>' if model['aliases'] else ''}
+    <p>{e(model['family'])} · {e(model['formats'])}</p><p class="meta">{e(model['summary'])}</p>
+    <a href="{model['href']}">View model →</a></article>'''
+
+
+def listing(catalog, shell, *, archive=False, page=1, records=None, discovery_url='discovery.json'):
+  records = discovery(catalog) if records is None else records
+  models = [m for m in records if not archive or m['archived']]
+  pages = max(1, (len(models) + PAGE_SIZE - 1) // PAGE_SIZE)
+  page = max(1, min(page, pages))
+  start = (page - 1) * PAGE_SIZE
+  cards = ''.join(card(m) for m in models[start:start + PAGE_SIZE])
+  links = ''.join(f'<a href="{page_filename(i, archive)}" data-page="{i}" aria-label="Page {i}"' +
+                  (' aria-current="page"' if i == page else '') + f'>{i}</a>' for i in range(1, pages + 1))
   title = 'Historical models' if archive else 'Explore models'
   intro = 'Models outside the current upstream tree, including published names and training runs.' if archive else 'Every model and source configuration in the catalog. Search by published name, alias, or generated label.'
   options = ''.join(f'<option value="{e(k, quote=True)}">{e(k.capitalize())}</option>' for k in sorted({m['kind'] for m in models}))
-  return shell(title + ' — openmodels', STYLE + f'''<main><section class="hero"><h1>{title}</h1><p>{intro}</p>
-    </section>
-    <div class="filters"><label for="model-search">Search models<input type="search" id="model-search" placeholder="Try Duck Amigo or North Dakota"></label>
-    <label for="model-kind">Model type<select id="model-kind"><option value="">All types</option>{options}</select></label>
-    <label for="model-naming">Naming<select id="model-naming"><option value="">All names and labels</option><option value="published">Published names</option><option value="source">Source-derived labels</option><option value="generated">Generated labels</option></select></label></div>
-    <p id="model-count" role="status">{len(models)} models shown · named choices first, then newest source activity</p>
-    <p id="model-empty" hidden>No models match. Clear your search or choose another type.</p>
-    <div class="model-grid">{''.join(cards)}</div>
+  count = f'Showing {start + 1}–{min(start + PAGE_SIZE, len(models))} of {len(models)} models' if models else '0 models'
+  return shell(title + f' — page {page} — openmodels', STYLE + f'''<main><section class="hero"><h1>{title}</h1><p>{intro}</p></section>
+    <div class="filters"><label for="model-search">Search models<input disabled type="search" id="model-search" placeholder="Try Duck Amigo or North Dakota"></label>
+    <label for="model-kind">Model type<select disabled id="model-kind"><option value="">All types</option>{options}</select></label>
+    <label for="model-naming">Naming<select disabled id="model-naming"><option value="">All names and labels</option><option value="published">Published names</option><option value="source">Source-derived labels</option><option value="generated">Generated labels</option></select></label></div>
+    <noscript>Search and filters require JavaScript. Browse every model using the page links below.</noscript>
+    <p id="model-load-status" role="status"></p><p id="model-count" role="status">{count}</p>
+    <p id="model-empty" {'' if not models else 'hidden'}>No models match. Clear your search or choose another type.</p>
+    <div class="model-grid" data-archive="{str(archive).lower()}" data-discovery="{e(discovery_url, quote=True)}">{cards}</div>
+    <nav id="model-pages" aria-label="Model pages">{links}</nav>
     <p>{'All models are in the <a href="index.html">model directory</a>.' if archive else 'Browse <a href="archive.html">historical models</a>. Generated labels identify weights without claiming a published nickname.'}</p></main>''' + SCRIPT)
 
 

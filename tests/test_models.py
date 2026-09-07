@@ -83,3 +83,45 @@ class ModelTests(unittest.TestCase):
     page = detail(renamed, renamed.models()[0], lambda title, body: body)
     self.assertIn('Fork alias', page)
     self.assertIn('https://example.com/upstream', page)
+
+  def test_static_pagination_covers_every_model_once(self):
+    from html.parser import HTMLParser
+    from types import SimpleNamespace
+    from web.models import discovery, listing, page_filename
+
+    class Cards(HTMLParser):
+      def __init__(self, html):
+        super().__init__()
+        self.links = []
+        self.count = 0
+        self.feed(html)
+
+      def handle_starttag(self, tag, attributes):
+        attrs = dict(attributes)
+        if 'data-model' in attrs:
+          self.count += 1
+        if tag == 'a' and attrs.get('href', '').startswith('model-'):
+          self.links.append(attrs['href'])
+
+    data, _, _ = fixture()
+    model = Catalog(dumps(data)).models()[0]
+    models = [{**deepcopy(model), 'id': f'example/model-{i}', 'name': f'Model {i}', 'archived': True}
+              for i in range(61)]
+    catalog = SimpleNamespace(models=lambda **kwargs: models)
+    records = discovery(catalog)
+    self.assertEqual(len(records), 61)
+    self.assertNotIn('variants', records[0])
+    self.assertNotIn('recipes', records[0])
+    for archive in (False, True):
+      pages = [Cards(listing(catalog, lambda title, body: body, archive=archive,
+                            page=page, records=records)) for page in (1, 2, 3)]
+      self.assertEqual([page.count for page in pages], [30, 30, 1])
+      links = [set(page.links) for page in pages]
+      self.assertEqual(len(set.union(*links)), 61)
+      self.assertFalse(links[0] & links[1] or links[1] & links[2] or links[0] & links[2])
+      html = listing(catalog, lambda title, body: body, archive=archive, records=records)
+      self.assertIn(f'href="{page_filename(2, archive=archive)}"', html)
+    self.assertEqual(page_filename(1), 'index.html')
+    self.assertEqual(page_filename(2), 'models-2.html')
+    self.assertEqual(page_filename(1, archive=True), 'archive.html')
+    self.assertEqual(page_filename(2, archive=True), 'archive-2.html')
