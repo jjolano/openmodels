@@ -1,0 +1,110 @@
+name: Publish Pages
+
+on:
+  push:
+    branches: [main]
+    paths: ['web/**', 'openmodels/**', 'api/**', 'index/**', 'ci/**', 'publishers/**', 'pyproject.toml', '.github/workflows/**']
+  workflow_call:
+    inputs:
+      archive_revision:
+        type: string
+        required: true
+  workflow_dispatch:
+    inputs:
+      archive_revision:
+        description: 'Archive commit from deployment.json; blank uses latest checkpoint'
+        type: string
+      code_revision:
+        description: 'Main-branch code commit for rollback; blank uses current code'
+        type: string
+      api_base:
+        description: 'API origin override for rollback; blank uses repository variable'
+        type: string
+
+concurrency:
+  group: pages-publication
+  cancel-in-progress: false
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/test.yml
+
+  build:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Select trusted source revision
+        env:
+          REVISION: ${{ inputs.code_revision || github.sha }}
+        run: |
+          git cat-file -e "$REVISION^{commit}"
+          git merge-base --is-ancestor "$REVISION" origin/main
+          git checkout --detach "$REVISION"
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Restore pinned archive
+        id: archive
+        env:
+          REVISION: ${{ inputs.archive_revision }}
+        run: python -m ci.archive restore --revision "$REVISION"
+      - name: Build and check publication
+        env:
+          OPENMODELS_API_BASE: ${{ inputs.api_base || vars.OPENMODELS_API_BASE }}
+          ARCHIVE_REVISION: ${{ steps.archive.outputs.revision }}
+        run: |
+          python -m ci.site build --code "$(git rev-parse HEAD)" --archive "$ARCHIVE_REVISION"
+          cat data/public/deployment.json >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: catalog-publication
+          path: data/public
+          include-hidden-files: true
+          retention-days: 30
+          if-no-files-found: error
+      - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
+        with:
+          path: data/public
+
+  retain:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: catalog-publication
+          path: data/public
+      - name: Retain immutable snapshot before deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python -m ci.site retain --repo "$GITHUB_REPOSITORY"
+
+  deploy:
+    needs: retain
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+      - id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools==83.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openmodels-runner-tinygrad"
+version = "0.1.0"
+description = "Optional pinned comma supercombo runner for OpenModels"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE.openpilot"]
+dependencies = [
+  "openmodels==0.1.0",
+  "numpy>=2,<3",
+  "zstandard>=0.23,<1",
+  "tinygrad @ git+https://github.com/tinygrad/tinygrad.git@138fb4a783d82f4e877ad2fe3692aaf8d1de2e46",
+]
+
+[tool.setuptools]
+packages = ["openmodels_runner_tinygrad"]

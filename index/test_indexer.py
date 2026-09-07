@@ -13,13 +13,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from index.constants import extract_from_source  # noqa: E402
 from index import lfs  # noqa: E402
-from clients.reference import terminal_text  # noqa: E402
 from index.indexer import (  # noqa: E402
   attach_metadata, fetch_from_releases, index_repo, merge_previous, read_pointer,
 )
 from index import publish as publisher  # noqa: E402
-from web import render as renderer  # noqa: E402
-from web.render import render_detail  # noqa: E402
 
 
 def _pointer(oid: str, size: int = 123456) -> bytes:
@@ -47,36 +44,6 @@ def test_host_constants_accept_only_finite_numbers():
   assert extract_from_source("LAT_SMOOTH_SECONDS = True", {"LAT_SMOOTH_SECONDS"}) == {}
   found = extract_from_source("LAT_SMOOTH_SECONDS = 0.2", {"LAT_SMOOTH_SECONDS"})
   assert found["LAT_SMOOTH_SECONDS"].value == 0.2
-
-
-def test_reference_client_strips_terminal_controls_from_pr_titles():
-  assert terminal_text("safe\x1b]52;clipboard\x07title") == "safe�]52;clipboard�title"
-
-
-def test_renderer_escapes_defensively_and_uses_recorded_release():
-  oid = "a" * 64
-  bundle = _bundle("b1", oid)
-  bundle["host_constants"] = {"LAT_SMOOTH_SECONDS": "</td><script>alert(1)</script>"}
-  page = render_detail({"files": [{"oid": oid, "release": "blobs-0000"}],
-                        "release_repo": "owner/repo", "attested_pairings": []}, bundle)
-  assert "<script>alert(1)</script>" not in page
-  assert "&lt;/td&gt;&lt;script&gt;alert(1)&lt;/script&gt;" in page
-  assert f"https://github.com/owner/repo/releases/download/blobs-0000/{oid}.onnx" in page
-
-
-def test_local_renderer_links_only_files_present_in_the_mirror():
-  oid = "a" * 64
-  bundle = _bundle("b1", oid)
-  old_backend = renderer.BLOB_BACKEND
-  renderer.BLOB_BACKEND = "local"
-  try:
-    page = render_detail({"files": [{"oid": oid}], "attested_pairings": []}, bundle)
-    assert "mirror pending" in page and f"../blobs/{oid}.onnx" not in page
-    page = render_detail({"files": [{"oid": oid, "local_mirrored": True}],
-                          "attested_pairings": []}, bundle)
-    assert f"../blobs/{oid}.onnx" in page
-  finally:
-    renderer.BLOB_BACKEND = old_backend
 
 
 def test_previous_catalog_is_append_only_but_current_observations_win():

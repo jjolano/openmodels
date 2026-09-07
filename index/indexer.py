@@ -22,7 +22,7 @@ import copy
 from pathlib import Path
 from typing import Any, Iterable
 
-from index import compose as compose_mod
+from index import lineage
 from index import constants as host_constants
 
 # Three path eras. Models lived at the repo root until 2022, then under selfdrive/, then were
@@ -580,7 +580,7 @@ def _finalize_index(repo: Repo, head: str,
   except Exception:
     head_commit = repo.commit_meta(head)["commit"]
   index = {
-    "schema": 2,
+    "schema": 1,
     "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     "upstream_head": head_commit,
     "bundle_count": len(bundles),
@@ -608,7 +608,7 @@ def _finalize_index(repo: Repo, head: str,
       for oid, record in files_map.items():
         record["local_mirrored"] = (blob_cache / f"{oid}.onnx").is_file()
       index["mirrored_count"] = sum(f["local_mirrored"] for f in files_map.values())
-  index["attested_pairings"] = compose_mod.attested_pairings(index["bundles"], files_map)
+  index["attested_pairings"] = lineage.attested_pairings(index["bundles"], files_map)
   index["files"] = sorted(files_map.values(), key=lambda f: f["oid"])
   return index
 
@@ -843,7 +843,7 @@ def _index_incremental(repo: Repo, head: str, delta_commits: list[str],
     head_commit = repo.commit_meta(head)["commit"]
 
   index: dict[str, Any] = {
-    "schema": 2,
+    "schema": 1,
     "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     "upstream_head": head_commit,
     "bundle_count": len(bundles),
@@ -875,7 +875,7 @@ def _index_incremental(repo: Repo, head: str, delta_commits: list[str],
       for oid, record in files_map.items():
         record["local_mirrored"] = (blob_cache / f"{oid}.onnx").is_file()
       index["mirrored_count"] = sum(f["local_mirrored"] for f in files_map.values())
-  index["attested_pairings"] = compose_mod.attested_pairings(index["bundles"], files_map)
+  index["attested_pairings"] = lineage.attested_pairings(index["bundles"], files_map)
   index["files"] = sorted(files_map.values(), key=lambda f: f["oid"])
   return index
 
@@ -965,13 +965,13 @@ def index_repo(repo: Repo, head: str = "HEAD", limit: int | None = None,
 
   bundle_list = sorted(bundles.values(), key=lambda b: b["occurrences"][0]["date"])
   index = {
-    "schema": 2,
+    "schema": 1,
     "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     "upstream_head": repo.commit_meta(head)["commit"],
     "bundle_count": len(bundles),
     "file_count": len(files),
     # (vision_ckpt, policy_ckpt) pairs that actually shipped upstream. The only sound basis for
-    # saying two halves were built for each other -- see index/compose.py.
+    # saying two halves were built for each other -- see index/lineage.py.
     "attested_pairings": [],
     "bundles": bundle_list,
     "files": sorted(files.values(), key=lambda f: f["oid"]),
@@ -995,7 +995,7 @@ def index_repo(repo: Repo, head: str = "HEAD", limit: int | None = None,
       for oid, record in files.items():
         record["local_mirrored"] = (blob_cache / f"{oid}.onnx").is_file()
       index["mirrored_count"] = sum(f["local_mirrored"] for f in files.values())
-  index["attested_pairings"] = compose_mod.attested_pairings(index["bundles"], files)
+  index["attested_pairings"] = lineage.attested_pairings(index["bundles"], files)
   index["files"] = sorted(files.values(), key=lambda f: f["oid"])
   return index
 
