@@ -207,6 +207,30 @@ The synchronous implementation copies frame buffers; target measurements must es
 whether qualified external-buffer imports are needed. No CPU backend or alternate model
 profile is silently substituted.
 
+### Experimental off-device compilation
+
+The stock model can also be compiled on Linux x86-64 with `qemu-aarch64-static`, LLVM,
+and the separately installed pinned runner:
+
+```bash
+python -m ci.cross_compile --catalog https://jjolano.github.io/openmodels/catalog.json \
+  --store ./models --out ./experimental-qcom
+```
+
+Run this from a source checkout; the output directory must not already exist. The command
+pins and verifies the upstream ARM compiler archive, compiles a630 GPU binaries, and uses
+CPU execution of each original kernel during capture to preserve weights and state. It checks
+a weighted matrix multiplication against NumPy, then reuses the policy/warp seeded replay
+and pickle round-trip checks. The final pickle contains QCOM programs; the CPU execution
+shim and its original-kernel map remain outside it. Host replay requires that in-process map.
+
+`model.pkl`, `target.json`, and `report.json` are experimental outputs, with hashes, compiler
+identity and an explicit `gpu_validated: false`. No trusted runner receipt is created, so
+`Runner.open()` does not accept this output. GPU numerical parity, compatibility with the
+target OS/runtime, memory use and timing still need device evidence. The prototype uses
+buffer allocations (`IMAGE=0`), disables timing-based tuning, and supports only this stock
+profile on a630. Its printed timings measure host execution, not device performance.
+
 Moonpilot can continue consuming catalog proposals outside its critical path and implement
 the same profile natively. Nothing in this change changes its proposal/activation authority.
 Openpilot and sunnypilot can opt into the Python session or keep their own model runners;

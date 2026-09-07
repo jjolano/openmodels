@@ -8,6 +8,7 @@ import numpy as np
 from openmodels import ContractError, Manifest, Recipe
 from openmodels.profiles import STOCK_INPUT_SHAPES, STOCK_PROFILE, STOCK_SHA256, STOCK_SLICES, TINYGRAD_REVISION
 from openmodels_runner_tinygrad import session
+from openmodels_runner_tinygrad.compile import check_metadata
 from openmodels_runner_tinygrad.runner import check_recipe
 
 
@@ -132,6 +133,21 @@ class RunnerTests(unittest.TestCase):
     changed["profile"] = profile.id
     with self.assertRaisesRegex(ContractError, "unsupported execution profile"):
       check_recipe(Recipe(Manifest.create(changed), profile), target())
+
+  def test_metadata_accepts_equivalent_padding_only(self):
+    metadata = {"input_shapes": deepcopy(STOCK_INPUT_SHAPES), "output_shapes": {"outputs": [1, 2576]},
+                "output_slices": deepcopy(STOCK_SLICES)}
+    metadata["output_slices"]["pad"] = [-2, None, None]
+    check_metadata(metadata)
+    for field, value in (("padding", [-3, None, None]), ("output_length", 2577)):
+      with self.subTest(field=field):
+        invalid = deepcopy(metadata)
+        if field == "padding":
+          invalid["output_slices"]["pad"] = value
+        else:
+          invalid["output_shapes"]["outputs"][1] = value
+        with self.assertRaisesRegex(ContractError, "pinned model metadata mismatch"):
+          check_metadata(invalid)
 
 
 if __name__ == "__main__":
