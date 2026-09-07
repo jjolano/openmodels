@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>pass ref — openmodels</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{
+  --bg:#fbfbfa; --panel:#fff; --ink:#16150f; --muted:#6b6a63; --line:#e3e2dc;
+  --accent:#3d5a3d; --warn:#8a5a1f; --danger:#8f3232; --code:#f4f4f1;
+  --radius:10px; --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  --code-font:"JetBrains Mono","IBM Plex Mono","Roboto Mono","DejaVu Sans Mono",
+              ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#131311; --panel:#1b1b18; --ink:#eceae2; --muted:#9b998f; --line:#2e2e29;
+  --accent:#9dbf9d; --warn:#d9a760; --danger:#e08585; --code:#232320;
+}}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:16px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px 72px}
+a{color:var(--accent)}
+header.top{border-bottom:1px solid var(--line);margin-bottom:28px;padding:26px 0 20px}
+header.top h1{margin:0;font-size:23px;letter-spacing:-.02em}
+header.top h1 a{color:inherit;text-decoration:none}
+header.top p{margin:6px 0 0;color:var(--muted);max-width:62ch}
+nav.top{margin-top:14px;display:flex;gap:16px;flex-wrap:wrap;font-size:14px}
+.note{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--warn);
+  border-radius:var(--radius);padding:12px 15px;margin:0 0 24px;font-size:14px;color:var(--muted)}
+.note strong{color:var(--ink)}
+.controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+.controls input,.controls select{background:var(--panel);color:var(--ink);
+  border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:inherit;font-size:14px}
+.controls > input{flex:1;min-width:220px}
+.pick{display:flex;flex-direction:column;gap:6px;flex:1;min-width:min(240px,100%)}
+.pick input{font-size:13px;padding:6px 10px}
+.pick .grid{grid-template-columns:repeat(auto-fill,minmax(min(230px,100%),1fr));flex:1;max-height:52vh;overflow:auto}
+.pick .grid > *{min-width:0}
+[hidden]{display:none!important}
+.card{cursor:pointer}
+.card .name{font-size:14px;font-weight:600;line-height:1.35;letter-spacing:-.01em;overflow-wrap:anywhere}
+.card.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.badge.ok{color:var(--accent);border-color:currentColor}
+.presets{display:flex;flex-direction:column;gap:6px;max-height:280px;overflow:auto;margin-bottom:20px}
+.preset{display:flex;align-items:center;gap:10px;text-align:left;width:100%;padding:8px 12px}
+.preset .name{flex:1;font-weight:600;min-width:0;overflow-wrap:anywhere}
+.preset .meta{font-size:12px;color:var(--muted)}
+.preset .badges{display:flex;gap:6px;flex-wrap:wrap}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:15px 17px;display:flex;flex-direction:column;gap:9px}
+.card h3{margin:0;font-size:15.5px;line-height:1.35;letter-spacing:-.01em}
+.card h3 a{text-decoration:none;color:inherit}
+.card h3 a:hover{color:var(--accent)}
+.meta{color:var(--muted);font-size:13px;display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.badges{display:flex;gap:6px;flex-wrap:wrap}
+.badge{font-size:11.5px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);
+  color:var(--muted);white-space:nowrap}
+.badge.merged{color:var(--accent);border-color:currentColor}
+.badge.reverted{color:var(--danger);border-color:currentColor}
+.badge.pr_only{color:var(--warn);border-color:currentColor}
+.badge.head{color:var(--accent);border-color:currentColor}
+.feat{font-family:var(--mono);font-size:12px;color:var(--muted);word-break:break-word}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:12.5px;text-transform:uppercase;
+  letter-spacing:.04em}
+td.mono,code,pre{font-family:var(--mono)}
+code{background:var(--code);padding:1.5px 5px;border-radius:5px;font-size:13px}
+pre{background:var(--code);border:1px solid var(--line);border-radius:var(--radius);
+  padding:14px;overflow-x:auto;font-size:13px;line-height:1.5}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+section{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:18px 20px;margin-bottom:16px}
+section h2{margin:0 0 12px;font-size:15px;letter-spacing:-.01em}
+section h2 .sub{font-weight:400;color:var(--muted);font-size:13px;margin-left:8px}
+.required{border-left:3px solid var(--accent)}
+#out{font-family:var(--code-font);font-size:26px;letter-spacing:.16em;text-align:center;
+  padding:20px 14px;font-variant-ligatures:none;font-feature-settings:"ss01","zero","calt" 0;
+  word-break:break-all;line-height:1.4}
+.note.ok{border-left-color:var(--accent)}
+.note.warn{border-left-color:var(--warn)}
+button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;
+  padding:8px 14px;font:inherit;font-size:14px;cursor:pointer}
+footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);
+  color:var(--muted);font-size:13px}
+.empty{color:var(--muted);padding:28px 0}
+h1.title{font-size:24px;margin:0 0 4px;letter-spacing:-.02em}
+</style>
+</head><body><div class="wrap">
+<header class="top">
+  <h1><a href="../index.html">openmodels</a></h1>
+  <p>A public archive of openpilot driving models, indexed automatically from
+     <code>commaai/openpilot</code> git history.</p>
+  <nav class="top">
+    <a href="../index.html">Models</a>
+    <a href="../compose.html">Compose</a>
+    <a href="../integrate.html">Integrate</a>
+    
+    <a href="https://github.com/commaai/openpilot">openpilot</a>
+  </nav>
+</header>
+
+<h1 class="title">pass ref</h1>
+<p class="meta"><span class="badge merged">merged</span><span class="badge pr_only">pr only</span>
+  <span class="badge">dmonitoring</span><span class="badge">split</span>
+  <span class="badge">standard</span>
+  <code>00d791c6d4d8dfea</code></p>
+
+<section class="required">
+  <h2>Required companion configuration<span class="sub">not optional</span></h2>
+  <p class="meta">These host constants were in effect where this model ran upstream. comma
+     changes them <em>in the same commit that swaps a model</em>, so weights without them are an
+     incomplete artifact. A fork that pulls these weights and keeps its old constants gets a
+     model that loads cleanly and steers differently than intended.</p>
+  <p class='empty'>No host constants recorded at this commit — they did not exist in this era of openpilot.</p>
+  
+</section>
+
+<section>
+  <h2>Provenance<span class="sub">every field independently verifiable</span></h2>
+  <p class="meta">Introduced by
+    <a href="https://github.com/commaai/openpilot/commit/948d63860b42b080c899d0f1ffd68e28f4829c10">
+    <code>948d63860b</code></a>
+    on 2024-05-15. Present in upstream HEAD:
+    <strong>no</strong>.</p>
+  <div class="scroll"><table>
+    <tr><th>date</th><th>status</th><th>commit</th><th>pr</th><th>subject</th></tr><tr><td>2024-09-25</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/4cc0969b22eeec1d618fe3fcbc940d8287235677'>4cc0969b22</a></td><td>—</td><td>squash</td></tr><tr><td>2024-09-24</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/448f817623044ddbe90ac842d1ab9d341ad7f53d'>448f817623</a></td><td>—</td><td>try uint8 again</td></tr><tr><td>2024-09-24</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/ee158d53868be4e911d0ff182264e86ed425b997'>ee158d5386</a></td><td>—</td><td>Revert model</td></tr><tr><td>2024-09-24</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/ad493e5b3ca7bcaecdf20b926b904e450406a851'>ad493e5b3c</a></td><td>—</td><td>recompile with cast</td></tr><tr><td>2024-09-23</td><td><span class='badge merged'>merged</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/e8bea2c78ffa92685ece511e9b554122aaf1a79d'>e8bea2c78f</a></td><td><a href=https://github.com/commaai/openpilot/pull/33629>#33629</a></td><td>Tomb Raider Model (#33629)</td></tr><tr><td>2024-09-22</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/f0504b66f3f736b5bea39cc01e1a073e3be95659'>f0504b66f3</a></td><td>—</td><td>790a2950-c713-4eec-838b-4f55f4fe0ccb/400</td></tr><tr><td>2024-09-22</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/2d6f983816709f54abe38d958c4b29f04060ef83'>2d6f983816</a></td><td>—</td><td>f670a748-3591-4489-a0b3-215118ddad01/400</td></tr><tr><td>2024-09-22</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/02f86458075402666a010c41de33be903c53ec24'>02f8645807</a></td><td>—</td><td>8be6b59d-4449-42fd-b8e0-93c48387070f/400</td></tr><tr><td>2024-09-22</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/0ea73ce59d114b0f510ad7a76382d7847d4e1166'>0ea73ce59d</a></td><td>—</td><td>021566c7-cff3-431d-8da2-17a96c888c5f/400</td></tr><tr><td>2024-09-22</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/77032c3cd891465aa112231a61427ad62877c114'>77032c3cd8</a></td><td>—</td><td>83b7993d-51a9-4e3f-904e-3fcd5763c231/400</td></tr><tr><td>2024-09-22</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/4b84708eb9e8a00a1fd484ef4075c0d0d06a528c'>4b84708eb9</a></td><td>—</td><td>473c0686-1ac9-4c05-9b0b-d1f1afdb6cc3/400</td></tr><tr><td>2024-09-22</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/9872cd975c236de9744dbc76ed20ec09af459dcb'>9872cd975c</a></td><td>—</td><td>0136cabf-539a-4a43-bc7f-06c3654a493c/4400</td></tr><tr><td>2024-09-22</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/e96c0f8c3218a150e1c2826c50b9de33644dccba'>e96c0f8c32</a></td><td>—</td><td>3fb967fd-16a8-4569-ba57-359e54deeab3/400</td></tr><tr><td>2024-09-22</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/8c4f4749c694bb7a599c5b322c1e65aa211be277'>8c4f4749c6</a></td><td>—</td><td>3fb967fd-16a8-4569-ba57-359e54deeab3/395</td></tr><tr><td>2024-09-22</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/c522195941b41cd8b7303713e02e924dee82a40c'>c522195941</a></td><td>—</td><td>53f39907-4763-4d19-ba26-e757527c2b61/400</td></tr><tr><td>2024-09-22</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/4558df6ab21910fb70f2e88057197f86c8f3bd95'>4558df6ab2</a></td><td>—</td><td>21afb89f-1397-4652-b423-abc2da32417a/400</td></tr><tr><td>2024-09-22</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/914c0d8511641e2a17d611e34d326f9db60387b4'>914c0d8511</a></td><td>—</td><td>21afb89f-1397-4652-b423-abc2da32417a/200</td></tr><tr><td>2024-09-22</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/49cb9653404408d197f913fdbef47df2cef63250'>49cb965340</a></td><td>—</td><td>53f39907-4763-4d19-ba26-e757527c2b61/200</td></tr><tr><td>2024-09-22</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/5ac38be9832efb5dac045263bcf158a388c9bdc2'>5ac38be983</a></td><td>—</td><td>69acff08-5383-4103-beea-822f0d228c76/160</td></tr><tr><td>2024-09-19</td><td><span class='badge merged'>merged</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/ffb6e11f968525f41567aedb8bd5a24b88998afd'>ffb6e11f96</a></td><td><a href=https://github.com/commaai/openpilot/pull/33604>#33604</a></td><td>Revert &quot;exec DM model with gpu&quot; (#33604)</td></tr><tr><td>2024-09-19</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/bd71c23c14b662639265370c6ed6fccc3ca3d706'>bd71c23c14</a></td><td>—</td><td>Revert &quot;exec DM model with gpu (#33397)&quot;</td></tr><tr><td>2024-09-16</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/ab84d063bd81dcffc50aae98313cf8b0782450c8'>ab84d063bd</a></td><td>—</td><td>1bc6b40d-5e2c-4704-9c5d-b5d3afa1d234/400</td></tr><tr><td>2024-09-16</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/2fad523a62e229271c160641b27a82eabdbbf78a'>2fad523a62</a></td><td>—</td><td>3fb967fd-16a8-4569-ba57-359e54deeab3/400</td></tr><tr><td>2024-09-15</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/36aa60f649e7e3e718162a26287a113a86b71f56'>36aa60f649</a></td><td>—</td><td>3fb967fd-16a8-4569-ba57-359e54deeab3/395</td></tr><tr><td>2024-09-14</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/99273a6e195e7842494f32c032a56587666f67f1'>99273a6e19</a></td><td>—</td><td>53f39907-4763-4d19-ba26-e757527c2b61/400</td></tr><tr><td>2024-09-14</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/99c013932602905394b5e8a958810119ecaf79c3'>99c0139326</a></td><td>—</td><td>21afb89f-1397-4652-b423-abc2da32417a/400</td></tr><tr><td>2024-09-13</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/60b4edbe145eb7754c1cb4d35d14b8b08eef7eb9'>60b4edbe14</a></td><td>—</td><td>21afb89f-1397-4652-b423-abc2da32417a/200</td></tr><tr><td>2024-09-13</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/5e138f00742dcffbf036c6aad5f650ee317395e7'>5e138f0074</a></td><td>—</td><td>53f39907-4763-4d19-ba26-e757527c2b61/200</td></tr><tr><td>2024-09-12</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/cebf48b323191d75c15280f19095a88cd71ad492'>cebf48b323</a></td><td>—</td><td>69acff08-5383-4103-beea-822f0d228c76/160</td></tr><tr><td>2024-07-01</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/01c2174d5968266b87f1d1fecefce5affaeaa624'>01c2174d59</a></td><td><a href=https://github.com/commaai/openpilot/pull/32884>#32884</a></td><td>Notre Dame model (#32884)</td></tr><tr><td>2024-07-01</td><td><span class='badge merged'>merged</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/e0c89a36da8e6a06ab85c4e74c44f70dd910e1fe'>e0c89a36da</a></td><td><a href=https://github.com/commaai/openpilot/pull/32884>#32884</a></td><td>Notre Dame model (#32884)</td></tr><tr><td>2024-07-01</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/01e8432830805165527d1dbadd5f009d19430b39'>01e8432830</a></td><td>—</td><td>New model: 6f23a03f-486b-4d3e-a314-19d149644c7c/700</td></tr><tr><td>2024-06-24</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/ae75f6655dfa3d3cb6d1a514a8eae0e0e001bef3'>ae75f6655d</a></td><td>—</td><td>5cb75c6d-4f67-4c8c-9025-13e74704d11b/700</td></tr><tr><td>2024-06-20</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/88009bf788f1348e8428e54a80262dc6864168a2'>88009bf788</a></td><td>—</td><td>72b48eb4-e615-4468-a90c-cfaf304bc059/450</td></tr><tr><td>2024-06-18</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/0559c5b1fb92e7af2ed4118f6449cd3f295c2d04'>0559c5b1fb</a></td><td>—</td><td>I think this works</td></tr><tr><td>2024-05-24</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/8bd4540636cf36eb59efcc0ee3a0f0ad81fbb680'>8bd4540636</a></td><td>—</td><td>Revert &quot;wip /500&quot;</td></tr><tr><td>2024-05-24</td><td><span class='badge merged'>merged</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/3ad7205042d7243cd63796d4108bc4acca0eb166'>3ad7205042</a></td><td>—</td><td>Revert &quot;wip /500&quot;</td></tr><tr><td>2024-05-24</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/8183715beb961658755b2f19dbba6b07582830cd'>8183715beb</a></td><td>—</td><td>wip /500</td></tr><tr><td>2024-05-24</td><td><span class='badge merged'>merged</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/c40976bb5f1003317cd45d4061e93ca7ec8c6586'>c40976bb5f</a></td><td>—</td><td>wip /500</td></tr><tr><td>2024-05-16</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/b8171a1e9cb1696377e33657052ee75655f771f9'>b8171a1e9c</a></td><td><a href=https://github.com/commaai/openpilot/pull/32431>#32431</a></td><td>DM: improve e2e predictions (#32431)</td></tr><tr><td>2024-05-16</td><td><span class='badge merged'>merged</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/2cb58bbe3539852303e68d4124148c11132434b0'>2cb58bbe35</a></td><td><a href=https://github.com/commaai/openpilot/pull/32431>#32431</a></td><td>DM: improve e2e predictions (#32431)</td></tr><tr><td>2024-05-15</td><td><span class='badge pr_only'>pr only</span></td><td class='mono'><a href='https://github.com/commaai/openpilot/commit/948d63860b42b080c899d0f1ffd68e28f4829c10'>948d63860b</a></td><td>—</td><td>pass ref</td></tr>
+  </table></div>
+</section>
+
+
+
+<section>
+  <h2>Files<span class="sub">content-addressed</span></h2>
+  <div class="scroll"><table>
+    <tr><th>role</th><th>filename</th><th>size</th><th>sha256 (oid)</th><th></th></tr><tr><td>driver monitoring</td><td class='mono'>dmonitoring_model.onnx</td><td>15 MB</td><td class='mono'>3dd3982940d823c4…</td><td><a href="https://github.com/jjolano/openmodels/releases/download/blobs-0000/3dd3982940d823c4fbb0429b733a0b78b0688d7d67aa76ff7b754a3e2f3d8683.onnx">download</a></td></tr>
+  </table></div>
+  <p class="meta">Verify every download &mdash; the oid <em>is</em> the sha256:</p>
+  <pre>curl -L &#x27;https://github.com/jjolano/openmodels/releases/download/blobs-0000/3dd3982940d823c4fbb0429b733a0b78b0688d7d67aa76ff7b754a3e2f3d8683.onnx&#x27; -o dmonitoring_model.onnx
+echo &#x27;3dd3982940d823c4fbb0429b733a0b78b0688d7d67aa76ff7b754a3e2f3d8683  dmonitoring_model.onnx&#x27; | sha256sum -c   # must pass</pre>
+</section>
+
+<section>
+  <h2>What this page does not tell you</h2>
+  <p class="meta">That this model is safe, or that it is interchangeable with any other model
+    in this archive. Two models can share tensor shapes and slice widths while interpreting
+    those numbers completely differently &mdash; column meanings inside a slice, MDN field
+    ordering, and input normalization are all invisible here. Qualification is the fork's job.
+    See <a href="../integrate.html">Integrate</a>.</p>
+</section>
+
+<footer>
+  <p>This registry asserts <strong>blob identity and upstream provenance</strong>. It does not assert that a model is safe to drive, or that two models are interchangeable.</p>
+  <p>Models &copy; comma.ai, distributed under the
+     <a href="https://github.com/commaai/openpilot/blob/master/LICENSE">openpilot MIT license</a>
+     and sourced from <a href="https://github.com/commaai/openpilot">commaai/openpilot</a>.
+     Not affiliated with or endorsed by comma.ai.
+     For subjective comparisons of how models drive, see
+     <a href="https://sunnylink.wiki/models">sunnylink.wiki</a>.</p>
+</footer>
+</div></body></html>

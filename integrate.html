@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Integrate — openmodels</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{
+  --bg:#fbfbfa; --panel:#fff; --ink:#16150f; --muted:#6b6a63; --line:#e3e2dc;
+  --accent:#3d5a3d; --warn:#8a5a1f; --danger:#8f3232; --code:#f4f4f1;
+  --radius:10px; --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  --code-font:"JetBrains Mono","IBM Plex Mono","Roboto Mono","DejaVu Sans Mono",
+              ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#131311; --panel:#1b1b18; --ink:#eceae2; --muted:#9b998f; --line:#2e2e29;
+  --accent:#9dbf9d; --warn:#d9a760; --danger:#e08585; --code:#232320;
+}}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:16px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px 72px}
+a{color:var(--accent)}
+header.top{border-bottom:1px solid var(--line);margin-bottom:28px;padding:26px 0 20px}
+header.top h1{margin:0;font-size:23px;letter-spacing:-.02em}
+header.top h1 a{color:inherit;text-decoration:none}
+header.top p{margin:6px 0 0;color:var(--muted);max-width:62ch}
+nav.top{margin-top:14px;display:flex;gap:16px;flex-wrap:wrap;font-size:14px}
+.note{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--warn);
+  border-radius:var(--radius);padding:12px 15px;margin:0 0 24px;font-size:14px;color:var(--muted)}
+.note strong{color:var(--ink)}
+.controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+.controls input,.controls select{background:var(--panel);color:var(--ink);
+  border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:inherit;font-size:14px}
+.controls > input{flex:1;min-width:220px}
+.pick{display:flex;flex-direction:column;gap:6px;flex:1;min-width:min(240px,100%)}
+.pick input{font-size:13px;padding:6px 10px}
+.pick .grid{grid-template-columns:repeat(auto-fill,minmax(min(230px,100%),1fr));flex:1;max-height:52vh;overflow:auto}
+.pick .grid > *{min-width:0}
+[hidden]{display:none!important}
+.card{cursor:pointer}
+.card .name{font-size:14px;font-weight:600;line-height:1.35;letter-spacing:-.01em;overflow-wrap:anywhere}
+.card.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.badge.ok{color:var(--accent);border-color:currentColor}
+.presets{display:flex;flex-direction:column;gap:6px;max-height:280px;overflow:auto;margin-bottom:20px}
+.preset{display:flex;align-items:center;gap:10px;text-align:left;width:100%;padding:8px 12px}
+.preset .name{flex:1;font-weight:600;min-width:0;overflow-wrap:anywhere}
+.preset .meta{font-size:12px;color:var(--muted)}
+.preset .badges{display:flex;gap:6px;flex-wrap:wrap}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:15px 17px;display:flex;flex-direction:column;gap:9px}
+.card h3{margin:0;font-size:15.5px;line-height:1.35;letter-spacing:-.01em}
+.card h3 a{text-decoration:none;color:inherit}
+.card h3 a:hover{color:var(--accent)}
+.meta{color:var(--muted);font-size:13px;display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.badges{display:flex;gap:6px;flex-wrap:wrap}
+.badge{font-size:11.5px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);
+  color:var(--muted);white-space:nowrap}
+.badge.merged{color:var(--accent);border-color:currentColor}
+.badge.reverted{color:var(--danger);border-color:currentColor}
+.badge.pr_only{color:var(--warn);border-color:currentColor}
+.badge.head{color:var(--accent);border-color:currentColor}
+.feat{font-family:var(--mono);font-size:12px;color:var(--muted);word-break:break-word}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:12.5px;text-transform:uppercase;
+  letter-spacing:.04em}
+td.mono,code,pre{font-family:var(--mono)}
+code{background:var(--code);padding:1.5px 5px;border-radius:5px;font-size:13px}
+pre{background:var(--code);border:1px solid var(--line);border-radius:var(--radius);
+  padding:14px;overflow-x:auto;font-size:13px;line-height:1.5}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+section{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:18px 20px;margin-bottom:16px}
+section h2{margin:0 0 12px;font-size:15px;letter-spacing:-.01em}
+section h2 .sub{font-weight:400;color:var(--muted);font-size:13px;margin-left:8px}
+.required{border-left:3px solid var(--accent)}
+#out{font-family:var(--code-font);font-size:26px;letter-spacing:.16em;text-align:center;
+  padding:20px 14px;font-variant-ligatures:none;font-feature-settings:"ss01","zero","calt" 0;
+  word-break:break-all;line-height:1.4}
+.note.ok{border-left-color:var(--accent)}
+.note.warn{border-left-color:var(--warn)}
+button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;
+  padding:8px 14px;font:inherit;font-size:14px;cursor:pointer}
+footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);
+  color:var(--muted);font-size:13px}
+.empty{color:var(--muted);padding:28px 0}
+h1.title{font-size:24px;margin:0 0 4px;letter-spacing:-.02em}
+</style>
+</head><body><div class="wrap">
+<header class="top">
+  <h1><a href="index.html">openmodels</a></h1>
+  <p>A public archive of openpilot driving models, indexed automatically from
+     <code>commaai/openpilot</code> git history.</p>
+  <nav class="top">
+    <a href="index.html">Models</a>
+    <a href="compose.html">Compose</a>
+    <a href="integrate.html">Integrate</a>
+    
+    <a href="https://github.com/commaai/openpilot">openpilot</a>
+  </nav>
+</header>
+
+<h1 class="title">Integrating openmodels into a fork</h1>
+<p class="note">Read this before wiring the API into anything that drives. The registry hands you
+   <strong>source weights and provenance</strong>. Turning that into something a car runs is your
+   fork's job, and so is deciding whether it is safe. API examples assume
+   <code>API=https://models.example.com</code>; the reference client needs only the public static
+   mirror.</p>
+
+<section class="required">
+  <h2>Start here: use the reference client</h2>
+  <p class="meta">Everything below is what <code>clients/reference.py</code> already does
+     correctly &mdash; oid verification, visible withdrawal status, and direct downloads from the
+     recorded release. Copy it into your fork rather than hand-rolling
+     curl. The rest of this page explains what it is doing and why.</p>
+  <pre>python clients/reference.py --list
+python clients/reference.py --pull &lt;bundle_id&gt; --out selfdrive/modeld/models</pre>
+</section>
+
+<section>
+  <h2>1. Pick a model by provenance, not by shape</h2>
+  <p class="meta">Ask what configuration a model ran in, then compare it to your own:</p>
+  <pre>curl -s "$API/v1/models/&lt;bundle_id&gt;/provenance"</pre>
+  <p class="meta">You get the upstream commit, the host constants in effect there, and every
+     occurrence with its status. There is deliberately no endpoint that tells you two models are
+     compatible &mdash; that claim cannot be made from the available data. Check
+     <code>/v1/status</code> for catalog freshness; a stale <code>generated_at</code> means the
+     indexer has stopped, which otherwise looks identical to "upstream shipped nothing".</p>
+</section>
+
+<section>
+  <h2>2. Download every file in the bundle, and verify each one</h2>
+  <p class="meta"><strong>A bundle is usually more than one file.</strong> A split model needs its
+     vision <em>and</em> policy components together &mdash; vision alone has no
+     <code>plan</code>, <code>lead</code>, or <code>lane_lines</code> and cannot drive. Keep the
+     filenames from <code>/provenance</code>; the build looks them up by name.</p>
+  <p class="meta">The oid is the sha256. Refuse any blob that does not match &mdash; that check is
+     the only thing standing between your fork and a swapped artifact.</p>
+  <pre>curl -s "$API/v1/models/&lt;bundle_id&gt;/provenance" \
+  | jq -r '.files[] | "\(.oid) \(.filename)"' \
+  | while read oid name; do
+      curl -sL "$API/v1/files/$oid/download" -o "$name"
+      echo "$oid  $name" | sha256sum -c || exit 1
+    done</pre>
+  <p class="meta">A <code>503</code> means the blob is indexed but not yet mirrored &mdash; retry
+     later. A <code>410</code> means the upstream LFS object disappeared before it could be
+     archived. Files flagged <code>suspect</code> are upstream git
+     conflict debris rather than models, and they mirror faithfully while being unusable.</p>
+  <p class="meta"><strong>Map files to compiler inputs by <code>role</code>, never by
+     filename.</strong> Names changed across eras &mdash; commit <code>249cafe</code> renamed
+     <code>driving_policy.onnx</code> to <code>driving_on_policy.onnx</code> with identical
+     content &mdash; so an older bundle's <code>on_policy</code> role still arrives as
+     <code>driving_policy.onnx</code>. The role is stable; the filename is not.</p>
+</section>
+
+<section class="required">
+  <h2>3. Apply the host constants</h2>
+  <p class="meta">Set <code>LAT_SMOOTH_SECONDS</code> and <code>LONG_SMOOTH_SECONDS</code> to the
+     values from <code>/provenance</code>. They feed lateral delay in controlsd, and comma
+     changes them in the same commit that swaps a model. Shipping new weights against stale
+     constants is the most likely way to get a model that appears to work and steers wrong.</p>
+  <p class="meta"><strong>When <code>host_constants_missing</code> is non-empty, that is real
+     information, not a gap to paper over.</strong> Older eras predate these constants entirely.
+     The registry reports them absent rather than defaulting them to zero. If you cannot
+     determine a value, treat the model as unqualified.</p>
+</section>
+
+<section>
+  <h2>4. Compile for your target &mdash; and check the compiler accepts the architecture</h2>
+  <p class="meta">openpilot builds the tinygrad pickle from ONNX during scons, choosing a backend
+     from the hardware present. The QCOM path opens <code>/dev/kgsl-3d0</code> directly, so a
+     device-usable artifact can only be produced on the device &mdash; not in CI.</p>
+  <p class="meta"><strong>Upstream's compiler only accepts a vision + on-policy pair.</strong>
+     <code>compile_modeld.py</code> requires <code>--vision-onnx</code> and
+     <code>--on-policy-onnx</code>; there is no <code>--supercombo-onnx</code> and no off-policy
+     input. Combined supercombos need a multi-era compiler such as sunnypilot's. Check the
+     bundle's roles rather than relying on an era-wide count.</p>
+  <p class="meta"><code>--frame-skip</code> is also required, and scons derives it from
+     <em>your</em> <code>ModelConstants.MODEL_RUN_FREQ // MODEL_CONTEXT_FREQ</code> &mdash; it is
+     a host property, not a model property. Provenance reports what the model ran with upstream,
+     so a difference from your own value is a mismatch signal worth investigating rather than a
+     number to copy blindly.</p>
+  <pre>python selfdrive/modeld/compile_modeld.py \
+  --vision-onnx    selfdrive/modeld/models/driving_vision.onnx \
+  --on-policy-onnx selfdrive/modeld/models/driving_on_policy.onnx \
+  --model-size 512x256 --camera-resolutions 1928x1208 1344x760 \
+  --frame-skip 4 --output selfdrive/modeld/models/driving_tinygrad.pkl</pre>
+  <p class="meta"><strong>Runtime model switching is where the cost lands.</strong> A settings-menu
+     picker cannot re-run scons per selection, so it must invoke the compiler on-device:
+     multi-minute, offroad-only, and it needs a progress UI, a disk budget, and a rollback path
+     for a compile that fails or is interrupted.</p>
+</section>
+
+<section>
+  <h2>5. Make withdrawal status impossible to miss</h2>
+  <p class="meta">Filter to <code>status=merged</code> unless a human explicitly opted in. A
+     reverted model is one comma pulled back, and "merged" is not the same as "approved" &mdash;
+     several models landed and were reverted days later. PR-only models never cleared review at
+     all. The reference client shows every status and offers <code>--merged-only</code> when a
+     product chooses to hide withdrawn entries.</p>
+  <pre>curl -s "$API/v1/models?status=merged&amp;kind=driving"</pre>
+</section>
+
+<section>
+  <h2>What the registry never establishes</h2>
+  <p class="meta">Target-hardware compilation, process replay, latency and memory behaviour,
+     closed-loop driving quality, or safety. Everything served here is storage integrity and
+     upstream history. Two models can share every tensor shape while interpreting those numbers
+     completely differently, which is why no endpoint will ever tell you they are
+     interchangeable. Qualify a model on your own hardware before anyone drives on it.</p>
+</section>
+
+<footer>
+  <p>This registry asserts <strong>blob identity and upstream provenance</strong>. It does not assert that a model is safe to drive, or that two models are interchangeable.</p>
+  <p>Models &copy; comma.ai, distributed under the
+     <a href="https://github.com/commaai/openpilot/blob/master/LICENSE">openpilot MIT license</a>
+     and sourced from <a href="https://github.com/commaai/openpilot">commaai/openpilot</a>.
+     Not affiliated with or endorsed by comma.ai.
+     For subjective comparisons of how models drive, see
+     <a href="https://sunnylink.wiki/models">sunnylink.wiki</a>.</p>
+</footer>
+</div></body></html>

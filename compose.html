@@ -1,0 +1,439 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Compose — openmodels</title>
+<style>
+*,*::before,*::after{box-sizing:border-box}
+:root{
+  --bg:#fbfbfa; --panel:#fff; --ink:#16150f; --muted:#6b6a63; --line:#e3e2dc;
+  --accent:#3d5a3d; --warn:#8a5a1f; --danger:#8f3232; --code:#f4f4f1;
+  --radius:10px; --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  --code-font:"JetBrains Mono","IBM Plex Mono","Roboto Mono","DejaVu Sans Mono",
+              ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#131311; --panel:#1b1b18; --ink:#eceae2; --muted:#9b998f; --line:#2e2e29;
+  --accent:#9dbf9d; --warn:#d9a760; --danger:#e08585; --code:#232320;
+}}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:16px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px 72px}
+a{color:var(--accent)}
+header.top{border-bottom:1px solid var(--line);margin-bottom:28px;padding:26px 0 20px}
+header.top h1{margin:0;font-size:23px;letter-spacing:-.02em}
+header.top h1 a{color:inherit;text-decoration:none}
+header.top p{margin:6px 0 0;color:var(--muted);max-width:62ch}
+nav.top{margin-top:14px;display:flex;gap:16px;flex-wrap:wrap;font-size:14px}
+.note{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--warn);
+  border-radius:var(--radius);padding:12px 15px;margin:0 0 24px;font-size:14px;color:var(--muted)}
+.note strong{color:var(--ink)}
+.controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+.controls input,.controls select{background:var(--panel);color:var(--ink);
+  border:1px solid var(--line);border-radius:8px;padding:8px 11px;font:inherit;font-size:14px}
+.controls > input{flex:1;min-width:220px}
+.pick{display:flex;flex-direction:column;gap:6px;flex:1;min-width:min(240px,100%)}
+.pick input{font-size:13px;padding:6px 10px}
+.pick .grid{grid-template-columns:repeat(auto-fill,minmax(min(230px,100%),1fr));flex:1;max-height:52vh;overflow:auto}
+.pick .grid > *{min-width:0}
+[hidden]{display:none!important}
+.card{cursor:pointer}
+.card .name{font-size:14px;font-weight:600;line-height:1.35;letter-spacing:-.01em;overflow-wrap:anywhere}
+.card.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.badge.ok{color:var(--accent);border-color:currentColor}
+.presets{display:flex;flex-direction:column;gap:6px;max-height:280px;overflow:auto;margin-bottom:20px}
+.preset{display:flex;align-items:center;gap:10px;text-align:left;width:100%;padding:8px 12px}
+.preset .name{flex:1;font-weight:600;min-width:0;overflow-wrap:anywhere}
+.preset .meta{font-size:12px;color:var(--muted)}
+.preset .badges{display:flex;gap:6px;flex-wrap:wrap}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(min(320px,100%),1fr))}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:15px 17px;display:flex;flex-direction:column;gap:9px}
+.card h3{margin:0;font-size:15.5px;line-height:1.35;letter-spacing:-.01em}
+.card h3 a{text-decoration:none;color:inherit}
+.card h3 a:hover{color:var(--accent)}
+.meta{color:var(--muted);font-size:13px;display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.badges{display:flex;gap:6px;flex-wrap:wrap}
+.badge{font-size:11.5px;padding:2px 8px;border-radius:99px;border:1px solid var(--line);
+  color:var(--muted);white-space:nowrap}
+.badge.merged{color:var(--accent);border-color:currentColor}
+.badge.reverted{color:var(--danger);border-color:currentColor}
+.badge.pr_only{color:var(--warn);border-color:currentColor}
+.badge.head{color:var(--accent);border-color:currentColor}
+.feat{font-family:var(--mono);font-size:12px;color:var(--muted);word-break:break-word}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:12.5px;text-transform:uppercase;
+  letter-spacing:.04em}
+td.mono,code,pre{font-family:var(--mono)}
+code{background:var(--code);padding:1.5px 5px;border-radius:5px;font-size:13px}
+pre{background:var(--code);border:1px solid var(--line);border-radius:var(--radius);
+  padding:14px;overflow-x:auto;font-size:13px;line-height:1.5}
+.scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+section{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:18px 20px;margin-bottom:16px}
+section h2{margin:0 0 12px;font-size:15px;letter-spacing:-.01em}
+section h2 .sub{font-weight:400;color:var(--muted);font-size:13px;margin-left:8px}
+.required{border-left:3px solid var(--accent)}
+#out{font-family:var(--code-font);font-size:26px;letter-spacing:.16em;text-align:center;
+  padding:20px 14px;font-variant-ligatures:none;font-feature-settings:"ss01","zero","calt" 0;
+  word-break:break-all;line-height:1.4}
+.note.ok{border-left-color:var(--accent)}
+.note.warn{border-left-color:var(--warn)}
+button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;
+  padding:8px 14px;font:inherit;font-size:14px;cursor:pointer}
+footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);
+  color:var(--muted);font-size:13px}
+.empty{color:var(--muted);padding:28px 0}
+h1.title{font-size:24px;margin:0 0 4px;letter-spacing:-.02em}
+</style>
+</head><body><div class="wrap">
+<header class="top">
+  <h1><a href="index.html">openmodels</a></h1>
+  <p>A public archive of openpilot driving models, indexed automatically from
+     <code>commaai/openpilot</code> git history.</p>
+  <nav class="top">
+    <a href="index.html">Models</a>
+    <a href="compose.html">Compose</a>
+    <a href="integrate.html">Integrate</a>
+    
+    <a href="https://github.com/commaai/openpilot">openpilot</a>
+  </nav>
+</header>
+
+<h1 class="title">Compose a model</h1>
+<p class="note">Combine a vision component with an on-policy component &mdash; and optionally an
+   off-policy component alongside it &mdash; and get a code you can paste into a model picker. The
+   on-policy component carries the control outputs and is what compiles on device; the off-policy
+   component carries the full plan and is the optional extra comma trains alongside it. But
+   <strong>the exact combination you build here has never been driven</strong>.</p>
+
+<section>
+  <h2>Pick the components</h2>
+  <p class="meta">Every shipped combination is a preset &mdash; merged or PR-only. Pick one to
+     fill the components exactly as it shipped upstream:</p>
+  <input id="presetFilter" type="search" placeholder="filter presets…"
+         aria-label="Filter presets">
+  <div id="presets" class="presets" aria-label="compose presets"></div>
+  <div class="controls">
+    <div class="pick">
+      <p class="meta">vision <span class="sub">required</span></p>
+      <input id="vfilter" type="search" placeholder="filter vision components…"
+             aria-label="Filter vision components">
+      <div id="vgrid" class="grid" aria-label="vision components"></div>
+    </div>
+    <div class="pick">
+      <p class="meta">on-policy <span class="sub">required</span></p>
+      <input id="pfilter" type="search" placeholder="filter on-policy components…"
+             aria-label="Filter on-policy components">
+      <div id="pgrid" class="grid" aria-label="on-policy components"></div>
+    </div>
+    <div class="pick">
+      <p class="meta">off-policy <span class="sub">optional</span></p>
+      <input id="p2filter" type="search" placeholder="filter off-policy components…"
+             aria-label="Filter off-policy components">
+      <div id="p2grid" class="grid" aria-label="off-policy components"></div>
+    </div>
+  </div>
+  <label class="meta"><input id="attestedOnly" type="checkbox">
+    only show policies attested with the picked vision</label>
+  <p id="note" class="meta"></p>
+</section>
+
+<section class="required">
+  <h2>Your code<span class="sub">paste this into a picker</span></h2>
+  <div id="manifest" class="scroll"></div>
+  <pre id="out">Pick a vision component and an on-policy component.</pre>
+  <button id="copy" class="controls">Copy</button>
+  <p class="meta">14 characters &mdash; the <code>OM3-</code> prefix is for recognition and does
+     not need typing. The code carries which files you picked, not a promise about them. Redeeming it
+     &mdash; <code>GET /v1/compose/&lt;code&gt;</code>, or <code>redeem_code()</code> in the
+     runtime library &mdash; resolves it against the catalog and re-runs every check. A damaged
+     code fails to resolve rather than quietly naming different weights.</p>
+</section>
+
+<section>
+  <h2>Before you drive it</h2>
+  <p class="meta">Structural checks passing is not a safety result. The components may carry
+     different host constants, since they came from different commits &mdash; redeem the code to
+     see both and choose deliberately. Then compile on-device and qualify it yourself.</p>
+</section>
+<script>
+(function(){
+  var D=null;
+  // Mirrors index/code.py -- shapes are append-only and roles are the encoding order.
+  var SHAPES=[["vision","on_policy"],["vision","on_policy","off_policy"],["supercombo"],
+              ["vision","off_policy"],["big_vision","big_on_policy"],
+              ["big_vision","big_on_policy","big_off_policy"],["big_supercombo"],
+              ["dmonitoring"],["navmodel"]];
+  var VERSION=3;
+
+  // Files carry no date or name of their own; both come from the newest bundle shipping each oid.
+  // Merged bundles carry comma's PR title ("Nicki Minaj Model"); PR-only ones carry the bare
+  // training-run reference, which renders as the run/step a human recognises.
+  var NEWEST={}, NAME={};
+  function prettyName(n){
+    var m=/^([0-9a-f]{8})-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}(?:\/(\d+))?$/i.exec(n||"");
+    if(!m) return n||"";
+    return "Training run "+m[1]+(m[2]?" \u00b7 step "+m[2]:"");
+  }
+  function dateOf(f){ return NEWEST[f.oid]||""; }
+  function nameOf(f){ return NAME[f.oid]||(f.filenames[0]||"?"); }
+  function ck(f){ var l=(f.metadata||{}).lineage||{}; return l.self||l.vision||null; }
+  // The policy consumes the vision encoder's hidden state through features_buffer; its width is
+  // the seam compose() checks. The vision side does not declare it, so only policies show it.
+  function seam(f){ var s=(f.metadata||{}).input_shapes||{}; return (s.features_buffer||[])[2]||null; }
+  // big_ is a bundle-level hardware variant (USBGPU/AMD vs QCOM), not a role: the indexer reads
+  // big_driving_vision.onnx as plain vision. Halves must agree on it or nothing can run them.
+  function variantOf(f){
+    return (f.filenames||[]).some(function(n){ return n.indexOf("big_")===0; })
+      ? "big" : "standard";
+  }
+  // Mirrors index/code.py. Base26 over an alphabet with no confusable characters, so a
+  // misread self-corrects on entry rather than merely failing.
+  var ALPHABET="0123456789ACDEFHJKMNPRVWXY";
+  function b26(bytes, chars){
+    var v=0n;
+    for(var i=0;i<bytes.length;i++) v=(v<<8n)|BigInt(bytes[i]);
+    var out="", B=BigInt(ALPHABET.length);
+    for(var j=0;j<chars;j++){ out=ALPHABET[Number(v%B)]+out; v=v/B; }
+    return out;
+  }
+  function charsFor(n){ return Math.ceil(n*8/Math.log2(ALPHABET.length)); }
+  async function sha256(str){
+    var buf=await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf));
+  }
+  function shapeOf(roles){
+    for(var i=0;i<SHAPES.length;i++){
+      if(SHAPES[i].length===roles.length &&
+         SHAPES[i].every(function(r){ return roles.indexOf(r)>-1; })) return i;
+    }
+    return -1;
+  }
+  async function makeCode(sel){
+    var roles=Object.keys(sel), si=shapeOf(roles);
+    if(si<0) return "(no code shape for this combination)";
+    var body=[(VERSION<<5)|si];
+    SHAPES[si].forEach(function(r){
+      var hex=sel[r].slice(0,6);
+      for(var i=0;i<6;i+=2) body.push(parseInt(hex.substr(i,2),16));
+    });
+    var sorted=roles.slice().sort();
+    var digest=await sha256(sorted.map(function(r){return r+":"+sel[r];}).join(""));
+    body=body.concat(digest.slice(0,1));
+    var t=b26(body, charsFor(body.length)), g=[];
+    for(var i=0;i<t.length;i+=4) g.push(t.slice(i,i+4));
+    return "OM3-"+g.join("-");
+  }
+
+  function options(role){
+    return (D.files||[]).filter(function(f){
+      return (f.filenames||[]).some(function(n){
+        return role==="vision" ? n.indexOf("vision")>-1
+             : n.indexOf("policy")>-1 && policyRole(f)===role; });
+    });
+  }
+  // off_policy is a distinct role in the index, not a flavour of on_policy. Encoding one as the
+  // other would make the code name weights the user did not pick -- the exact misresolution the
+  // format exists to prevent -- so the role travels with the option.
+  function policyRole(f){
+    return (f.filenames||[]).some(function(n){ return n.indexOf("off_policy")>-1; })
+      ? "off_policy" : "on_policy";
+  }
+  function attested(vc, pc){
+    return !!(vc&&pc) && (D.attested_pairings||[]).some(function(pr){
+      return pr[0]===vc && pr[1]===pc; });
+  }
+  function esc(s){
+    return String(s).replace(/[&<>"]/g, function(ch){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]; });
+  }
+  // Selection state: one card per role, mirroring the shape the code will mint.
+  var SEL={vision:null, on_policy:null, off_policy:null};
+  // Per-file status and HEAD flag come from the newest bundle shipping each oid -- the same
+  // bundle that names it. Mirrors statuses() on the browse page: every occurrence status shows.
+  var STATUS={}, IN_HEAD={};
+  var FILTERS={};
+  function applyFilter(id){
+    var t=(FILTERS[id]||"").toLowerCase(), el=document.getElementById(id);
+    Array.prototype.forEach.call(el.children, function(c){
+      c.hidden = c.dataset.search.indexOf(t)<0;
+    });
+  }
+  // With the checkbox on, policy cards never attested with the picked vision hide.
+  function applyAttestedFilter(){
+    if(!document.getElementById("attestedOnly").checked) return;
+    var vc=SEL.vision?ck(byOid[SEL.vision]):null;
+    ["pgrid","p2grid"].forEach(function(id){
+      var el=document.getElementById(id);
+      Array.prototype.forEach.call(el.children, function(c){
+        c.hidden = !(vc&&attested(vc,ck(byOid[c.dataset.oid])));
+      });
+    });
+  }
+  function renderCards(id, role, variant, vc){
+    var el=document.getElementById(id); el.innerHTML="";
+    options(role).filter(function(f){
+      if(variant && variantOf(f)!==variant) return false;
+      return true; })
+    .sort(function(a,b){
+      var da=dateOf(a), db=dateOf(b);
+      if(vc){ var aa=attested(vc,ck(a))?1:0, ab=attested(vc,ck(b))?1:0; if(aa!==ab) return ab-aa; }
+      return da<db?1:da>db?-1:0; })
+    .forEach(function(f){
+      var c=document.createElement("div");
+      c.className="card"+(SEL[role]===f.oid?" sel":"");
+      c.dataset.oid=f.oid;
+      c.dataset.search=(nameOf(f)+" "+f.filenames.join(" ")+" "+dateOf(f)).toLowerCase();
+      var badges="";
+      (STATUS[f.oid]||[]).forEach(function(s){
+        badges+="<span class='badge "+s+"'>"+s.replace("_"," ")+"</span>"; });
+      if(IN_HEAD[f.oid]) badges+="<span class='badge head'>in HEAD</span>";
+      badges+="<span class='badge'>"+variantOf(f)+"</span>";
+      if(vc&&attested(vc,ck(f))) badges+="<span class='badge ok'>attested</span>";
+      c.innerHTML="<div class='name'>"+esc(nameOf(f))+"</div>"+
+        "<div class='feat'>"+esc(f.filenames[0])+"</div>"+
+        "<div class='meta'><span>"+(dateOf(f).slice(0,10)||"undated")+"</span>"+
+        "<span>"+Math.round(f.size/1048576)+" MB</span></div>"+
+        "<div class='badges'>"+badges+"</div>";
+      c.addEventListener("click", function(){
+        SEL[role] = SEL[role]===f.oid ? null : f.oid;
+        renderAll(); update();
+      });
+      el.appendChild(c);
+    });
+    if(FILTERS[id]) applyFilter(id);
+    if(role!=="vision") applyAttestedFilter();
+  }
+  function renderAll(){
+    var v=SEL.vision;
+    var vv=v?variantOf(byOid[v]):null, vc=v?ck(byOid[v]):null;
+    renderCards("vgrid","vision",null,null);
+    renderCards("pgrid","on_policy",vv,vc);
+    renderCards("p2grid","off_policy",vv,vc);
+  }
+  // Every shipped bundle with a compose shape is a preset: one click fills the halves exactly
+  // as they shipped upstream, merged or PR-only. Status badges say which one this is.
+  function selectQuick(b){
+    SEL={vision:null, on_policy:null, off_policy:null};
+    b.files.forEach(function(m){ SEL[m.role]=m.oid; });
+    renderAll(); update();
+  }
+  async function update(){
+    var out=document.getElementById("out"), note=document.getElementById("note"),
+        man=document.getElementById("manifest");
+    var v=SEL.vision, p=SEL.on_policy, p2=SEL.off_policy;
+    if(!v||!p){ out.textContent="Pick a vision component and an on-policy component.";
+      note.textContent=""; man.innerHTML=""; return; }
+    var vf=byOid[v], pf=byOid[p];
+    if(variantOf(vf)!==variantOf(pf)||(p2&&variantOf(byOid[p2])!==variantOf(vf))){
+      out.textContent=""; man.innerHTML="";
+      note.className="note warn";
+      note.innerHTML="<strong>Components disagree on hardware target.</strong> "+variantOf(vf)+
+        " and "+variantOf(pf)+" run on different devices (QCOM vs USBGPU/AMD) \u2014 compose refuses this combination.";
+      return;
+    }
+    var sel={vision:v, on_policy:p};
+    if(p2) sel.off_policy=p2;
+    var vc=ck(vf), pc1=ck(pf), pc2=p2?ck(byOid[p2]):null;
+    var unknown=!vc||!pc1||(p2&&!pc2);
+    var a1=attested(vc,pc1), a2=p2?attested(vc,pc2):null;
+    note.className = unknown||(!p2&&!a1)||(p2&&!(a1&&a2)) ? "note warn" : "note ok";
+    if(unknown)
+      note.innerHTML="<strong>Lineage unknown</strong> for one component \u2014 whether these were built for each other cannot be determined.";
+    else if(p2&&a1&&a2)
+      note.innerHTML="<strong>Attested pairing.</strong> All three components shipped together upstream.";
+    else if(p2&&a1)
+      note.innerHTML="<strong>on-policy attested</strong> with this vision; the off-policy component is <strong>cross-lineage</strong>.";
+    else if(p2&&a2)
+      note.innerHTML="<strong>off-policy attested</strong> with this vision; the on-policy component is <strong>cross-lineage</strong>.";
+    else if(!p2&&a1)
+      note.innerHTML="<strong>Attested pairing.</strong> These components shipped together upstream.";
+    else
+      note.innerHTML="<strong>Cross-lineage.</strong> No shipped pairing is recorded in this catalog. The latent between them is untyped, so this will load and run regardless of whether the numbers mean the same thing.";
+    var rows="";
+    Object.keys(sel).forEach(function(r){
+      var f=byOid[sel[r]], s=seam(f);
+      rows+="<tr><td>"+r+"</td><td class='mono'>"+esc(f.filenames[0])+"</td><td>"+
+            Math.round(f.size/1048576)+" MB</td><td class='mono'>"+esc(ck(f)||"\u2014")+
+            "</td><td>"+(s?s:"\u2014")+"</td></tr>";
+    });
+    man.innerHTML="<table><thead><tr><th>role</th><th>file</th><th>size</th>"+
+      "<th>checkpoint</th><th>seam width</th></tr></thead><tbody>"+rows+"</tbody></table>";
+    out.textContent = await makeCode(sel);
+  }
+  var byOid={};
+  fetch("index.json").then(function(r){return r.json();}).then(function(d){
+    D=d;
+    (D.bundles||[]).forEach(function(b){
+      var dt=(b.introduced_by||{}).date||"";
+      (b.files||[]).forEach(function(m){
+        if(dt>(NEWEST[m.oid]||"")){
+          NEWEST[m.oid]=dt; NAME[m.oid]=prettyName(b.name||"");
+          STATUS[m.oid]=(b.occurrences||[]).map(function(o){return o.status;})
+            .filter(function(s,i,a){return a.indexOf(s)===i;}).sort();
+          IN_HEAD[m.oid]=!!b.in_head;
+        }
+      });
+    });
+    (D.files||[]).forEach(function(f){ byOid[f.oid]=f; });
+    renderAll();
+    // Presets: every shipped bundle with a compose shape, newest first. A preset is the
+    // honest starting point -- these files shipped together, whatever their status.
+    var presets=(D.bundles||[]).filter(function(b){
+      var roles={}; b.files.forEach(function(m){ roles[m.role]=true; });
+      return roles.vision&&roles.on_policy;
+    }).sort(function(a,b){
+      return (a.introduced_by||{}).date<(b.introduced_by||{}).date?1:-1; });
+    var pel=document.getElementById("presets");
+    presets.forEach(function(b){
+      var row=document.createElement("button");
+      row.type="button";
+      row.className="preset";
+      var nm=prettyName(b.name||"");
+      var st=(b.occurrences||[]).map(function(o){return o.status;})
+        .filter(function(s,i,a){return a.indexOf(s)===i;}).sort();
+      var badges=st.map(function(s){
+        return "<span class='badge "+s+"'>"+s.replace("_"," ")+"</span>"; }).join("");
+      if(b.in_head) badges+="<span class='badge head'>in HEAD</span>";
+      if(b.files.some(function(m){return m.role==="off_policy";}))
+        badges+="<span class='badge'>3 components</span>";
+      row.innerHTML="<span class='name'>"+esc(nm)+"</span>"+
+        "<span class='meta'>"+(b.introduced_by||{}).date.slice(0,10)+"</span>"+
+        "<span class='badges'>"+badges+"</span>";
+      row.dataset.search=(nm+" "+(b.introduced_by||{}).date).toLowerCase();
+      row.addEventListener("click", function(){ selectQuick(b); });
+      pel.appendChild(row);
+    });
+    document.getElementById("presetFilter").addEventListener("input", function(){
+      var t=this.value.toLowerCase();
+      Array.prototype.forEach.call(pel.children, function(r){
+        r.hidden = r.dataset.search.indexOf(t)<0;
+      });
+    });
+    [["vfilter","vgrid"],["pfilter","pgrid"],["p2filter","p2grid"]].forEach(function(pair){
+      document.getElementById(pair[0]).addEventListener("input", function(){
+        FILTERS[pair[1]]=this.value; applyFilter(pair[1]);
+      });
+    });
+    document.getElementById("attestedOnly").addEventListener("change", applyAttestedFilter);
+    update();
+  }).catch(function(e){
+    document.getElementById("out").textContent="could not load catalog: "+e;
+  });
+  document.getElementById("copy").addEventListener("click", function(){
+    navigator.clipboard.writeText(document.getElementById("out").textContent);
+  });
+})();
+</script>
+<footer>
+  <p>This registry asserts <strong>blob identity and upstream provenance</strong>. It does not assert that a model is safe to drive, or that two models are interchangeable.</p>
+  <p>Models &copy; comma.ai, distributed under the
+     <a href="https://github.com/commaai/openpilot/blob/master/LICENSE">openpilot MIT license</a>
+     and sourced from <a href="https://github.com/commaai/openpilot">commaai/openpilot</a>.
+     Not affiliated with or endorsed by comma.ai.
+     For subjective comparisons of how models drive, see
+     <a href="https://sunnylink.wiki/models">sunnylink.wiki</a>.</p>
+</footer>
+</div></body></html>
