@@ -206,7 +206,7 @@ class UniversalTests(unittest.TestCase):
       description = client.get("/openapi.json").json()
       self.assertEqual(description["info"]["version"], "0.1.0")
       self.assertEqual(set(description["paths"]), {
-        "/v1/catalog", "/v1/models", "/v1/manifests/{digest}", "/v1/profiles",
+        "/v1/catalog", "/v1/models", "/v1/models/{identity}", "/v1/manifests/{digest}", "/v1/profiles",
         "/v1/artifacts/{digest}", "/v1/schemas/{name}", "/v1/status", "/v1/compose"})
 
   def test_schemas_match_actual_documents(self):
@@ -259,10 +259,10 @@ class UniversalTests(unittest.TestCase):
       render(source, output)
       self.assertEqual(loads(source.read_text()), archive)
       self.assertFalse((output / "index.json").exists())
-      page = (output / "index.html").read_text()
+      page = (output / "compose.html").read_text()
       self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", page)
       self.assertNotIn("<script>alert(1)</script>", page)
-      self.assertEqual([p.name for p in output.glob("*.html")], ["index.html"])
+      self.assertTrue({"index.html", "archive.html", "integrate.html", "compose.html"} <= {p.name for p in output.glob("*.html")})
       cat = Catalog.load(output / "catalog.json")
       for entry in cat.data["entries"]:
         exported = Catalog.load(output / "recipes" / f"{entry['recipe']}.json")

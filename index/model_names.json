@@ -1,0 +1,814 @@
+{
+  "source_revision": "947018e4697e2f68c898438c5aa7597bab651335",
+  "source_url": "https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json",
+  "records": [
+    {
+      "name": "LAv2 (January 24, 2024)",
+      "ref": "f9d5fc7dd9b763356a1201d96c6953ed4562226e",
+      "bundle_id": "e300288c246199d9",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "763821410b35b06b598cacfa5bc3e312610b3f8de2729e0d5954d7571b6794be"
+        }
+      ]
+    },
+    {
+      "name": "Certified Herbalist v2 (February 19, 2024)",
+      "ref": "a4d53d378d4331dc7780e5e60845ea1731c48341",
+      "bundle_id": "2597abcdbc9346ce",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "c11f99aab832242a604b1bb4c4cf391c9c3d5e90cbc07ab0d4c133473b56a3a4"
+        }
+      ]
+    },
+    {
+      "name": "Recertified Herbalist (March 01, 2024)",
+      "ref": "063623602c9a3cefe70d2c661b40ef7a15f73d43",
+      "bundle_id": "e23a56be9f20a65e",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "cd4b0cc83d5ff275ee77ec430ea686603ad50fd6ad874f599ea6e95b123afc3e"
+        }
+      ]
+    },
+    {
+      "name": "Duck Amigo (March 18, 2024)",
+      "ref": "5f3960a3a7689903a4da5e80b7e70cf0056acad3",
+      "bundle_id": "86d7d891b159dfb8",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "b4fb2cec9ef759cb1164ee2d27b338338a5a9302f427ad95f9b021361b02e1a2"
+        }
+      ]
+    },
+    {
+      "name": "WD40 (April 09, 2024)",
+      "ref": "9691393bde34efb8be6fccef497d6d17758c209c",
+      "bundle_id": "6fd36846264d7f3b",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "a7a267b5026a0fab61095092d9af20c1dcd70311817c80749adcf6c0a0879061"
+        }
+      ]
+    },
+    {
+      "name": "North Dakota v2 (April 29, 2024)",
+      "ref": "375978d40b976bf9e82ab74f267846a56b7656a6",
+      "bundle_id": "344a6a5c6acdd11d",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "b31b504bc0b440d3bc72967507a00eb4f112285626fbfb3135011500325ee6d6"
+        }
+      ]
+    },
+    {
+      "name": "Notre Dame (July 01, 2024)",
+      "ref": "e0c89a36da8e6a06ab85c4e74c44f70dd910e1fe",
+      "bundle_id": "1e4cf6aa8a8667f9",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "39786068cae1ed8c0dc34ef80c281dfcc67ed18a50e06b90765c49bcfdbf7db4"
+        }
+      ]
+    },
+    {
+      "name": "Filet o Fish (March 07, 2025)",
+      "ref": "d807b5c476658dba7760d30949baa619074c4a4e",
+      "bundle_id": "e8732fbed7891495",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "98f0121ccb6f850077b04cc91bd33d370fc6cbdc2bd35f1ab55628a15a813f36"
+        },
+        {
+          "role": "vision",
+          "sha256": "897f80d0388250f99bba69b6a8434560cc0fd83157cbeb0bc134c67fe4e64624"
+        }
+      ]
+    },
+    {
+      "name": "SP Vikander Model (May 03, 2025)",
+      "ref": "d134fdd7d51ba84848866c0265e37508c38f9366",
+      "bundle_id": "8c9aa91457a5894e",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "5d34935314761188c3e67d288456c47c8cd2a7667442e7e8f561647d81f45161"
+        },
+        {
+          "role": "vision",
+          "sha256": "f222d2c528f1763828de01bb55e8979b1e4056e1dbb41350f521d2d2bb09d177"
+        }
+      ]
+    },
+    {
+      "name": "Tomb Raider 7 (May 07, 2025)",
+      "ref": "0fb4aafa35896e831bd58a636a9a1bb4a1442743",
+      "bundle_id": "9a7114db7689742d",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "19e30484236efff72d519938c3e26461dbeb89c11d81fa7ecbff8e0263333c18"
+        },
+        {
+          "role": "vision",
+          "sha256": "dad289ae367cefcb862ef1d707fb4919d008f0eeaa1ebaf18df58d8de5a7d96e"
+        }
+      ]
+    },
+    {
+      "name": "Secret Good Openpilot (May 16, 2025)",
+      "ref": "80a636e4952633886c65973d3323e58ec87ed320",
+      "bundle_id": "cfae60ba86ba2839",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "fc153b5d03f8940254193b3f660a2491d8ec7114fa419b544d56619579467eb0"
+        },
+        {
+          "role": "vision",
+          "sha256": "dad289ae367cefcb862ef1d707fb4919d008f0eeaa1ebaf18df58d8de5a7d96e"
+        }
+      ]
+    },
+    {
+      "name": "Kerrygold Driving (June 08, 2025)",
+      "ref": "dc7a92ea630e4f6053082fc25eca83938927b91e",
+      "bundle_id": "78494323c2b95097",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "28c6707c18f0cc9d507e384964bda22ca8f8304207ccf855d91cc7063614d7bb"
+        },
+        {
+          "role": "vision",
+          "sha256": "f666317a34cbd7e46c4454a2d7c0bccaeda42d8d17635fe6a50b183f061e98bf"
+        }
+      ]
+    },
+    {
+      "name": "Liquid Crystal Driving (June 21, 2025)",
+      "ref": "b55af0de7fecdb4af073c01b77b04b8306a4e92d",
+      "bundle_id": "db384d1ab9f28d5a",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "2e89148516d6f11ca70949675c4b00257db333b1ca1d2d14c2d0daaa0b0245f9"
+        },
+        {
+          "role": "vision",
+          "sha256": "3ac4867fbc618037e8d03143edbfeeae960f2025644b5dcf36c6665271b4f874"
+        }
+      ]
+    },
+    {
+      "name": "Vegetarian Filet o Fish (June 21, 2025)",
+      "ref": "c790d3f58ad32cf15f384e6018d942b2348f0c5b",
+      "bundle_id": "d0baaa5c88666c77",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "5f714fb38bcd44b5d9f44e3a8e1595e1dfdf7558f0eec3485cf3f2dbb6dc7d8d"
+        },
+        {
+          "role": "vision",
+          "sha256": "3ac4867fbc618037e8d03143edbfeeae960f2025644b5dcf36c6665271b4f874"
+        }
+      ]
+    },
+    {
+      "name": "Aggressive TR (June 28, 2025)",
+      "ref": "d54a5888cf6165b30e4bdda514ab9057473cd7f8",
+      "bundle_id": "e1715b1f29377e74",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "8410e6dc60bdcad5d72654c84621de1005da60628fe44d362ee603bdb9371856"
+        },
+        {
+          "role": "vision",
+          "sha256": "3d2bd82ba42341dba1bda5426e45c4c646db604c9ac422156eaa2b9ef26194f9"
+        }
+      ]
+    },
+    {
+      "name": "Simple Plan Driving (July 07, 2025)",
+      "ref": "f523f104eafc49dccb447aea4f7c3f666ef5626c",
+      "bundle_id": "f6f9ed75a8595699",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "0d0addb99880afcf18d81c1e8682083adb9b0e84239d2a36f74c9f79517ec76a"
+        },
+        {
+          "role": "vision",
+          "sha256": "35ff4f4577002f2685e50c8346addae33fe8da27a41dd4d6a0f14d1f4b1af81b"
+        }
+      ]
+    },
+    {
+      "name": "Down to Ride v5 (July 08, 2025)",
+      "ref": "5b405920ec9511e146432de08171d6f93295248b",
+      "bundle_id": "20e91489529b8ced",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "5547dddd63fa27c22f83f708377dcacd1c8f5518375e4d6490df992af5ce5b20"
+        },
+        {
+          "role": "vision",
+          "sha256": "3d2bd82ba42341dba1bda5426e45c4c646db604c9ac422156eaa2b9ef26194f9"
+        }
+      ]
+    },
+    {
+      "name": "Tomb Raider 15 (July 11, 2025)",
+      "ref": "ed38ca8cc998f0a2b47cde29da11b782e4551e8b",
+      "bundle_id": "ce9678d909ae90d2",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "0650b76ce1a963ce6533b779d26dc04a23730f3351f4d5929c4e94b4ffb56849"
+        },
+        {
+          "role": "vision",
+          "sha256": "a83406a3e8d8ce8e786808c8604842b7d074a0f17b35747a3199675641a0396c"
+        }
+      ]
+    },
+    {
+      "name": "Le Tomb Raider 14 (July 14, 2025)",
+      "ref": "c2fa07b82c2e09964e4b6dccb3e4465a2e4ad138",
+      "bundle_id": "a0fe5ccded48af11",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "cddefa5dbe21c60858f0d321d12d1ed4b126d05a7563f651bdf021674be63d64"
+        },
+        {
+          "role": "vision",
+          "sha256": "afee02876ed51f21883e731990a252fd57afda6a78700c41fbf22d8cb288b4b5"
+        }
+      ]
+    },
+    {
+      "name": "Tomb Raider 16 (July 21, 2025)",
+      "ref": "e4b6a2736580dc427473bcf8a6e3b08eb352edd4",
+      "bundle_id": "e9b973cce43b2209",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "2c3509320f17bf4057a3e358cb686abc980869886c08e8a24db1dd6548e05408"
+        },
+        {
+          "role": "vision",
+          "sha256": "afee02876ed51f21883e731990a252fd57afda6a78700c41fbf22d8cb288b4b5"
+        }
+      ]
+    },
+    {
+      "name": "Space Lab 2 (July 26, 2025)",
+      "ref": "d3a0378ae601f61307a53d1173c251ee36c56317",
+      "bundle_id": "4eb3bcf8c5734740",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "22aec22a10ce09384d4a4af2a0bbff08d54af7e0c888503508f356fae4ff0e29"
+        },
+        {
+          "role": "vision",
+          "sha256": "c824f68646a3b94f117f01c70dc8316fb466e05fbd42ccdba440b8a8dc86914b"
+        }
+      ]
+    },
+    {
+      "name": "Space Lab 3 (August 08, 2025)",
+      "ref": "659898d553eb68c981036811e1b92f6557d4e494",
+      "bundle_id": "4d294e58724a4c64",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "2c15e7a5c54362273399947b2bb98ec11c3050bc0ed9be3ff154a198d7f857b1"
+        },
+        {
+          "role": "vision",
+          "sha256": "c824f68646a3b94f117f01c70dc8316fb466e05fbd42ccdba440b8a8dc86914b"
+        }
+      ]
+    },
+    {
+      "name": "Down to Ride v6 (August 12, 2025)",
+      "ref": "a6cf39c07a67dbc346af03010093fe4788c402d0",
+      "bundle_id": "704696bfbb6ef49c",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "1af87c38492444521632a0e75839b5684ee46bf255b3474773784bffb9fe4f57"
+        },
+        {
+          "role": "vision",
+          "sha256": "c824f68646a3b94f117f01c70dc8316fb466e05fbd42ccdba440b8a8dc86914b"
+        }
+      ]
+    },
+    {
+      "name": "UV + DTR Model (August 13, 2025)",
+      "ref": "079d0461604632719e73dc5b6a5eb9897c624da2",
+      "bundle_id": "7cf5543f97e388d5",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "78348fd9be66b7f161006aa8324121450144a1be74b816e3a7bce45d47eee7c1"
+        },
+        {
+          "role": "vision",
+          "sha256": "05dcf22aa9e6de9cd1f20c8360ca96da372566112f24e161ac75708f9146b0b9"
+        }
+      ]
+    },
+    {
+      "name": "Steam Powered Model (August 16, 2025)",
+      "ref": "f1b8f510b2c554191ca15cebe35f2c5b304cf23c",
+      "bundle_id": "7d26202ce8cd0765",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "04b763fb71efe57a8a4c4168a8043ecd58939015026ded0dc755ded6905ac251"
+        },
+        {
+          "role": "vision",
+          "sha256": "e66bb8d53eced3786ed71a59b55ffc6810944cb217f0518621cc76303260a1ef"
+        }
+      ]
+    },
+    {
+      "name": "gWM Model v3 (August 22, 2025)",
+      "ref": "93b26a91a62b69b809162ad2bf65e36be2158dc1",
+      "bundle_id": "9b37e90f8b520317",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "a629089e37bcc78d0fbb78edffe25de1c62658cec9e8faff8b4e5c029176df60"
+        },
+        {
+          "role": "vision",
+          "sha256": "13117c848af25b9c5ff2363b32e039a7061f7a72cee8d39611b6fb12bebee056"
+        }
+      ]
+    },
+    {
+      "name": "Firehose Model (August 31, 2025)",
+      "ref": "b74f5189a74446015c0cf78a4a9f0134a347ae3b",
+      "bundle_id": "c3c6849dba0147e2",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "ebb38a934d6472c061cc6010f46d9720ca132d631a47e585a893bdd41ade2419"
+        },
+        {
+          "role": "vision",
+          "sha256": "befac016a247b7ad5dc5b55d339d127774ed7bd2b848f1583f72aa4caee37781"
+        }
+      ]
+    },
+    {
+      "name": "Fly By Wire (September 04, 2025)",
+      "ref": "c4488e3411285f6fc3d008bca885e05731fd75c2",
+      "bundle_id": "a060a1230d05e93c",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "72ea56c380e094e2288523a7c936588262d87561f0aa6f8dcc3efb52a4a7f2cf"
+        },
+        {
+          "role": "vision",
+          "sha256": "68f5e41678767240af478ebfca37a0adca18b2191f94a7cbe47304cb9fd2c70d"
+        }
+      ]
+    },
+    {
+      "name": "Nevada Model (September 07, 2025)",
+      "ref": "3193eac5e385aa010694a8ac192ff38ffe000193",
+      "bundle_id": "70e62d012af62cd4",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "5b7c686e13637733ec432d774ff5b665c4e4663982ff03deeefd6f6ffd511741"
+        },
+        {
+          "role": "vision",
+          "sha256": "befac016a247b7ad5dc5b55d339d127774ed7bd2b848f1583f72aa4caee37781"
+        }
+      ]
+    },
+    {
+      "name": "gWM v5 (September 09, 2025)",
+      "ref": "e3ee440f7d5ac12c50db6381e292a55a69b745a7",
+      "bundle_id": "d8f692403bf7777e",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "74e79e50df530cea1f0033dbc4e37cf767e1128332660fedcfe67daab65b3be3"
+        },
+        {
+          "role": "vision",
+          "sha256": "befac016a247b7ad5dc5b55d339d127774ed7bd2b848f1583f72aa4caee37781"
+        }
+      ]
+    },
+    {
+      "name": "gWM v6 (September 20, 2025)",
+      "ref": "91a1cea814f76d605d5b15de9634a3c8f79df509",
+      "bundle_id": "e2257b6ca638ca77",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "5b0ce3cc48eee07b1a59e47c25552528761547a98dd0c4fac65c42013fc955c5"
+        },
+        {
+          "role": "vision",
+          "sha256": "cf6376aa9a090f0da26c280ef69eabf9bbdd51d1faac9ed392919c3db69be916"
+        }
+      ]
+    },
+    {
+      "name": "gWM v8 (September 28, 2025)",
+      "ref": "96e7b310b164b55fb73abdd505b66fb36630718e",
+      "bundle_id": "25a6b9806ee061d0",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "0c9c29a6b853c6e93e0dcac7782394508ff2f4826f2d768672443e803505f4ea"
+        },
+        {
+          "role": "vision",
+          "sha256": "cf6376aa9a090f0da26c280ef69eabf9bbdd51d1faac9ed392919c3db69be916"
+        }
+      ]
+    },
+    {
+      "name": "The Cool Peoples Model (October 03, 2025)",
+      "ref": "5306f07d05a4f84a632ce908ec5ce34993e73693",
+      "bundle_id": "5a58f85cd26483b0",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "0e1391316d2ead9c827e96d236b612ae637672f546b0b196e27759a5c3413cd6"
+        },
+        {
+          "role": "vision",
+          "sha256": "cf6376aa9a090f0da26c280ef69eabf9bbdd51d1faac9ed392919c3db69be916"
+        }
+      ]
+    },
+    {
+      "name": "North Nevada Model (October 07, 2025)",
+      "ref": "74d156ee827863aa02567228a4a48931e604a41c",
+      "bundle_id": "43198d1b021bd6a7",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "71f18e859f45ddbfa3957b49a799d1180d6a9d839ac23248f7cf01c642e2393c"
+        },
+        {
+          "role": "vision",
+          "sha256": "cf6376aa9a090f0da26c280ef69eabf9bbdd51d1faac9ed392919c3db69be916"
+        }
+      ]
+    },
+    {
+      "name": "North Nevada Model V2 (October 08, 2025)",
+      "ref": "83b81b83cdf76a577946a1567f4644e1a018443c",
+      "bundle_id": "29ac2fd8c7a42379",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "792fca7c24faadc1183327eec7e04d06dd6ec0e53ac7bb43cb2b9823c6cfb32f"
+        },
+        {
+          "role": "vision",
+          "sha256": "cf6376aa9a090f0da26c280ef69eabf9bbdd51d1faac9ed392919c3db69be916"
+        }
+      ]
+    },
+    {
+      "name": "Nuggets in Digon (October 09, 2025)",
+      "ref": "13e79e9fad60c19e751e4f9ab0538d39f1bb54dd",
+      "bundle_id": "c0c1be51654603eb",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "2908cfcdcac778a28218b25c239e8a78f2898266362b900b20797320d56c19a4"
+        },
+        {
+          "role": "vision",
+          "sha256": "cf6376aa9a090f0da26c280ef69eabf9bbdd51d1faac9ed392919c3db69be916"
+        }
+      ]
+    },
+    {
+      "name": "The Cool Peoples Model v2 (October 09, 2025)",
+      "ref": "19084132cd3956413a0fdfcdc18971a55df5e0ff",
+      "bundle_id": "b62d34057854ff1a",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "08ea6b4ccfc2b4516f7e7f6786a1386040d25a5fec82f100525011788165553c"
+        },
+        {
+          "role": "vision",
+          "sha256": "8f16d548ea4eb5d01518a9e90d4527cd97c31a84bcaf6f695dead8f0015fecc4"
+        }
+      ]
+    },
+    {
+      "name": "The Cool Peoples Model v3 (October 10, 2025)",
+      "ref": "5eb912c025a2207c7d428deee74ded49e5905527",
+      "bundle_id": "c33975a474468b72",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "c5a1f0655ddf266ed42ad1980389d96f47cc5e756da1fa3ca1477a920bb9b157"
+        },
+        {
+          "role": "vision",
+          "sha256": "8f16d548ea4eb5d01518a9e90d4527cd97c31a84bcaf6f695dead8f0015fecc4"
+        }
+      ]
+    },
+    {
+      "name": "GWM V9 (October 21, 2025)",
+      "ref": "f2413040a8560c0c17c18353a3c75124a2f09d17",
+      "bundle_id": "07271c40b94f12ac",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "a5ca2c97f0e6c1feaa39d8452c4467d9e3f7d79b111aa6924f8eac5475dfbe67"
+        },
+        {
+          "role": "vision",
+          "sha256": "8f16d548ea4eb5d01518a9e90d4527cd97c31a84bcaf6f695dead8f0015fecc4"
+        }
+      ]
+    },
+    {
+      "name": "Dark Souls Model (December 03, 2025)",
+      "ref": "ba783b9f913de089816598aa367a30499727a0ce",
+      "bundle_id": "91790f5d82e23bb9",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "e2929b07deb9fb1e492c7fa2832c51ac9e472bfe0b80730fdbbe263735866580"
+        },
+        {
+          "role": "vision",
+          "sha256": "2194eaee8a8c40f79a6f783d198991b1bf70a54b5885053e63789eab040a5228"
+        }
+      ]
+    },
+    {
+      "name": "Planplus v2 (December 11, 2025)",
+      "ref": "50c78a9dd670a305ca898b96245cadbc2ecdc1a6",
+      "bundle_id": "53c7613ddd8ccd17",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "718f75921ab33a2c7d1acce6633f758c39202ed88ce28952a988323afaa77f90"
+        },
+        {
+          "role": "vision",
+          "sha256": "8f16d548ea4eb5d01518a9e90d4527cd97c31a84bcaf6f695dead8f0015fecc4"
+        }
+      ]
+    },
+    {
+      "name": "Dark Souls Model v2 (December 11, 2025)",
+      "ref": "5ff0e48f90d662d8c9d5061adc63e90c198c9b81",
+      "bundle_id": "ddab5843391b2a5b",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "f8fe9a71b0fd428a045a82ed50790179f77aa664391198f078e11e7b2cb2c2d7"
+        },
+        {
+          "role": "vision",
+          "sha256": "1dc66bc06f250b577653ccbeaa2c6521b3d46749f601d0a1a366419e929ca438"
+        }
+      ]
+    },
+    {
+      "name": "Macrostiff (January 01, 2026)",
+      "ref": "d70b13931793bc0e4d8efd36128dd66f227a3f81",
+      "bundle_id": "e9c12bdf77d0ead8",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "4cf2023d6742c20aac7cecbf520afe370a64bcf5efdcf3531b1b128f9dfa3cc8"
+        },
+        {
+          "role": "vision",
+          "sha256": "1dc66bc06f250b577653ccbeaa2c6521b3d46749f601d0a1a366419e929ca438"
+        }
+      ]
+    },
+    {
+      "name": "WMI V9 (January 07, 2026)",
+      "ref": "8950897d7e4d2ba2426b2b31cf29f25e87a3d4ba",
+      "bundle_id": "dd6ba542985db207",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "18a71853311aabf4e30384d40f2eee562b9880a7a3f5cbf99e600bcb7c68fa18"
+        },
+        {
+          "role": "vision",
+          "sha256": "1dc66bc06f250b577653ccbeaa2c6521b3d46749f601d0a1a366419e929ca438"
+        }
+      ]
+    },
+    {
+      "name": "SC Model (January 08, 2026)",
+      "ref": "e4a4b4b1adf2d19fedab4d195faa382b061fa754",
+      "bundle_id": "f0fe98fde8404a9e",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "66f406ee179d984a4d8c93e38da479dcd1893127308dd3a7c322a7481a6b51b2"
+        },
+        {
+          "role": "vision",
+          "sha256": "1dc66bc06f250b577653ccbeaa2c6521b3d46749f601d0a1a366419e929ca438"
+        }
+      ]
+    },
+    {
+      "name": "WMI V12 (January 13, 2026)",
+      "ref": "7e3fd7a63c5a09c3fabe108b1b62bba3cf684878",
+      "bundle_id": "c0b520fd05689a71",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "1edea5bb56f876db4cec97c150799513f6a59373f3ad152d55e4dcaab1b809e3"
+        },
+        {
+          "role": "vision",
+          "sha256": "1dc66bc06f250b577653ccbeaa2c6521b3d46749f601d0a1a366419e929ca438"
+        }
+      ]
+    },
+    {
+      "name": "CD210 Model (February 03, 2026)",
+      "ref": "5b6436a90cf6902b8aaa71c2b6f3d7164d8ae391",
+      "bundle_id": "ca840c7058d05baa",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "78477124cbf3ffe30fa951ebada8410b43c4242c6054584d656f1d329b067e15"
+        },
+        {
+          "role": "vision",
+          "sha256": "ee29ee5bce84d1ce23e9ff381280de9b4e4d96d2934cd751740354884e112c66"
+        }
+      ]
+    },
+    {
+      "name": "Pop Model (March 20, 2026)",
+      "ref": "6f71783a8a8faa07ddaeef5bbb6809b4f4f44a15",
+      "bundle_id": "18aa1df78e746d36",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "b52f54fa7c082faeced177aff8efd1ae803c35a1d7c137282a72ee7681586384"
+        },
+        {
+          "role": "vision",
+          "sha256": "b8b241824b91bc9747b172e6be9cadda80bafe3b2bbe7035d92acb1c3d4403f9"
+        }
+      ]
+    },
+    {
+      "name": "Pop Model v2 (March 24, 2026)",
+      "ref": "62bf6fb072880905a4c490f0f4f4a6b3c23346ec",
+      "bundle_id": "65d2a2d53d03cf47",
+      "artifacts": [
+        {
+          "role": "on_policy",
+          "sha256": "853c6634746ff439a848349d00e4d5581cd941f13f7c1862c31b72a31cc24858"
+        },
+        {
+          "role": "vision",
+          "sha256": "940e9006a25f27f0b6e85da798e6a8fd1f6dd492dd7d0b9ff1a9436460f46129"
+        }
+      ]
+    },
+    {
+      "name": "OP Model (April 01, 2026)",
+      "ref": "cb327933002bc1a00bf60a3c20af2eb7a5f653e5",
+      "bundle_id": "85eac660818d9f92",
+      "artifacts": [
+        {
+          "role": "off_policy",
+          "sha256": "eb6992bd60bada6162fea298e1a414b6b3d6a326db4eda46b9de62bcd8554754"
+        },
+        {
+          "role": "on_policy",
+          "sha256": "86680a657bbb34f997034d1930bb2cb65c38b9222cea199732f72bd45791cfad"
+        },
+        {
+          "role": "vision",
+          "sha256": "7af05e03fd170653ff5771baf373a2c57b363da12c4c411cd416dee067b4cf58"
+        }
+      ]
+    },
+    {
+      "name": "OP Model 7 (April 03, 2026)",
+      "ref": "052692b25d63c5ddda276b5c2271383b6aff129f",
+      "bundle_id": "20e160696e74f6fb",
+      "artifacts": [
+        {
+          "role": "off_policy",
+          "sha256": "e53f4e0527766082ba7bde38e275def0fe3c14f6c59ae2854439e239884d3ecc"
+        },
+        {
+          "role": "on_policy",
+          "sha256": "ea89c50da3a16e710da292f97c81b083a982cfdee5c28eca0d37ed2fb99af6c5"
+        },
+        {
+          "role": "vision",
+          "sha256": "6263aa3fbb44cde6c68a34cdb7cd8c389789dbc02b15c1911afdac4e018281ae"
+        }
+      ]
+    },
+    {
+      "name": "OP Model 16 Deep (June 03, 2026)",
+      "ref": "f02d134f40f5e7be22b182af21b438915a47600e",
+      "bundle_id": "c18ada67b18ebbff",
+      "artifacts": [
+        {
+          "role": "off_policy",
+          "sha256": "6173be8a69b1d9633a09969c80b2a8bd990bfe7d3e76e192a0e537f6fd72222b"
+        },
+        {
+          "role": "on_policy",
+          "sha256": "6b66ef783af3fa86190e85a6b4f729cd1443b20be41134aa258f9c376825a45c"
+        },
+        {
+          "role": "vision",
+          "sha256": "bbd0761201b3b161587d097f173c66bf82cd02966e5f0d1edd888c970d6f6d87"
+        }
+      ]
+    },
+    {
+      "name": "Rebel Legion Model (July 22, 2026)",
+      "ref": "2895346746634d7eec0ee749f946c87039948a25",
+      "bundle_id": "82dd11227e065a4d",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "15e563da34889318e41321a2559682d417416602de9b6f5093c3be0e6766419d"
+        }
+      ]
+    },
+    {
+      "name": "Get Your Hopes Up Model (July 25, 2026)",
+      "ref": "574735edc6e1aafdc2a69395f9a32e7f5cc4b62b",
+      "bundle_id": "8e4506069a139fa0",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "add80301b0d3bdc8cad7bf64b898005fad5449f6fc912d450544d098a8b5afbe"
+        }
+      ]
+    },
+    {
+      "name": "Rebellious Hope Model (July 27, 2026)",
+      "ref": "93f5aa469a72b7621aef7da7901c100e0113e4d9",
+      "bundle_id": "304f351e997c2963",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "433f85f956837606ad1f1cbee4aa7e2158ad23c768dea914b20436c97232741b"
+        }
+      ]
+    },
+    {
+      "name": "RDF Model (August 05, 2026)",
+      "ref": "a95e2c25cae5fbf1afba7628bfb7acc4af59e0cc",
+      "bundle_id": "4fd5083653095414",
+      "artifacts": [
+        {
+          "role": "supercombo",
+          "sha256": "d0caa7d771cf9b905fca9db471d3413eed1b8b0611413f84c0da964e5992126e"
+        }
+      ]
+    }
+  ]
+}

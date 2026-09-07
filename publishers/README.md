@@ -17,3 +17,13 @@ by a conflicting submission. New recipes may reference existing immutable docume
 `python -m index.registry --publishers publishers` validates submissions and merges them
 with the comma archive. The generated schemas are published at `/schemas/*.json`, and the
 same schemas are available at `/v1/schemas/{name}`.
+
+## Named discovery
+
+An entry can include `model` metadata with `id`, `name`, `family`, `description`, `links`
+(an array of source URLs), and `archived` (boolean). Use a stable publisher-scoped ID such
+as `example/model-name`; all entries sharing it must declare identical metadata. Their
+exact recipe IDs remain separate selectable variants. Entries without metadata use their
+publisher, kind and declared name for discovery grouping. Use distinct model IDs when
+identically named packages should not share a group. `archived: true` places a model in
+the archive rather than the named directory. No field implies consumer runtime support.

@@ -40,8 +40,18 @@ def snapshot():
 
 @app.get("/v1/models")
 def models(query: str = "", publisher: str | None = None, kind: str | None = None,
-           profile: str | None = None, offset: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=1000)):
-  return catalog().search(query=query, publisher=publisher, kind=kind, profile=profile, offset=offset, limit=limit)
+           include_archive: bool = False, offset: int = Query(0, ge=0), limit: int = Query(100, ge=1, le=1000)):
+  cat = catalog()
+  entries = cat.models(query=query, publisher=publisher, kind=kind, include_archive=include_archive)
+  return {"revision": cat.revision, "total": len(entries), "offset": offset, "models": entries[offset:offset + limit]}
+
+
+@app.get("/v1/models/{identity:path}")
+def model(identity: str):
+  try:
+    return catalog().model(identity)
+  except ContractError as exc:
+    raise HTTPException(404, str(exc)) from exc
 
 
 @app.get("/v1/manifests/{digest}")
