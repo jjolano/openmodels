@@ -124,7 +124,7 @@ def main():
   if args.out.exists():
     parser.error("output directory must not already exist")
   # Set these before importing Tinygrad; no timing-based tuning or image allocation emulation.
-  os.environ.update(DEV="QCOM", WARP_DEV="QCOM", BEAM="0", IMAGE="0", JIT_BATCH_SIZE="0", PYTHONDONTWRITEBYTECODE="1")
+  os.environ.update(DEV="QCOM;CPU:LLVM", WARP_DEV="QCOM", BEAM="0", IMAGE="0", JIT_BATCH_SIZE="0", PYTHONDONTWRITEBYTECODE="1")
   from openmodels_runner_tinygrad.runner import implementation_digest
   implementation = implementation_digest()  # Enforces the installed Tinygrad Git pin.
   import tinygrad
@@ -151,6 +151,7 @@ def main():
       report = {"experimental": True, "gpu_validated": False, "recipe": package.recipe.id,
                 "source_sha256": STOCK_SHA256, "implementation": implementation, "target": target,
                 "cross_compiler_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                "host_target": str(Device["CPU"].renderer.target),
                 "toolchain_sha256": TOOLCHAIN_SHA256, "python": sys.version,
                 "checks": ["weighted-matmul-oracle", "policy-and-warp-seeded-replay", "pickle-round-trip", "target-program-inspection"],
                 **inspect_artifact(artifact), "size": artifact.stat().st_size}

@@ -20,9 +20,11 @@ jobs:
       - name: Install pinned runner and host compiler prerequisites
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends qemu-user-static clang llvm
+          sudo apt-get install -y --no-install-recommends qemu-user-static llvm-18
           python -m pip install . ./runners/tinygrad
       - name: Compile stock model and check host replay
+        env:
+          LLVM_PATH: /usr/lib/x86_64-linux-gnu/libLLVM-18.so
         run: |
           python -m ci.cross_compile \
             --catalog https://jjolano.github.io/openmodels/catalog.json \

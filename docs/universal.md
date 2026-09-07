@@ -219,7 +219,7 @@ python -m ci.cross_compile --catalog https://jjolano.github.io/openmodels/catalo
 
 Run this from a source checkout; the output directory must not already exist. The command
 pins and verifies the upstream ARM compiler archive, compiles a630 GPU binaries, and uses
-CPU execution of each original kernel during capture to preserve weights and state. It checks
+CPU LLVM execution of each original kernel during capture to preserve weights and state. It checks
 a weighted matrix multiplication against NumPy, then reuses the policy/warp seeded replay
 and pickle round-trip checks. The final pickle contains QCOM programs; the CPU execution
 shim and its original-kernel map remain outside it. Host replay requires that in-process map.
