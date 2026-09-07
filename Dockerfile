@@ -8,13 +8,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends git ca-certific
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir fastapi==0.141.1 "uvicorn[standard]==0.52.3"
+RUN pip install --no-cache-dir fastapi==0.141.1 "uvicorn[standard]==0.52.4"
 
 COPY index/ index/
 COPY api/ api/
 COPY web/ web/
-COPY clients/ clients/
-COPY runtime/ runtime/
+COPY ci/ ci/
+COPY openmodels/ openmodels/
+COPY publishers/ publishers/
 COPY AGENTS.md ./
 COPY LICENSE THIRD_PARTY_NOTICES.md ./
 

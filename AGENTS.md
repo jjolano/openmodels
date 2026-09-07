@@ -1,207 +1,71 @@
-# openmodels — agent notes
+# OpenModels agent notes
 
-A public archive of openpilot driving models, indexed from `commaai/openpilot` git history.
+This is an independent Git project. When working in the containing workspace,
+also follow `../AGENTS.md` if present. The sibling moonpilot project owns model
+admission and activation; changes to this catalog do not grant consumer authority.
 
-Read this before changing `index/`. Everything below is a decision where **the obvious change is
-the wrong one** — the repo itself won't tell you.
+Read [the integration contract](docs/universal.md) before changing manifests, composition,
+downloads or runner behavior. The first release uses schema 1, `/v1` and package version 0.1.0.
 
-## The boundary
+## Scope and verification
 
-This registry reports **identity and provenance**. It never asserts that a model is safe, or
-that two models are interchangeable.
+- `openmodels/` owns shared contracts, composition, the SDK, and runner interfaces;
+  `api/` and `web/` expose them. Keep validation shared rather than duplicating it
+  in each frontend.
+- `index/` owns archive discovery, metadata, lineage, and blob publication.
+  Read [publisher guidance](publishers/README.md) for publisher submissions.
+- `runners/tinygrad/` is a separately packaged optional runner. Read the runner
+  sections of [the integration contract](docs/universal.md) before changing it;
+  retain pinned source attribution in `THIRD_PARTY_NOTICES.md`.
+- Use [README.md](README.md#check-changes) and `.github/workflows/test.yml` for
+  dependency setup and checks. Importer changes use `python index/test_indexer.py`;
+  metadata parsing uses `python index/test_metadata.py`. SDK/API/runner changes
+  use the relevant tests under `tests/`; run discovery for cross-cutting changes.
+  Hardware parity and timing require separate device evidence.
+- Keep `CLAUDE.md` as a relative symlink to this file. Preserve these contracts
+  when updating workflow guidance.
 
-That is not modesty, it is what the data supports. Two models can share every tensor shape and
-slice width while meaning entirely different things: column order inside the 990-wide `plan`
-slice is hard-coded in openpilot's `constants.py`, not declared in the file, and permuting it
-leaves any structural hash unchanged. MDN field ordering, YUV channel order, and temporal cadence
-are equally invisible.
+## Contracts and execution
 
-**Do not add a `/v1/compat` endpoint, a "compatible" flag, or a similarity score that reads as a
-safety verdict.** An earlier design did, and it would have told a QCOM device that a 296 MB
-USBGPU-only model was an exact match. Compatibility is expressed as provenance — *this ran
-upstream at this commit with these constants* — which a client can independently re-verify.
+- Identity and provenance are facts, not driving qualification. Equal tensor dimensions do
+  not prove equal output semantics, channel order or temporal cadence.
+- Hash exact UTF-8 document strings. Preserve those strings across exports and HTTP responses;
+  reserializing a parsed object can change its identity.
+- Keep every recorded source configuration. Missing constants stay absent, never default to
+  zero. Composition inherits only unanimous settings; explicit overrides enter recipe identity.
+- Reject known structural contradictions; report unknown structure and semantics as findings.
+  An upstream pairing records co-occurrence, never qualification of a composed recipe.
+- Keep the base SDK dependency-free. Downloads verify size and SHA-256 before atomic installation.
+  Consumers own selection, activation, scheduling, qualification and actuation.
+- The optional runner accepts its pinned stock profile and complete target only. Deserialize
+  executable builds only after verifying a trusted local receipt and implementation identity.
+  Vendored semantics must match attributed pinned upstream sources. CPU primitive/reference
+  checks do not qualify GPU compilation, output parity or timing.
 
-## Never unpickle `output_slices`
+## Comma archive
 
-It is a base64 **pickle** inside attacker-controllable ONNX metadata, and the indexer reads
-arbitrary PR heads. CI parses it only in the read-only job; `pickle.loads` would still be remote
-code execution via a crafted pull request.
-
-Use `metadata.loads_output_slices`, which resolves nothing but `builtins.slice`. If you need a
-new type out of that stream, widen the allowlist deliberately and add a test — do not reach for
-`pickle.loads`. `index/test_metadata.py` carries a live `os.system` payload that must stay
-refused.
-
-## Host constants are the payload, and absence is data
-
-`LAT_SMOOTH_SECONDS` / `LONG_SMOOTH_SECONDS` feed lateral delay in `controlsd`, and comma changes
-them *in the same commit that swaps a model*. Weights without them are an incomplete artifact.
-
-When extraction fails, emit `null` and record it in `host_constants_missing`. **Never default to
-zero.** A wrong smoothing constant silently changes steering, which is worse than a visibly
-absent one. Old eras genuinely lack these constants and correctly report them missing.
-
-## Indexer invariants
-
-- **`ls-tree`, never `diff`.** Bundles are the full file set *at* a commit. A commit touching
-  only `driving_on_policy.onnx` must still produce a complete bundle; diffing yields unrunnable
-  half-bundles.
-- **Three path eras**, all in `MODEL_DIRS`: repo-root `models/`, `selfdrive/modeld/models/`, and
-  the post-#38223 `openpilot/selfdrive/modeld/models/`. Dropping one silently loses models —
-  the pre-2022 era alone holds the nav models.
-- **A supercombo never shares a bundle with a vision/policy split.** Both exist at the transition
-  commit and they are different architectures. Same for `big_` (USBGPU/AMD) vs standard (QCOM),
-  and for driving vs dmonitoring vs nav.
-- **Status belongs to an occurrence, not to content.** One file set can be merged, reverted, and
-  re-landed. A single `status` on the bundle would be incoherent.
-- **Bundle ids hash `(role, filename, oid)`**, not oids alone: commit `249cafe` renamed
-  `driving_policy` to `driving_on_policy` without changing bytes, and that rename carries runtime
-  meaning.
-- **An unreachable ref must raise**, never be treated as "no models found". `index_repo` checks
-  `repo.exists(head)` first, because the two look identical downstream.
-
-## Other standing decisions
-
-- The ONNX parser stays **dependency-free**. Reaching for `onnx` or `tinygrad` looks like a
-  simplification and costs the "runs on any CI runner, no comma hardware" property.
-- Blobs are **append-only**. For reverted and PR-only models this archive may be the only public
-  copy; a cleanup that GCs them is unrecoverable.
-- Blobs **never stream through Python** — both backends 302 to a URL, so a dead API costs live
-  queries only.
-- **Which release holds a blob is data, not a formula.** GitHub caps a release at 1000 assets,
-  so `index/publish.py` shards across `blobs-NNNN` and writes the tag onto each file. Never
-  reconstruct a download URL from the oid alone. A file with no `release` isn't mirrored yet and
-  the API returns 503; a file confirmed gone from upstream returns 410. Do not "fix" either by
-  redirecting to a URL that 404s.
-- **The publisher fetches on demand and deletes after upload.** Never pre-download the archive
-  in CI: it's ~8 GB, exceeds the Actions cache, and steady-state runs would move it for nothing.
-- **`--dry-run` must touch neither the network nor the repo.** It once uploaded for real when a
-  blob happened to be cached; keep the guard above the fetch, not inside it.
-- `gh-pages` is generated and force-pushed. Never hand-edit it or merge into it. The workflow
-  reads its previous `index.json` before regeneration: that merge is what retains models whose
-  only PR ref was later force-pushed away.
-- **No subjective data.** No ratings, comfort scores, or steering feel — we have no telemetry and
-  would be inventing them. Link to sunnylink.wiki for that.
-
-## When upstream moves
-
-This is the recurring maintenance event, and its failure mode is **silence**: the indexer keeps
-succeeding while finding nothing, so "no new models" looks exactly like "upstream shipped
-nothing."
-
-1. Check `/v1/status` — a stale `generated_at` with a fresh `upstream_head` is the signature.
-2. If a model path moved, add it to `MODEL_DIRS` (keep the old entries; history still needs them).
-3. If a constant moved or was renamed, add the new path to `CONSTANT_SOURCES` in
-   `index/constants.py`. Watch for it moving between module level and a class body — both are
-   searched, but a rename is invisible.
-4. If a model filename changed, add it to `ROLE_PATTERNS` **above** any prefix it would otherwise
-   match; `big_` entries are checked before their bare equivalents.
-
-## `runtime/` — the integration library
-
-Sits **outside the control path** by design: it plans compiles and manages downloads, but never
-runs inference, parses model outputs, or touches actuation. Keep it that way. Output semantics
-(meta layout, MDN field order, desire encoding) belong to the fork's `modeld`, and reimplementing
-them here would create a second, unvalidated source of safety-relevant behaviour. If that
-knowledge is ever needed, vendor openpilot's or sunnypilot's parsers with attribution rather than
-writing new ones.
-
-- **Map roles to compiler flags, never filenames.** `driving_policy.onnx` and
-  `driving_on_policy.onnx` are the same role in different eras.
-- **Duck-type input keys**, following sunnypilot: prefix/substring matching absorbs
-  `input_imgs` → `img` and `desire` → `desire_pulse`. Exact-name lookups break on every model
-  older than the current era.
-- **`frame_skip` and `model_size` are host properties**, not model properties — scons derives
-  them from the fork's own constants. Report a disagreement with the model's recorded value as a
-  warning; never silently pick one.
-- **Downloads stage then move atomically.** A half-finished bundle that reads as installed is
-  worse than one that failed outright.
-
-- **`build.py` orchestrates a compile; it never runs inference.** The smoke test checks that the
-  artifact exists, unpickles, and carries `metadata` — nothing more. Executing a driving model to
-  "validate" it means interpreting its outputs, which is the boundary above.
-- **Compilation is fail-loud, which is why it can be automated.** No pickle, or an unloadable
-  one, is a visible failure; keep it that way by staging, verifying, then moving atomically, and
-  by restoring the previously active model on any error.
-- **Do not try to validate compiles on CPU in CI.** On the pinned tinygrad the CPU JIT fails to
-  link libm (`fmaxf`), reproducibly in a clean ubuntu:24.04 container; patching `link_libs=['m']`
-  then overflows the 32-bit relocation because the plain path passes no base address. Upstream
-  pins no clang and compiles no models in CI, so nobody exercises this path. Re-test only if the
-  tinygrad submodule bumps.
-
-## Lineage and composition
-
-`model_checkpoint` records the training runs behind a model, and a fused supercombo names both
-of its halves (`<vision_ckpt>/<step>/<policy_ckpt>/<step>`). That is what makes "these halves
-were built for each other" a **fact comma recorded**, not an inference — which is the only reason
-this feature is allowed to exist under the boundary above.
-
-- **Attested means it shipped.** A pairing is attested iff those checkpoints co-occurred in an
-  upstream bundle, or a supercombo named them together. Never widen this to "same shapes" or
-  "same generation" — that is the inference the registry refuses to make.
-- **Composed bundles are never attested.** `attested: false` is unconditional on anything from
-  `/v1/compose`: it may be assembled from halves that shipped together, but *this file set* has
-  never been driven.
-- **Cross-lineage composes and warns; it does not fail.** The vision→policy latent is untyped, so
-  a mismatched encoder produces confident nonsense rather than an error. The failure is silent,
-  so the warning cannot be. Refuse only what cannot work: unknown oid, unusable role set, a seam
-  width mismatch, or halves that disagree on hardware target or kind.
-- **Hardware target and kind are read from the filename, not the role.** A `big_` half is
-  USBGPU/AMD and a standard one is QCOM, so a bundle spanning both runs nowhere — but the role of
-  `big_driving_vision.onnx` is plain `vision`; `big` is the bundle-level *variant*. `compose()`
-  therefore reuses `indexer.classify` rather than inspecting roles. There is no `big_vision` role
-  anywhere in the index, and code that invents one will silently match nothing.
-- **Composition is stateless.** `bundle_id` is derived from members, so nothing is stored. Do not
-  add a database to make composed models browsable — that would put our name on combinations
-  nobody ran.
-- **Host constants stay per-role.** Halves come from different commits; merging their constants
-  invents a configuration that never existed. Report each and let the fork choose. `plan_bundle`
-  collapses `host_constants_by_role` into a single `host_constants` **only when every half
-  agrees** — that is one real configuration, not an invented one. When they disagree it warns and
-  leaves `host_constants` empty; it must never fall back to a last-wins merge. An oid can have
-  multiple upstream host contexts, so file records retain all of them; composition selects a
-  role's constants only when those contexts agree.
-- **Lineage requires a metadata pass.** The default indexer run reads only LFS pointers, so
-  `model_checkpoint` is absent until a `--blob-cache` run. Use `--metadata-source releases` to
-  read from our own mirror rather than hammering comma's LFS. Production performs a bounded
-  release-backed metadata pass on every run and carries completed records forward.
-
-## Shareable composition codes
-
-`OM3-…` codes carry truncated oids and are resolved against the catalog, which makes a code a
-**lookup key, not a description**. That is the safety property: a damaged code fails to resolve
-or fails its checksum, and cannot quietly name different weights — the only failure mode that
-would matter on a device.
-
-- **Redemption is where validation happens.** The code asserts nothing. `/v1/compose/{code}` and
-  `runtime.manager.redeem_code` both re-resolve and re-run every check. Never trust a code's
-  contents without resolving them.
-- **`SHAPES` in `index/code.py` is append-only**, and roles within a shape are the encoding
-  order. Reordering either silently changes what old codes mean, which is exactly the
-  misresolution the format exists to prevent.
-- **A shape `compose()` cannot build is never minted.** `_MINTABLE` gates `encode()`, so a code is
-  only issued for a combination that will redeem. Shapes 4–8 are permanently inert: they name
-  `big_*` roles the index never emits (see the variant note above) and single-file models with
-  nothing to compose. They stay in the table because it is append-only — do not delete them, and
-  do not repurpose their slots.
-- **The format is squeezed for touchscreen entry** (13 typed characters): the role *set* is one
-  5-bit shape rather than a byte per role, oid prefixes are 3 bytes, and the checksum is 1 byte
-  because prefix resolution already rejects nearly all corruption. Do not lengthen these without
-  a reason; do not shorten the oid prefix further, since ambiguity becomes likely rather than
-  merely detectable.
-- **The `OM3-` prefix is optional on input.** It exists for human recognition, not for the
-  format; nobody should thumb in three extra characters.
-- **The alphabet is base26, and that is a transcription decision, not an encoding one.**
-  `0123456789ACDEFHJKMNPRVWXY` excludes `B G I L O Q S T U Z` — every letter that resembles a
-  digit. Because none of them is legal, all of them can be repaired on input, so a misread
-  self-corrects instead of failing. Base32 could not do this: it contained both `2` and `Z`, so
-  those misreads were unrepairable. The price is one character (14, not 13); it is worth it.
-- **Never add a repaired character to `ALPHABET`.** A character that is both legal and repaired
-  would corrupt valid codes. `test_every_lookalike_self_corrects` asserts the two sets stay
-  disjoint.
-- **The encoder exists twice** — Python in `index/code.py`, JavaScript in `web/render.py`'s
-  `COMPOSE_JS`, because the compose page is static and must work without the API. Golden vectors
-  in `index/test_compose.py` pin both; they were verified equal by driving the page's JS under
-  node. If you change the format, change both and update the vectors.
-- **Codes differing only in trailing base32 padding bits are the same code.** Encoding always
-  emits the canonical form; accepting variants is fine.
+- Read full trees with `ls-tree`: a changed policy still belongs with its unchanged encoder.
+  Retain every historical `MODEL_DIRS` entry. Match `big_` filenames before bare prefixes.
+- Keep supercombo and split architectures separate, standard and big targets separate, and
+  driving, dmonitoring and nav families separate.
+- Status belongs to each occurrence. Internal bundle IDs hash role, filename and oid; a rename
+  can carry meaning even with unchanged weights. An unreachable upstream ref must raise.
+- Preserve previous `index.json` importer state, occurrence contexts and release mappings when
+  PR refs disappear. Model blobs are append-only and may be the only surviving public copies.
+- Keep ONNX inspection dependency-free and bounded. For attacker-controlled `output_slices`,
+  use `metadata.loads_output_slices`, which permits only `builtins.slice`; preserve its malicious
+  payload regression check. Never use unrestricted pickle loading on source metadata.
+- Constant extraction searches historical source paths and both class and module bodies.
+  When upstream moves, update `MODEL_DIRS`, `ROLE_PATTERNS` or `CONSTANT_SOURCES` while retaining
+  historical entries. Missing extraction must remain visible.
+- Blob release tags are recorded data, not derivable from a digest. Publish only recorded release
+  URLs or verified local mirror paths; report unavailable and pending artifacts explicitly.
+- Fetch blobs on demand and delete after upload. Publisher dry runs perform no network or repo
+  mutations. Serve blobs directly through storage/Caddy, not through the Python API.
+- `archive-state` contains durable importer checkpoints. Save validated discoveries before
+  mirroring or site deployment; use ordinary fast-forward commits and reject stale writers.
+  Bootstrap from `gh-pages:index.json` only explicitly, preserving the existing archive.
+- Pages consumes pinned code and archive commits. Rollback changes deployment, never archive
+  history. Keep immutable catalog release assets; Actions artifacts alone expire.
+- Keep read-only metadata inspection separate from publishing credentials. Before changing CI
+  or deployment, read [deployment operations](docs/deployment.md), including synchronization and rollback.

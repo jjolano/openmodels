@@ -1,0 +1,38 @@
+name: Release SDK
+
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    uses: ./.github/workflows/test.yml
+  release:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Require a main-branch release commit
+        run: git merge-base --is-ancestor HEAD origin/main
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: wheels
+          path: dist
+      - name: Verify release versions and publish tested wheels
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python -m ci.wheels --tag "$GITHUB_REF_NAME"
+          sha256sum dist/*.whl > dist/SHA256SUMS
+          gh release create "$GITHUB_REF_NAME" dist/*.whl dist/SHA256SUMS \
+            --verify-tag --title "OpenModels $GITHUB_REF_NAME" --generate-notes
