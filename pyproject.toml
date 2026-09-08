@@ -20,4 +20,4 @@ test = ["httpx", "jsonschema"]
 packages = ["openmodels", "index", "api"]
 
 [tool.setuptools.package-data]
-index = ["model_names.json"]
+index = ["model_names.json", "model_hardware.json"]
