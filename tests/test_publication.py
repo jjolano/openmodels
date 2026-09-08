@@ -74,6 +74,12 @@ class PublicationTests(unittest.TestCase):
           self.assertEqual(file.read_bytes(), (root / 'two' / file.relative_to(root / 'one')).read_bytes())
       info = json.loads((root / 'one/deployment.json').read_text())
       self.assertEqual(info['catalog_revision'], first.revision)
+      home = (root / 'one/index.html').read_text()
+      self.assertIn('id="pipeline"', home)
+      self.assertNotIn('data-directory-entry', home)
+      self.assertNotIn('data-model=', home)
+      self.assertTrue((root / 'one/models.html').is_file())
+      self.assertEqual(home, (root / 'one/compose.html').read_text())
       (root / 'one/index.html').write_text('<a href="/catalog.json">broken project path</a>')
       with self.assertRaisesRegex(ValueError, 'project Pages'):
         verify_site(root / 'one')

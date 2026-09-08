@@ -1,0 +1,81 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-08T00:19:43.084335+00:00",
+  "title": "Design System: OpenModels",
+  "extensions": {
+    "motion": [
+      {
+        "name": "color-transition",
+        "value": ".12s ease-out",
+        "purpose": "Background, border and text color changes when reduced motion is not requested."
+      },
+      {
+        "name": "slot-selection",
+        "value": ".18s ease-out",
+        "purpose": "Selected slot outline animation when reduced motion is not requested."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "mobile-max",
+        "value": "650px"
+      },
+      {
+        "name": "tablet-max",
+        "value": "1000px"
+      },
+      {
+        "name": "wide-min",
+        "value": "1300px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary export action",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Download the current composition request.",
+      "html": "<a class=\"ds-primary\" href=\"#\">Download selection.json</a>",
+      "css": ".ds-primary{display:inline-block;color:var(--bg);background:var(--accent);padding:10px 14px;border-radius:4px;font:600 13px ui-sans-serif,system-ui,-apple-system,\"Segoe UI\",sans-serif;text-decoration:none;white-space:nowrap}.ds-primary:hover{text-decoration-thickness:2px}.ds-primary:focus-visible{outline:2px solid var(--accent);outline-offset:4px}"
+    },
+    {
+      "name": "Native button",
+      "kind": "button",
+      "description": "Secondary workspace action.",
+      "html": "<button class=\"ds-button\">Clear selection</button>",
+      "css": ".ds-button{font:15px/1.55 ui-sans-serif,system-ui,-apple-system,\"Segoe UI\",sans-serif;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:4px;min-height:40px;padding:8px 12px;cursor:pointer}.ds-button:hover:not(:disabled){background:var(--raised);border-color:var(--muted)}.ds-button:disabled{opacity:.55;cursor:not-allowed}.ds-button:focus-visible{outline:2px solid var(--accent);outline-offset:4px}"
+    },
+    {
+      "name": "Search input",
+      "kind": "input",
+      "description": "Native component search with a visible label.",
+      "html": "<label class=\"ds-label\">Search components<input class=\"ds-input\" type=\"search\" placeholder=\"Search models or source contexts\"></label>",
+      "css": ".ds-label{display:block;font:12px ui-sans-serif,system-ui,-apple-system,\"Segoe UI\",sans-serif;color:var(--muted)}.ds-input{display:block;margin-top:7px;font:13px/1.55 ui-sans-serif,system-ui,-apple-system,\"Segoe UI\",sans-serif;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:4px;min-height:40px;padding:9px 11px;caret-color:var(--accent)}.ds-input::placeholder{color:var(--muted);opacity:1}.ds-input:focus-visible{outline:2px solid var(--accent);outline-offset:4px}"
+    },
+    {
+      "name": "Main navigation",
+      "kind": "nav",
+      "description": "Current-page accent underline.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Main navigation\"><a href=\"#\" aria-current=\"page\">Workbench</a><a href=\"#\">Models</a><a href=\"#\">Developers</a></nav>",
+      "css": ".ds-nav{display:flex;gap:28px;font:14px/1.55 ui-sans-serif,system-ui,-apple-system,\"Segoe UI\",sans-serif}.ds-nav a{color:var(--muted);text-decoration:none;display:grid;align-items:center;min-height:80px;border-bottom:2px solid transparent}.ds-nav a[aria-current]{color:var(--ink);border-color:var(--accent)}.ds-nav a:hover{text-decoration-thickness:2px}.ds-nav a:focus-visible{outline:2px solid var(--accent);outline-offset:4px}"
+    },
+    {
+      "name": "Panel",
+      "kind": "card",
+      "description": "Bordered workspace surface with a divided heading.",
+      "html": "<section class=\"ds-panel\"><header class=\"ds-heading\"><h2>Pipeline</h2></header></section>",
+      "css": ".ds-panel{background:var(--panel);border:1px solid var(--line);color:var(--ink);min-width:0}.ds-heading{padding:17px 18px;border-bottom:1px solid var(--line)}.ds-heading h2{font:700 17px/1.25 ui-sans-serif,system-ui,-apple-system,\"Segoe UI\",sans-serif;margin:0}"
+    },
+    {
+      "name": "Metadata tag",
+      "kind": "chip",
+      "description": "Compact cyan technical label.",
+      "html": "<span class=\"ds-tag\">ONNX</span>",
+      "css": ".ds-tag{font:11px/1.55 ui-sans-serif,system-ui,-apple-system,\"Segoe UI\",sans-serif;color:var(--accent);white-space:nowrap}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Technical instrument panel"
+  }
+}

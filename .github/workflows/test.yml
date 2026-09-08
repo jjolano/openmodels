@@ -55,7 +55,7 @@ jobs:
         run: |
           npm install --global agent-browser@0.27.0
           agent-browser install --with-deps
-      - name: Verify Pages path and live composition
+      - name: Verify static Pages and SDK handoff
         if: matrix.python == '3.12'
         run: python -m ci.browser
 
