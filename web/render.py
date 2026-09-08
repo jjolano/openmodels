@@ -13,6 +13,8 @@ from pathlib import Path
 if __package__ in (None, ""):
   sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from openmodels.contracts import dumps, sha256
+
 DISCLAIMER = (
   "This registry asserts <strong>blob identity and upstream provenance</strong>. It does not "
   "assert that a model is safe to drive, or that two models are interchangeable."
@@ -20,91 +22,39 @@ DISCLAIMER = (
 API_BASE = os.environ.get("OPENMODELS_API_BASE", "").rstrip("/")
 BLOB_BACKEND = os.environ.get("BLOB_BACKEND", "github")
 
-CSS = """
-*,*::before,*::after{box-sizing:border-box}
-:root{
-  --bg:#fbfbfa; --panel:#fff; --ink:#16150f; --muted:#6b6a63; --line:#e3e2dc;
-  --accent:#3d5a3d; --code:#f4f4f1;
-}
-@media (prefers-color-scheme:dark){:root{
-  --bg:#131311; --panel:#1b1b18; --ink:#eceae2; --muted:#9b998f; --line:#2e2e29;
-  --accent:#9dbf9d; --code:#232320;
-}}
-html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--bg);color:var(--ink);
-  font:16px/1.6 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
-.wrap{max-width:1080px;margin:0 auto;padding:0 20px 72px}
-a{color:var(--accent)}
-header.top{border-bottom:1px solid var(--line);margin-bottom:20px;padding:18px 0 12px}
-header.top h1{margin:0;font-size:23px;letter-spacing:-.02em}
-header.top h1 a{color:inherit;text-decoration:none}
-header.top p{margin:6px 0 0;color:var(--muted);max-width:62ch}
-nav.top{margin-top:14px;display:flex;column-gap:16px;row-gap:0;flex-wrap:wrap;font-size:14px}
-[hidden]{display:none!important}
-.meta{color:var(--muted);font-size:13px;display:flex;gap:9px;flex-wrap:wrap;align-items:center}
-code{background:var(--code);padding:1.5px 5px;border-radius:5px;font-size:13px}
-button{background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;
-  padding:8px 14px;font:inherit;font-size:14px;cursor:pointer}
-footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--line);
-  color:var(--muted);font-size:13px}
-.directory-list{list-style:none;padding:0}
-.directory-list>li{border-bottom:1px solid var(--line);padding:14px 0;overflow-wrap:anywhere}
-.directory-list summary{cursor:pointer}
-.directory-list code{overflow-wrap:anywhere}
-.universal-composer{margin:24px 0;padding:16px 0;border-block:1px solid var(--line)}
-.universal-composer>summary{font-weight:600;cursor:pointer}
-.recipe-fields{display:grid;gap:8px;margin-top:16px;max-width:100%}
-.recipe-fields select,.recipe-fields input,.recipe-fields textarea{width:100%;min-width:0;padding:10px;
-  font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px}
-.recipe-fields fieldset{min-width:0;border:0;padding:0}
-.recipe-fields button{justify-self:start}
-.recipe-fields button:disabled{cursor:not-allowed;opacity:.6}
-.recipe-fields :focus-visible,.directory-list summary:focus-visible,.universal-composer summary:focus-visible{
-  outline:2px solid var(--accent);outline-offset:3px}
-h1.title{font-size:24px;margin:0 0 4px;letter-spacing:-.02em}
-"""
+CSS = Path(__file__).with_name("style.css").read_text()
+STYLE_FILE = "style-" + sha256(CSS.encode())[:16] + ".css"
+
 
 def shell(title: str, body: str) -> str:
-  if API_BASE:
-    api_link = f'<a href="{html.escape(API_BASE, quote=True)}/docs">API</a>'
-  elif BLOB_BACKEND == "local":
-    api_link = f'<a href="docs">API</a>'
-  else:
-    api_link = ""
+  api_link = f'<a href="{html.escape(API_BASE, quote=True)}/docs">API reference</a>' if API_BASE else ''
   return f"""<!doctype html>
-<html lang="en"><head>
+<html lang="en" data-theme="dark"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark light">
 <title>{html.escape(title)}</title>
-<style>{CSS}</style>
-</head><body><div class="wrap">
+<script>try{{document.documentElement.dataset.theme=localStorage.getItem('openmodels-theme')==='light'?'light':'dark'}}catch(_){{}}</script>
+<link rel="stylesheet" href="{STYLE_FILE}">
+</head><body><a class="skip-link" href="#content">Skip to content</a><div class="wrap">
 <header class="top">
-  <h1><a href="index.html">openmodels</a></h1>
-  <p>Openpilot models for people and the forks they drive.</p>
-  <nav class="top">
-    <a href="index.html">Models</a>
-    <a href="integrate.html">Build a model switcher</a>
-    <a href="archive.html">Archive</a>
-    <a href="compose.html">Composer</a>
-    {api_link}
-  </nav>
+<a class="brand" href="index.html" aria-label="OpenModels workbench"><svg viewBox="0 0 32 32" width="28" height="28" aria-hidden="true"><path d="M8 8h16v16H8zM8 16h16M16 8v16" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 8h8v8H4zM20 20h8v8h-8z" fill="currentColor"/></svg>openmodels</a>
+<nav class="top" aria-label="Main navigation"><a href="index.html">Workbench</a><a href="models.html">Models</a><a href="integrate.html">Developers</a></nav>
+<button id="theme-toggle" type="button" aria-label="Switch to light theme">Light theme</button>
 </header>
-{body}
-<footer>
-  <p>{DISCLAIMER}</p>
-  <p>Comma models &copy; comma.ai, distributed under the
-     <a href="https://github.com/commaai/openpilot/blob/master/LICENSE">openpilot MIT license</a>
-     and sourced from <a href="https://github.com/commaai/openpilot">commaai/openpilot</a>.
-     Other publishers retain the licenses recorded in their manifests. Not affiliated with or endorsed by comma.ai.
-     For subjective comparisons of how models drive, see
-     <a href="https://sunnylink.wiki/models">sunnylink.wiki</a>.</p>
-</footer>
-</div></body></html>
-"""
+<div id="content" tabindex="-1">{body}</div>
+<footer><span>Open models. Explicit configurations.</span><div><a href="catalog.json">Catalog JSON</a>{api_link}<a href="https://github.com/jjolano/openmodels">GitHub</a></div>
+<details><summary>Provenance and licenses</summary><p>{DISCLAIMER}</p><p>Comma models © comma.ai under the <a href="https://github.com/commaai/openpilot/blob/master/LICENSE">MIT license</a>. Other publishers retain their recorded licenses. Not affiliated with comma.ai. <a href="https://sunnylink.wiki/models">Community model descriptions</a>.</p></details></footer>
+</div><script>
+const themeButton=document.getElementById('theme-toggle');
+function themeLabel(){{const light=document.documentElement.dataset.theme==='light';themeButton.textContent=light?'Dark theme':'Light theme';themeButton.setAttribute('aria-label','Switch to '+(light?'dark':'light')+' theme')}}
+themeLabel();themeButton.addEventListener('click',()=>{{document.documentElement.dataset.theme=document.documentElement.dataset.theme==='light'?'dark':'light';try{{localStorage.setItem('openmodels-theme',document.documentElement.dataset.theme)}}catch(_){{}}themeLabel()}});
+const path=location.pathname.split('/').pop();const active=(!path||path==='index.html'||path==='compose.html')?'index.html':path==='integrate.html'?'integrate.html':'models.html';document.querySelectorAll('nav.top a').forEach(a=>{{if(a.getAttribute('href')===active)a.setAttribute('aria-current','page')}});
+</script></body></html>"""
 
 
 def render(index_path: Path, out_dir: Path) -> int:
   from index.registry import publish, atomic_write
-  from web.directory import render as render_directory
+  from web.directory import component_index, render as render_directory
 
   index = json.loads(index_path.read_text())
   catalog = publish(index, out_dir, publishers=Path(__file__).resolve().parents[1] / "publishers",
@@ -112,10 +62,17 @@ def render(index_path: Path, out_dir: Path) -> int:
   for entry in catalog.data["entries"]:
     recipe = catalog.resolve(entry["recipe"])
     atomic_write(out_dir / "recipes" / f"{recipe.id}.json", catalog.export(recipe))
-  atomic_write(out_dir / "compose.html", render_directory(catalog, shell, api_base=API_BASE,
-                                                        api_enabled=bool(API_BASE) or BLOB_BACKEND == "local"))
+  component_raw = dumps(component_index(catalog))
+  component_url = "components-" + sha256(component_raw.encode())[:16] + ".json"
+  atomic_write(out_dir / component_url, component_raw)
+  script = Path(__file__).with_name("workbench.js").read_text()
+  script_url = "workbench-" + sha256(script.encode())[:16] + ".js"
+  atomic_write(out_dir / script_url, script)
+  atomic_write(out_dir / STYLE_FILE, CSS)
+  workspace = render_directory(catalog, shell, component_url=component_url, script_url=script_url)
+  atomic_write(out_dir / "index.html", workspace)
+  atomic_write(out_dir / "compose.html", workspace)
   from web.models import listing, detail, guide, filename, discovery, page_filename, PAGE_SIZE
-  from openmodels.contracts import dumps, sha256
   records = discovery(catalog)
   raw = dumps(records)
   discovery_url = "discovery-" + sha256(raw.encode()) + ".json"
@@ -132,7 +89,7 @@ def render(index_path: Path, out_dir: Path) -> int:
   for model in models:
     atomic_write(out_dir / filename(model), detail(catalog, model, shell))
   atomic_write(out_dir / ".nojekyll", "")
-  return 2 + listing_pages + len(models)
+  return 3 + listing_pages + len(models)
 
 
 def main() -> int:

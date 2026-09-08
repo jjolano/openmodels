@@ -4,7 +4,7 @@
 
 - **Verify** runs on PRs/main and is reused by publication and SDK releases. It checks Python
   3.11/3.12, archive and contract tests, real publisher submissions, deterministic site output,
-  both wheels outside the checkout, and browser composition under `/openmodels/`.
+  both wheels outside the checkout, and browser composition-request exports under `/openmodels/`.
 - **Refresh archive** runs daily or manually. Its read-only job restores the archive checkpoint
   and scans upstream. A separate writer validates and checkpoints discoveries **before** mirroring,
   then saves mirror locations and invokes Pages publication. Interrupted uploads are rediscovered
@@ -34,9 +34,9 @@ Refreshes and Pages publications each serialize their writers; conflicting archi
 3. Confirm `archive-state` exists and the refresh and Pages deployment succeed. Keep the old
    `gh-pages` branch until the checkpoint has been checked. It is no longer updated or used for
    hosting; deleting it afterward is optional and is not part of the automated workflow.
-4. Set repository variable `OPENMODELS_API_BASE` to the HTTPS API origin, without a trailing
-   path such as `/v1`. Until configured, Pages supports browsing/downloads and SDK composition.
-   Optional variables `METADATA_LIMIT` and `UPLOAD_LIMIT` default to 20 and 40 per refresh.
+4. Pages supports the workbench, browsing, downloads and SDK handoff without an API.
+   Optionally set `OPENMODELS_API_BASE` to an HTTPS API origin (without `/v1`) to add an
+   API-reference link. `METADATA_LIMIT` and `UPLOAD_LIMIT` default to 20 and 40 per refresh.
 
 The automatic main publication can fail before bootstrap because `archive-state` does not yet
 exist. The explicit first refresh creates it and publishes the site. Do not bypass this failure
@@ -44,9 +44,11 @@ with an empty catalog: historical PR-only models may have no remaining upstream 
 
 ## API synchronization
 
-Run the existing API container on your chosen host. Set `OPENMODELS_CORS_ORIGINS` to the exact
-Pages origin, for example `https://jjolano.github.io` (the `/openmodels/` path is not part of an
-origin). Custom domains need their own origin. Authentication cookies are not required.
+A separately hosted API is optional; the static workbench exports requests for the Python SDK.
+For direct API consumers, run the existing API container on your chosen host. If another browser
+application calls it, set `OPENMODELS_CORS_ORIGINS` to that application's exact origin, such as
+`https://jjolano.github.io` (the `/openmodels/` path is not part of an origin). Authentication
+cookies are not required.
 
 The API reads `OPENMODELS_DATA/public/catalog.json`; it does not need to run the comma importer.
 On the host, synchronize the published catalog with:
@@ -67,11 +69,11 @@ a failed fetch leaves the last valid snapshot in place. Configure the origin you
 helper never downloads from arbitrary browser-supplied URLs. The Docker image includes `ci/`
 for this operation. A separate API host and its scheduler are not provisioned by these workflows.
 
-The browser fetches the exact snapshot embedded in its HTML and sends its digest as a quoted
-`If-Match` header with composition requests. An API on another revision responds HTTP 412;
-the browser asks the visitor to refresh. During synchronization lag this can persist until the
-host sync succeeds. SDK/offline composition does not require the API. GET `/v1/status` reports
-its active digest; compare it with Pages `deployment.json` when diagnosing lag.
+Direct API consumers can send their catalog digest as a quoted `If-Match` header with
+composition requests. An API on another revision responds HTTP 412; synchronize the host or
+load its current snapshot before retrying. GET `/v1/status` reports the active digest for
+comparison with Pages `deployment.json`. The workbench instead exports Python and CLI examples
+pinned to its displayed snapshot, so API synchronization lag does not affect that workflow.
 
 ## Repeatability and rollback
 

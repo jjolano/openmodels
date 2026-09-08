@@ -119,23 +119,31 @@ are searchable; `name_kind` distinguishes published, source-derived and generate
 `/v1/artifacts/{digest}`, `/v1/status`, and `/v1/schemas/{name}` expose the remaining data.
 FastAPI publishes the HTTP description at `/openapi.json` and `/docs`.
 
-`python web/render.py` publishes the universal catalog, digest-addressed snapshots,
-manifests, schemas, standalone recipe exports, `models.json`, a complete `index.html` directory,
-individual model pages, `archive.html`, `integrate.html`, and `compose.html`. Third-party manifests enter through reviewed files in
-`publishers/<publisher>/*.json`; see [submission instructions](../publishers/README.md).
+`python web/render.py` publishes the catalog, digest-addressed snapshots, manifests,
+schemas, standalone recipe exports and `models.json`. The composition workbench is at
+`index.html` (also `compose.html`); `models.html`, individual model pages, `archive.html`
+and the Developers guide at `integrate.html` provide browsing and integration help.
+Third-party manifests enter through reviewed files in `publishers/<publisher>/*.json`;
+see [submission instructions](../publishers/README.md).
 
-The directory renders at most 30 model cards per page. All listing pages are generated
-as static HTML, so page links and downloads work without JavaScript. Interactive search
-loads a small, digest-addressed discovery index on demand, searches every model (including
-aliases), and renders only the selected result page. Query, type, naming filter and page
-are preserved in the URL and browser history. Full recipes stay in the SDK catalog and
-model detail pages. If the search index fails to load, static browsing remains available. Its generic browser
-composer sends requests to the same Python composer through the API; it does not implement
-a second set of validation rules. Self-hosted local deployments enable it automatically.
-Static-only mirrors offer SDK composition.
-`OPENMODELS_API_BASE` enables a separately hosted API; that API must allow the site's origin
-with `OPENMODELS_CORS_ORIGINS` (comma-separated exact origins). Browser composition sends the
-catalog digest in `If-Match`; a different API snapshot returns HTTP 412 with a refresh message. No catalog data controls this origin.
+The model directory renders at most 30 compact rows per page. Static page links and downloads
+work without JavaScript. Interactive search loads a small, digest-addressed discovery index
+on demand, including aliases, and preserves query, type, naming filter and page in the URL.
+A failed search load leaves static browsing available.
+
+The workbench uses a separate digest-addressed component index and loads detailed recipe
+exports only when selected. Profile-defined slots filter the component library, which renders
+at most 30 results at once. Starting from a model configuration retains its contextual members
+and settings. The inspector shows recorded and missing settings alongside explicit overrides.
+The browser exports a **Composition request** (`{profile, selection, configuration?}`), plus
+Python and CLI examples pinned to the displayed catalog snapshot. Browser checks cover form
+completeness and JSON syntax; the SDK owns composition validation, findings and final recipe
+identity. Explicit overrides enter recipe identity when the SDK composes the request.
+
+The workbench needs no hosted API. `OPENMODELS_API_BASE` adds an API-reference link for
+separately hosted deployments. Direct API consumers can send the quoted catalog digest in
+`If-Match` with `POST /v1/compose`; a different API snapshot returns HTTP 412. For browser
+consumers of that API, configure `OPENMODELS_CORS_ORIGINS` with exact allowed origins.
 
 The API reads `/data/public/catalog.json`; the publisher writes referenced manifests before
 atomically replacing this discovery snapshot. Historical blobs and existing manifests remain

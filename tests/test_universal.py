@@ -259,10 +259,10 @@ class UniversalTests(unittest.TestCase):
       render(source, output)
       self.assertEqual(loads(source.read_text()), archive)
       self.assertFalse((output / "index.json").exists())
-      page = (output / "compose.html").read_text()
+      page = "".join(path.read_text() for path in output.glob("model-*.html"))
       self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", page)
       self.assertNotIn("<script>alert(1)</script>", page)
-      self.assertTrue({"index.html", "archive.html", "integrate.html", "compose.html"} <= {p.name for p in output.glob("*.html")})
+      self.assertTrue({"index.html", "models.html", "archive.html", "integrate.html", "compose.html"} <= {p.name for p in output.glob("*.html")})
       cat = Catalog.load(output / "catalog.json")
       for entry in cat.data["entries"]:
         exported = Catalog.load(output / "recipes" / f"{entry['recipe']}.json")

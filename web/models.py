@@ -11,13 +11,15 @@ def filename(model):
 
 
 STYLE = '''<style>
-.hero{padding:4px 0 12px;max-width:760px}.hero h1{font-size:clamp(28px,4vw,40px);line-height:1.15;letter-spacing:-.04em;margin:0 0 10px}
-.hero p{font-size:16px;color:var(--muted)}.model-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:18px;margin-top:24px}
-.model-card{overflow-wrap:anywhere;padding:22px;background:var(--panel);border:1px solid var(--line);border-radius:12px}.model-card h2{font-size:21px;line-height:1.3;margin:12px 0}.model-card h2 a{text-decoration:none;color:var(--ink)}
-.model-card p{margin:10px 0}.model-card a:last-child{display:inline-block;padding:10px 0}.filters{display:flex;gap:16px;flex-wrap:wrap;align-items:end}.filters label{display:grid;gap:6px;flex:1;min-width:160px}
-input,select{font:inherit;padding:12px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px}a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:4px}
-.variant{padding:20px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}.variant summary{cursor:pointer;padding:12px 0}pre{background:var(--code);padding:18px;overflow:auto}nav.top a{padding:8px 0;min-height:44px}
-#model-pages{display:flex;gap:8px;flex-wrap:wrap;margin-top:24px}#model-pages a{min-width:44px;min-height:44px;padding:8px 12px;text-align:center;border:1px solid var(--line);border-radius:6px}#model-pages [aria-current]{background:var(--accent);color:var(--panel);font-weight:600}
+.hero{padding:0 0 20px;max-width:850px}.hero h1{font-size:clamp(26px,3vw,36px);line-height:1.15;letter-spacing:-.035em;margin:0 0 10px}.hero p{color:var(--muted)}
+.model-grid{display:grid;margin-top:16px;border-top:1px solid var(--line)}.model-card{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,.65fr) auto;gap:14px;align-items:center;overflow-wrap:anywhere;padding:18px 4px;border-bottom:1px solid var(--line)}
+.model-card h2{font-size:17px;line-height:1.35;margin:3px 0}.model-card h2 a{text-decoration:none;color:var(--ink)}.model-card h2 a:hover{color:var(--accent)}.model-card p{margin:4px 0;font-size:13px}.model-card .model-action{font-size:13px;white-space:nowrap;padding:12px 0}
+.filters{display:flex;gap:16px;flex-wrap:wrap;align-items:end}.filters label{display:grid;gap:6px;flex:1;min-width:160px}.advanced-filters{margin:14px 0}.advanced-filters label{display:grid;gap:6px;max-width:300px;margin-top:12px}
+input,select{font:inherit;padding:10px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:5px}a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:4px}summary{cursor:pointer}
+.variant{padding:20px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}.variant h3{margin:0 0 10px}.variant summary{padding:12px 0}.variant-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}.variant-actions a{display:inline-block;padding:10px 14px;border:1px solid var(--line);border-radius:5px;text-decoration:none}.variant-actions .start-model{color:var(--bg);background:var(--accent);border-color:var(--accent);font-weight:600}
+pre{background:var(--code);padding:18px;overflow:auto}.provenance{margin-top:24px;border-top:1px solid var(--line);padding-top:20px}.provenance>summary{font-weight:600;padding:10px 0}
+#model-pages{display:flex;gap:8px;flex-wrap:wrap;margin-top:24px}#model-pages a{min-width:44px;min-height:44px;padding:8px 12px;text-align:center;border:1px solid var(--line);border-radius:5px}#model-pages [aria-current]{background:var(--accent);color:var(--bg);font-weight:600}
+@media(max-width:650px){.model-card{grid-template-columns:minmax(0,1fr) auto;gap:8px}.model-card .model-facts{grid-column:1}.model-card .model-action{grid-column:2;grid-row:1 / 3}.variant-actions{align-items:stretch}.variant-actions a{width:100%}}
 </style>'''
 SCRIPT = r"""<script>
 (async () => {
@@ -25,12 +27,13 @@ SCRIPT = r"""<script>
   const search = document.querySelector('#model-search'), kind = document.querySelector('#model-kind'), naming = document.querySelector('#model-naming');
   const status = document.querySelector('#model-load-status');
   const archive = grid.dataset.archive === 'true', size = 30;
-  function pageFile(page) { return page === 1 ? (archive ? 'archive.html' : 'index.html') : (archive ? 'archive-' : 'models-') + page + '.html'; }
+  function pageFile(page) { return page === 1 ? (archive ? 'archive.html' : 'models.html') : (archive ? 'archive-' : 'models-') + page + '.html'; }
   function readState() {
     const params = new URLSearchParams(location.search);
     search.value = params.get('q') || '';
     kind.value = params.get('kind') || '';
     naming.value = params.get('naming') || '';
+    if (naming.value) naming.closest('details').open = true;
     const pathPage = location.pathname.match(/(?:models|archive)-(\d+)\.html$/);
     const value = params.get('page') || (pathPage ? pathPage[1] : '1');
     return /^\d+$/.test(value) && Number.isSafeInteger(Number(value)) ? Math.max(1, Number(value)) : 1;
@@ -60,14 +63,16 @@ SCRIPT = r"""<script>
   function card(model) {
     const node = element('article', undefined, 'model-card');
     node.dataset.model = '';
-    node.append(element('div', model.publisher + ' · ' + model.kind, 'meta'));
+    const identity = element('div'), facts = element('div', undefined, 'model-facts');
+    identity.append(element('div', model.publisher + ' · ' + model.kind, 'meta'));
     const heading = element('h2'), link = element('a', model.name);
-    link.href = model.href; heading.append(link); node.append(heading);
-    node.append(element('p', model.name_label, 'meta'));
-    if (model.aliases) node.append(element('p', 'Also listed as ' + model.aliases, 'meta'));
-    node.append(element('p', model.family + ' · ' + model.formats));
-    node.append(element('p', model.summary, 'meta'));
-    const view = element('a', 'View model →'); view.href = model.href; node.append(view);
+    link.href = model.href; heading.append(link); identity.append(heading);
+    identity.append(element('p', model.name_label, 'meta'));
+    if (model.aliases) identity.append(element('p', 'Also listed as ' + model.aliases, 'meta'));
+    facts.append(element('p', model.family + ' · ' + model.formats));
+    facts.append(element('p', model.summary, 'meta'));
+    const view = element('a', 'View model →', 'model-action'); view.href = model.href;
+    node.append(identity, facts, view);
     return node;
   }
   function render(page, historyMode) {
@@ -126,7 +131,7 @@ PAGE_SIZE = 30
 
 
 def page_filename(page, archive=False):
-  return ('archive.html' if archive else 'index.html') if page == 1 else f"{'archive' if archive else 'models'}-{page}.html"
+  return ('archive.html' if archive else 'models.html') if page == 1 else f"{'archive' if archive else 'models'}-{page}.html"
 
 
 def discovery(catalog):
@@ -144,12 +149,12 @@ def discovery(catalog):
 
 def card(model):
   return f'''<article class="model-card" data-model>
-    <div class="meta">{e(model['publisher'])} · {e(model['kind'])}</div>
+    <div class="model-identity"><div class="meta">{e(model['publisher'])} · {e(model['kind'])}</div>
     <h2><a href="{model['href']}">{e(model['name'])}</a></h2>
     <p class="meta">{e(model['name_label'])}</p>
     {f'<p class="meta">Also listed as {e(model["aliases"])}</p>' if model['aliases'] else ''}
-    <p>{e(model['family'])} · {e(model['formats'])}</p><p class="meta">{e(model['summary'])}</p>
-    <a href="{model['href']}">View model →</a></article>'''
+    </div><div class="model-facts"><p>{e(model['family'])} · {e(model['formats'])}</p><p class="meta">{e(model['summary'])}</p></div>
+    <a class="model-action" href="{model['href']}">View model →</a></article>'''
 
 
 def listing(catalog, shell, *, archive=False, page=1, records=None, discovery_url='discovery.json'):
@@ -161,20 +166,20 @@ def listing(catalog, shell, *, archive=False, page=1, records=None, discovery_ur
   cards = ''.join(card(m) for m in models[start:start + PAGE_SIZE])
   links = ''.join(f'<a href="{page_filename(i, archive)}" data-page="{i}" aria-label="Page {i}"' +
                   (' aria-current="page"' if i == page else '') + f'>{i}</a>' for i in range(1, pages + 1))
-  title = 'Historical models' if archive else 'Explore models'
+  title = 'Historical models' if archive else 'Models'
   intro = 'Models outside the current upstream tree, including published names and training runs.' if archive else 'Every model and source configuration in the catalog. Search by published name, alias, or generated label.'
   options = ''.join(f'<option value="{e(k, quote=True)}">{e(k.capitalize())}</option>' for k in sorted({m['kind'] for m in models}))
   count = f'Showing {start + 1}–{min(start + PAGE_SIZE, len(models))} of {len(models)} models' if models else '0 models'
   return shell(title + f' — page {page} — openmodels', STYLE + f'''<main><section class="hero"><h1>{title}</h1><p>{intro}</p></section>
     <div class="filters"><label for="model-search">Search models<input disabled type="search" id="model-search" placeholder="Try Duck Amigo or North Dakota"></label>
     <label for="model-kind">Model type<select disabled id="model-kind"><option value="">All types</option>{options}</select></label>
-    <label for="model-naming">Naming<select disabled id="model-naming"><option value="">All names and labels</option><option value="published">Published names</option><option value="source">Source-derived labels</option><option value="generated">Generated labels</option></select></label></div>
+    </div><details class="advanced-filters"><summary>Advanced filters</summary><label for="model-naming">Naming<select disabled id="model-naming"><option value="">All names and labels</option><option value="published">Published names</option><option value="source">Source-derived labels</option><option value="generated">Generated labels</option></select></label></details>
     <noscript>Search and filters require JavaScript. Browse every model using the page links below.</noscript>
     <p id="model-load-status" role="status"></p><p id="model-count" role="status">{count}</p>
     <p id="model-empty" {'' if not models else 'hidden'}>No models match. Clear your search or choose another type.</p>
     <div class="model-grid" data-archive="{str(archive).lower()}" data-discovery="{e(discovery_url, quote=True)}">{cards}</div>
     <nav id="model-pages" aria-label="Model pages">{links}</nav>
-    <p>{'All models are in the <a href="index.html">model directory</a>.' if archive else 'Browse <a href="archive.html">historical models</a>. Generated labels identify weights without claiming a published nickname.'}</p></main>''' + SCRIPT)
+    <p>{'All models are in the <a href="models.html">model directory</a>.' if archive else 'Browse <a href="archive.html">historical models</a>. Generated labels identify weights without claiming a published nickname.'}</p></main>''' + SCRIPT)
 
 
 def detail(catalog, model, shell, *, base_url=""):
@@ -201,18 +206,23 @@ def detail(catalog, model, shell, *, base_url=""):
     variants.append(f'''<section class="variant"><h3>{e(v['label'])}</h3>
       <p>{e(', '.join(v['formats']).upper())} · {v['size'] / 1024**2:.1f} MiB · recorded backend: {e(', '.join(v['targets']) or 'unspecified')}</p>
       <p>{' · '.join(downloads) or 'Weights are currently unavailable.'}</p>
-      <p><a href="recipes/{v['recipe']}.json" download>Download configuration for SDK</a></p>
+      <div class="variant-actions"><a class="start-model" href="index.html?recipe={v['recipe']}">Use as starting point →</a><a href="recipes/{v['recipe']}.json" download>Download configuration for SDK</a></div>
       <details><summary>Integration details and original archive name</summary><p>{e(', '.join(names))}</p>
       <p>Recipe ID: <code>{v['recipe']}</code></p><p>Profile: <a href="manifests/{recipe.profile.id}.json">{e(recipe.profile.data['name'])}</a></p>
       <p><a href="manifests/{v['recipe']}.json">View exact configuration and provenance</a></p></details></section>''')
-  return shell(model['name'] + ' — openmodels', STYLE + f'''<main><a href="index.html">← All models</a>
+  return shell(model['name'] + ' — openmodels', STYLE + f'''<main><a href="models.html">← All models</a>
     <section class="hero"><p>{e(model['publisher'])} · {e(model['kind'])} · {e(model['family'])}</p><h1>{e(model['name'])}</h1><p>{e(model['description'])}</p></section>
-    {naming}<details><summary>Source references</summary><ul>{links}</ul></details><h2>Available configurations</h2><p>Each configuration preserves a specific source context. Your fork decides which configurations it supports and how to activate them. <a href="integrate.html">Integration guide</a></p>
-    {''.join(variants)}</main>''')
+    <h2>Available configurations</h2><p>Each configuration preserves a specific source context. Your fork decides which configurations it supports and how to activate them. <a href="integrate.html">Integration guide</a></p>
+    {''.join(variants)}<details class="provenance"><summary>Names, aliases and provenance</summary>{naming}<h3>Source references</h3><ul>{links}</ul></details></main>''')
 
 
 def guide(shell):
-  return shell('Build a model switcher — openmodels', STYLE + '''<main><section class="hero"><h1>Build a model switcher</h1><p>One static catalog, named models, and exact configurations. No hosted API required.</p></section>
+  return shell('Developers — openmodels', STYLE + '''<main><section class="hero"><h1>Developers</h1><p>Compose a model configuration or integrate a model switcher using the same static catalog and Python SDK.</p></section>
+  <h2>From workbench to recipe</h2><p>The <a href="index.html">workbench</a> exports a <strong>Composition request</strong> as <code>selection.json</code>. It records the profile, contextual component selections and your explicit settings overrides. The SDK checks the request, reports unresolved structure or semantics, and creates the recipe identity.</p>
+  <p>Use the workbench’s generated command and Python example: both pin the exact catalog snapshot displayed when you composed the request. The CLI writes findings to stderr and an installable recipe snapshot to stdout:</p>
+  <pre><code>python -m openmodels --catalog catalog.json --sha256 CATALOG_SHA256 compose selection.json &gt; composed.json</code></pre>
+  <p>Replace <code>CATALOG_SHA256</code> with the displayed snapshot digest, or copy the ready-to-run command from the workbench. Preserve recorded source settings; missing values remain unknown until explicitly supplied. Review SDK findings before adopting a composition.</p>
+  <h2>Build a model switcher</h2><p>One static catalog, named models, and exact configurations. No hosted API required.</p>
   <ol><li>Load the catalog from this site or a pinned local snapshot.</li><li>Provide your fork’s support policy and show the resulting models and variants.</li><li>Install the selected recipe with progress and cancellation.</li><li>Prepare it with your runner, then activate it through your fork’s existing model manager.</li></ol>
   <pre><code>from openmodels import Catalog, ModelSwitcher
 
