@@ -35,6 +35,10 @@ def main():
     models = [stock] + [{**deepcopy(stock), 'id': f'example/page-{i}', 'name': f'Pagination model {i}',
                          'names': [], 'name_kind': 'generated'} for i in range(1, 61)]
     models[-1]['names'] = [{'name': 'Distant alias'}]
+    for i, model in enumerate(models[1:], 1):
+      model['model_class'] = 'standard' if i <= 30 else 'big' if i < 60 else 'unknown'
+      for variant in model['variants']:
+        variant['targets'] = ['QCOM' if i <= 30 else 'AMD']
     fixture_catalog = SimpleNamespace(models=lambda **kwargs: models)
     records = discovery(fixture_catalog)
     (root / 'openmodels/discovery-test.json').write_text(json.dumps(records))
@@ -90,6 +94,24 @@ ThreadingHTTPServer(('127.0.0.1', int(sys.argv[1])), partial(Handler, directory=
       browser('select', '#model-naming', 'published')
       browser('wait', '--fn', 'document.querySelectorAll("[data-model]").length === 1 && location.pathname.endsWith("models.html")')
       browser('eval', 'if (Number(new URLSearchParams(location.search).get("page") || 1) !== 1) throw Error("Filter did not reset page")')
+      browser('select', '#model-naming', '')
+      browser('wait', '--fn', 'document.querySelectorAll("[data-model]").length === 30')
+      browser('eval', 'Array.from(document.querySelectorAll("#model-pages [data-page]")).find(a=>a.dataset.page==="2").click()')
+      browser('wait', '--fn', 'location.pathname.endsWith("models-2.html")')
+      browser('select', '#model-class', 'big')
+      browser('wait', '--fn', 'location.pathname.endsWith("models.html") && document.querySelectorAll("[data-model]").length === 29')
+      browser('select', '#model-target', 'AMD')
+      browser('wait', '--fn', 'new URLSearchParams(location.search).get("target") === "AMD"')
+      browser('reload')
+      browser('wait', '--fn', 'document.querySelector("#model-class").value === "big" && document.querySelector("#model-target").value === "AMD" && document.querySelectorAll("[data-model]").length === 29')
+      browser('select', '#model-target', 'QCOM')
+      browser('wait', '--fn', 'document.querySelectorAll("[data-model]").length === 0')
+      browser('select', '#model-class', 'unknown')
+      browser('select', '#model-target', 'AMD')
+      browser('wait', '--fn', 'document.querySelectorAll("[data-model]").length === 1 && document.querySelector(".model-card h2").textContent.includes("Pagination model 60")')
+      browser('select', '#model-class', '')
+      browser('select', '#model-target', '')
+      browser('wait', '--fn', '!location.search && document.querySelectorAll("[data-model]").length === 30')
       browser('open', page_origin + '/openmodels/models.html?page=999')
       browser('wait', '--fn', 'document.querySelectorAll("[data-model]").length === 1 && document.querySelector(".model-card h2").textContent.includes("Pagination model 60")')
       browser('open', page_origin + '/openmodels/models.html?page=nonsense')
@@ -174,7 +196,9 @@ ThreadingHTTPServer(('127.0.0.1', int(sys.argv[1])), partial(Handler, directory=
       # Exercise library limits independently of the size of the publisher fixture.
       library = json.loads(component_file.read_text())
       item = library['components'][0]
-      library['components'] = [{**item, 'name': f'Component page {i}'} for i in range(61)]
+      library['components'] = [{**item, 'name': f'Component page {i}',
+        'model_class': 'standard' if i <= 30 else 'big' if i < 60 else 'unknown',
+        'targets': ['QCOM' if i <= 30 else 'AMD']} for i in range(61)]
       component_file.write_text(json.dumps(library))
       browser('reload')
       browser('wait', '--fn', 'document.querySelectorAll("#component-list [data-component]").length === 30')
@@ -188,7 +212,23 @@ ThreadingHTTPServer(('127.0.0.1', int(sys.argv[1])), partial(Handler, directory=
       browser('wait', '--fn', 'document.querySelectorAll("#component-list [data-component]").length === 11')
       browser('fill', '#component-search', 'Component page 60')
       browser('wait', '--fn', 'document.querySelectorAll("#component-list [data-component]").length === 1 && document.querySelector("#component-list").textContent.includes("Component page 60")')
-      print('Static workbench export, SDK parity, overrides, failures, mobile layout, pagination and project Pages paths passed')
+      browser('fill', '#component-search', '')
+      browser('wait', '--fn', 'document.querySelectorAll("#component-list [data-component]").length === 30')
+      activate('#component-list [data-component]:first-child')
+      browser('wait', '--fn', '!document.querySelector("#export-selection").hidden')
+      selected = browser('eval', 'document.querySelector("#request-code").textContent')
+      activate('#component-next')
+      browser('select', '#component-class', 'standard')
+      browser('wait', '--fn', 'document.querySelector("#component-prev").disabled && document.querySelectorAll("#component-list [data-component]").length === 30')
+      browser('select', '#component-target', 'AMD')
+      browser('wait', '--fn', 'document.querySelectorAll("#component-list [data-component]").length === 0')
+      assert browser('eval', 'document.querySelector("#request-code").textContent') == selected, 'Filtering changed selected components'
+      browser('select', '#component-class', 'unknown')
+      browser('wait', '--fn', 'document.querySelectorAll("#component-list [data-component]").length === 1 && document.querySelector("#component-list").textContent.includes("Component page 60")')
+      activate('#clear-component-filters')
+      browser('wait', '--fn', 'document.querySelector("#component-class").value === "" && document.querySelector("#component-target").value === "" && document.querySelectorAll("#component-list [data-component]").length === 30')
+      assert browser('eval', 'document.querySelector("#request-code").textContent') == selected, 'Clearing filters changed selected components'
+      print('Static workbench export, SDK parity, overrides, failures, mobile layout, class/target filters, pagination and project Pages paths passed')
     except Exception:
       print(browser('get', 'url'))
       print(browser('snapshot', '-i'))

@@ -4,9 +4,13 @@ from html import escape
 
 def component_index(catalog):
   names = {}
+  classes = {}
+  hardware = {}
   for model in catalog.models(include_archive=True):
     for variant in model["variants"]:
       names.setdefault(variant["recipe"], (model["name"], model["publisher"], [n["name"] for n in model.get("names", [])]))
+      classes[variant['recipe']] = variant.get('model_class', model.get('model_class', 'unknown'))
+      hardware[variant['recipe']] = variant.get('hardware', [])
   profiles, components = [], []
   for digest, manifest in catalog._documents.items():
     data = manifest.data
@@ -18,6 +22,8 @@ def component_index(catalog):
       for role, member in data["members"].items():
         artifact, source = member["artifact"], member["source"]
         components.append({"recipe": digest, "role": role, "name": name, "publisher": publisher, "aliases": aliases,
+          "model_class": classes.get(digest, 'unknown'), "targets": member['targets'],
+          "hardware": hardware.get(digest, []),
           "context": str(source.get("commit") or source.get("revision") or "Unrecorded"),
           "format": artifact["format"], "sha256": artifact["sha256"], "size": artifact["size"],
           "available": catalog._data["locations"].get(artifact["sha256"], {}).get("availability") == "available"})
@@ -37,6 +43,9 @@ def render(catalog, shell, *, component_url="components.json", script_url="workb
     <div class="workbench-layout">
       <section class="library panel" aria-labelledby="library-title"><div class="panel-heading"><h2 id="library-title">Component library</h2><span id="library-role" class="tag">Select a slot</span></div>
         <label class="search-label" for="component-search">Search components<input id="component-search" type="search" placeholder="Name, alias, source or hash" disabled></label>
+        <div class="component-filters"><label>Model class<select id="component-class" disabled><option value="">All classes</option><option value="standard">Standard</option><option value="big">Big</option><option value="unknown">Unrecorded</option></select></label>
+          <label>Execution target<select id="component-target" disabled><option value="">All targets</option></select></label>
+          <button id="clear-component-filters" type="button" disabled>Clear filters</button></div>
         <p id="component-count" class="meta" role="status"></p><div id="component-list"></div>
         <div class="library-pages"><button id="component-prev" type="button" disabled>Previous</button><span id="component-page" class="meta"></span><button id="component-next" type="button" disabled>Next</button></div>
         <a class="library-browse" href="models.html">Browse the model directory</a></section>

@@ -41,8 +41,9 @@ def convert(index, *, blob_base=None):
     gone = oid in index.get("mirror_unavailable", [])
     result["locations"][oid] = {"urls": urls, "availability": "available" if urls else "gone" if gone else "pending"}
   naming = loads(Path(__file__).with_name("model_names.json").read_bytes())
+  hardware = loads(Path(__file__).with_name("model_hardware.json").read_bytes())
   for bundle in index["bundles"]:
-    model = model_metadata(bundle, naming["records"])
+    model = model_metadata(bundle, naming["records"], hardware["records"])
 
     profile = archive_profile(bundle)
     result["documents"][profile.id] = profile.raw

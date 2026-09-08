@@ -22,10 +22,17 @@ def source_label(title):
   return label
 
 
-def model_metadata(bundle, records):
+def model_metadata(bundle, records, hardware_records=()):
   claims = []
   artifacts = sorted([{"role": f["role"], "sha256": f["oid"]} for f in bundle["files"]], key=lambda a: a["role"])
   commits = {o["commit"] for o in bundle["occurrences"]}
+  hardware = []
+  for record in hardware_records:
+    if record["bundle_id"] != bundle["bundle_id"]:
+      continue
+    if sorted(record["artifacts"], key=lambda a: a["role"]) != artifacts or record["context"] not in commits:
+      raise ContractError("hardware source no longer matches archived artifacts")
+    hardware.append({k: record[k] for k in ("name", "url", "method", "context", "artifacts")})
   for record in records:
     if record["bundle_id"] != bundle["bundle_id"]:
       continue
@@ -47,12 +54,13 @@ def model_metadata(bundle, records):
   date = str(introduced.get("date") or "undated")[:10]
   kind = {"dmonitoring": "Driver monitoring", "nav": "Navigation"}.get(bundle["kind"], bundle["kind"].capitalize())
   family = bundle.get("family", bundle["kind"])
-  fallback = f"{kind} · {family} · {bundle.get('variant', 'standard')} · {date} · {bundle['bundle_id'][:8]}"
+  model_class = bundle.get("variant", "unknown")
+  fallback = f"{kind} · {family} · {model_class} · {date} · {bundle['bundle_id'][:8]}"
   links = list(dict.fromkeys(c["url"] for c in claims))
   if commit and not claims:
     links.append("https://github.com/commaai/openpilot/commit/" + commit)
   return {"id": "commaai/" + bundle["bundle_id"], "name": claims[0]["name"] if claims else fallback,
           "name_kind": claims[0]["method"] if claims else "generated", "names": claims,
-          "family": family, "archived": not bundle.get("in_head", False),
+          "family": family, "model_class": model_class, "archived": not bundle.get("in_head", False),
           "description": "Original upstream weights and source configurations. Fork naming references do not imply equivalent compiled packages or tuning.",
-          "links": links}
+          "links": links, "hardware": hardware}
