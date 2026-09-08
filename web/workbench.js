@@ -4,6 +4,9 @@
   const root = document.getElementById('workbench');
   const $ = id => document.getElementById(id);
   const profileSelect = $('execution-profile'), group = $('slot-set'), search = $('component-search'), settings = $('recipe-settings');
+  const modelClass = $('component-class'), target = $('component-target');
+  const classLabel = value => ({standard: 'Standard', big: 'Big', unknown: 'Unrecorded'})[value];
+  const targetLabel = values => values.join(', ') || 'Unrecorded';
   let index, profile, roles = [], activeRole, selected = {}, page = 1, version = 0, pending = false, objectURL, tab = 'python';
   const recipes = new Map(), size = 30, revision = root.dataset.revision;
   const catalogURL = new URL('snapshots/' + revision + '.json', location.href).href;
@@ -74,14 +77,20 @@
   function renderLibrary() {
     const focused = $('component-list').contains(document.activeElement) ? document.activeElement.dataset.component : undefined;
     const query = search.value.trim().toLowerCase();
-    const found = index.components.filter(c => c.role === activeRole && c.search.includes(query));
+    const found = index.components.filter(c => c.role === activeRole && c.search.includes(query) &&
+      (!modelClass.value || c.model_class === modelClass.value) &&
+      (!target.value || (target.value === 'unknown' ? !c.targets.length : c.targets.includes(target.value))));
     const pages = Math.max(1, Math.ceil(found.length / size)); page = Math.min(page, pages);
     $('library-role').textContent = label(activeRole || '');
-    $('component-count').textContent = found.length ? `${(page - 1) * size + 1}–${Math.min(page * size, found.length)} of ${found.length} components` : 'No components match. Try another search or slot.';
+    $('component-count').textContent = found.length ? `${(page - 1) * size + 1}–${Math.min(page * size, found.length)} of ${found.length} components` : 'No components match. Clear filters or choose another slot.';
     const buttons = found.slice((page - 1) * size, page * size).map(c => {
       const button = node('button', undefined, 'component-row'); button.type = 'button'; button.dataset.component = c.recipe; button.dataset.role = c.role;
       button.setAttribute('aria-pressed', String(selected[activeRole]?.record.recipe === c.recipe));
       button.append(node('strong', c.name), node('span', c.publisher + ' · ' + c.format.toUpperCase() + ' · ' + (c.size / 1048576).toFixed(1) + ' MiB', 'meta'), node('span', 'Source ' + c.context.slice(0, 12), 'mono meta'));
+      const badges = node('span', undefined, 'model-badges');
+      badges.append(node('span', 'Class: ' + classLabel(c.model_class), 'fact-badge'), node('span', 'Target: ' + targetLabel(c.targets), 'fact-badge'));
+      for (const h of c.hardware) badges.append(node('span', h.name + ' source', 'fact-badge'));
+      button.append(badges);
       button.addEventListener('click', () => chooseComponent(c)); return button;
     });
     $('component-list').replaceChildren(...buttons);
@@ -96,6 +105,7 @@
       const button = node('button', undefined, 'pipeline-slot'); button.type = 'button'; button.dataset.slot = role;
       button.setAttribute('aria-pressed', String(activeRole === role));
       button.append(node('span', label(role), 'slot-label'), node('strong', selected[role]?.record.name || 'Choose a component'), node('span', selected[role] ? 'Source ' + selected[role].record.context.slice(0, 12) : 'Select from the library', 'meta mono'));
+      if (selected[role]) button.append(node('span', 'Class: ' + classLabel(selected[role].record.model_class) + ' · Target: ' + targetLabel(selected[role].record.targets), 'meta'));
       button.addEventListener('click', () => { activeRole = role; page = 1; search.value = ''; renderPipeline(); renderLibrary(); renderInspector(); if (matchMedia('(max-width:650px)').matches) $('library-title').scrollIntoView({block: 'start'}); $('pipeline').querySelector(`[data-slot="${CSS.escape(role)}"]`).focus({preventScroll: true}); });
       return button;
     }));
@@ -105,7 +115,7 @@
     const area = $('component-inspector'), choice = selected[activeRole];
     if (!choice) { area.replaceChildren(node('p', 'Choose a ' + label(activeRole || 'component').toLowerCase() + ' to inspect its source facts.', 'muted')); return; }
     const m = choice.recipe.members[activeRole], r = choice.record, facts = node('dl', undefined, 'facts');
-    for (const [key, value] of [['Role', label(activeRole)], ['Format', r.format.toUpperCase()], ['Size', (r.size / 1048576).toFixed(1) + ' MiB'], ['Recorded target', (m.targets || []).join(', ') || 'Unrecorded'], ['Weights', r.available ? 'Download recorded' : 'Unavailable'], ['Source', r.context]]) {
+    for (const [key, value] of [['Role', label(activeRole)], ['Model class', classLabel(r.model_class)], ['Format', r.format.toUpperCase()], ['Size', (r.size / 1048576).toFixed(1) + ' MiB'], ['Recorded target', targetLabel(m.targets)], ['Weights', r.available ? 'Download recorded' : 'Unavailable'], ['Source', r.context]]) {
       facts.append(node('dt', key), node('dd', value));
     }
     const link = node('a', 'Exact source configuration'); link.href = 'manifests/' + r.recipe + '.json';
@@ -113,6 +123,13 @@
     const details = node('details'), summary = node('summary', 'Tensors and metadata');
     details.append(summary, node('pre', JSON.stringify({inputs: m.inputs, outputs: m.outputs, metadata: m.metadata, missing: m.missing}, null, 2)));
     area.replaceChildren(node('h3', r.name), facts, link, node('h3', 'Source settings'), sourceSettings, details);
+    for (const h of r.hardware) {
+      const url = new URL(h.url, location.href);
+      if (!['https:', 'http:'].includes(url.protocol)) continue;
+      const evidence = node('a', h.name + ' source evidence'); evidence.href = url.href;
+      const note = node('p'); note.append(evidence, node('span', ' for this configuration; not device qualification.'));
+      area.insertBefore(note, link);
+    }
   }
   async function chooseComponent(record) {
     const current = ++version, role = activeRole;
@@ -167,9 +184,10 @@
       if (!response.ok) throw Error('Component library unavailable.');
       index = await response.json();
       if (index.revision !== revision || !index.profiles.length) throw Error('No matching profiles are available.');
-      index.components.forEach(c => { c.search = [c.name, ...(c.aliases || []), c.publisher, c.context, c.sha256, c.format].join(' ').toLowerCase(); });
+      index.components.forEach(c => { c.search = [c.name, ...(c.aliases || []), c.publisher, c.context, c.sha256, c.format, c.model_class, ...c.targets, ...c.hardware.map(h => h.name)].join(' ').toLowerCase(); });
+      target.replaceChildren(new Option('All targets', ''), ...[...new Set(index.components.flatMap(c => c.targets))].sort().map(t => new Option(t, t)), new Option('Unrecorded', 'unknown'));
       profileSelect.replaceChildren(...index.profiles.map(p => new Option(profileLabel(p) + (index.profiles.filter(q => profileLabel(q) === profileLabel(p)).length > 1 ? ' · ' + p.id.slice(0, 6) : ''), p.id)));
-      for (const el of [profileSelect, group, search, settings, $('reset-workbench')]) el.disabled = false;
+      for (const el of [profileSelect, group, search, settings, modelClass, target, $('clear-component-filters'), $('reset-workbench')]) el.disabled = false;
       selectProfile();
       const starter = new URLSearchParams(location.search).get('recipe');
       if (starter) await startFrom(starter);
@@ -179,6 +197,8 @@
   $('reset-workbench').addEventListener('click', () => { history.replaceState(null, '', location.pathname); selectSlots(); });
   settings.addEventListener('input', exportRequest);
   search.addEventListener('input', () => { page = 1; renderLibrary(); });
+  for (const control of [modelClass, target]) control.addEventListener('change', () => { page = 1; renderLibrary(); });
+  $('clear-component-filters').addEventListener('click', () => { search.value = ''; modelClass.value = ''; target.value = ''; page = 1; renderLibrary(); });
   $('component-prev').addEventListener('click', () => { --page; renderLibrary(); });
   $('component-next').addEventListener('click', () => { ++page; renderLibrary(); });
   $('retry-components').addEventListener('click', load);

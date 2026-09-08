@@ -15,6 +15,8 @@ h1,h2,h3{line-height:1.25;text-wrap:balance}h1{font-size:28px;letter-spacing:-.0
 p{margin:10px 0 16px}pre,code,.mono,.revision{font-family:var(--mono);font-variant-numeric:tabular-nums}
 pre{white-space:pre;overflow:auto;max-width:100%;padding:16px;background:var(--code);font-size:12px;line-height:1.7;border-radius:3px}code{font-size:.88em;overflow-wrap:anywhere}summary{cursor:pointer;padding:10px 0}
 .meta,.muted{color:var(--muted)}.meta{font-size:12px}.tag{font-size:11px;color:var(--accent);white-space:nowrap}.notice{color:var(--muted);font-size:13px;min-height:20px;margin:12px 0}
+.model-badges{display:flex;flex-wrap:wrap;gap:6px}.fact-badge{display:inline-block;border:1px solid var(--line);padding:2px 6px;font-size:11px;color:var(--ink);background:var(--raised)}
+.component-filters{display:flex;flex-wrap:wrap;gap:10px;padding:12px 16px 0}.component-filters label{flex:1;min-width:110px;font-size:12px;color:var(--muted)}.component-filters select{font-size:12px;margin-top:6px}.component-filters button{font-size:11px;min-height:32px;padding:5px 9px}
 .top{display:flex;align-items:center;gap:40px;border-bottom:1px solid var(--line);min-height:80px;margin-bottom:28px}
 .brand{display:flex;gap:12px;align-items:center;font-size:21px;font-weight:700;letter-spacing:-.03em;text-decoration:none;color:var(--ink)}.brand svg{color:var(--accent)}
 nav.top{border:0;margin:0;min-height:80px;gap:28px;font-size:14px}nav.top a{color:var(--muted);text-decoration:none;display:grid;align-items:center;min-height:80px;border-bottom:2px solid transparent}nav.top a[aria-current]{color:var(--ink);border-color:var(--accent)}

@@ -7,6 +7,52 @@ from test_universal import fixture
 
 
 class ModelTests(unittest.TestCase):
+  def test_model_class_is_recorded_metadata_not_target_inference(self):
+    data, recipe, _ = fixture()
+    original_documents = deepcopy(data['documents'])
+    entry = data['entries'][0]
+    self.assertEqual(Catalog(dumps(data)).models()[0]['model_class'], 'unknown')
+    entry['model'] = {'id': 'example/model', 'name': 'Named model', 'family': 'segmentation',
+                      'description': 'Example.', 'links': [], 'archived': False}
+    for model_class in ('standard', 'big', 'unknown'):
+      entry['model']['model_class'] = model_class
+      model = Catalog(dumps(data)).models()[0]
+      self.assertEqual(model['model_class'], model_class)
+      self.assertEqual(model['variants'][0]['model_class'], model_class)
+      self.assertEqual(model['variants'][0]['hardware'], [])
+      self.assertEqual(model['variants'][0]['recipe'], recipe.id)
+    self.assertEqual(data['documents'], original_documents)
+    entry['model']['model_class'] = 'chestnut'
+    with self.assertRaises(ContractError):
+      Catalog(dumps(data))
+
+  def test_hardware_claim_requires_exact_source_context_and_artifacts(self):
+    from index.names import model_metadata
+    from index.registry import convert
+    from openmodels.contracts import loads
+    from pathlib import Path
+    record = loads((Path(__file__).parents[1] / 'index/model_hardware.json').read_bytes())['records'][0]
+    oid = record['artifacts'][0]['sha256']
+    bundle = {'bundle_id': record['bundle_id'], 'kind': 'driving', 'variant': 'big', 'family': 'supercombo',
+              'name': 'Example', 'introduced_by': {'commit': record['context']},
+              'occurrences': [{'commit': record['context'], 'status': 'merged'}],
+              'files': [{'role': 'supercombo', 'oid': oid, 'filename': 'big_driving_supercombo.onnx', 'size': 1}]}
+    snapshot = convert({'generated_at': '2026-09-07', 'upstream_head': record['context'],
+                        'bundles': [bundle], 'files': [{'oid': oid, 'size': 1}]})
+    model = Catalog(dumps(snapshot)).models()[0]
+    self.assertEqual(model['model_class'], 'big')
+    self.assertNotIn('hardware', model)
+    self.assertEqual(model['variants'][0]['targets'], ['AMD'])
+    self.assertEqual(model['variants'][0]['hardware'], [{k: record[k] for k in ('name', 'url', 'method')}])
+    for key, value in (('context', 'unrelated'), ('artifacts', [])):
+      altered = deepcopy(snapshot)
+      altered['entries'][0]['model']['hardware'][0][key] = value
+      self.assertEqual(Catalog(dumps(altered)).models()[0]['variants'][0]['hardware'], [])
+      with self.assertRaises(ContractError):
+        model_metadata(bundle, [], [{**record, key: value}])
+    bundle.pop('variant')
+    self.assertEqual(model_metadata(bundle, [])['model_class'], 'unknown')
+
   def test_grouping_preserves_configurations_and_archive_filter(self):
     data, recipe, _ = fixture()
     entry = data['entries'][0]

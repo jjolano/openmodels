@@ -115,6 +115,17 @@ Archive inclusion defaults to true in both HTTP and `Catalog.models()`; false ex
 historical entries, independently of whether they have a published name. Names and aliases
 are searchable; `name_kind` distinguishes published, source-derived and generated labels.
 `/v1/models/{identity}` returns one group with exact recipe variants.
+Groups and variants expose `model_class` (`standard`, `big`, or `unknown`) separately
+from each variant's execution `targets`. Archive class comes from the recorded importer
+variant; missing class stays unknown, including publisher submissions. It is not inferred
+from AMD/QCOM targets. These discovery fields do not alter recipe identity.
+Each variant's `hardware` list contains reviewed source attributions (`name`, `url`,
+`method: "source"`). A Chestnut attribution appears only when both the recipe's source
+context and complete role/artifact digest set match a reviewed record in
+[`index/model_hardware.json`](../index/model_hardware.json). It records upstream use,
+not device qualification or compatibility with other source configurations. New releases
+do not inherit this attribution automatically; adding a record requires checking their
+immutable build source and exact artifact hashes.
 `Catalog.search()` remains the recipe-level query with profile filtering. `/v1/profiles`, `/v1/manifests/{digest}`,
 `/v1/artifacts/{digest}`, `/v1/status`, and `/v1/schemas/{name}` expose the remaining data.
 FastAPI publishes the HTTP description at `/openapi.json` and `/docs`.

@@ -18,6 +18,7 @@ class WorkbenchTests(unittest.TestCase):
     changed = original.data
     changed["members"]["head"]["source"]["revision"] = "two"
     changed["members"]["head"]["configuration"] = {}
+    changed["members"]["head"]["targets"] = ["CPU", "AMD"]
     changed["members"]["head"]["missing"] = ["scale"]
     changed["configuration"] = {}
     second = Manifest.create(changed)
@@ -32,6 +33,8 @@ class WorkbenchTests(unittest.TestCase):
     head = next(c for c in index["components"] if c["recipe"] == second.id and c["role"] == "head")
     self.assertEqual(head["context"], "two")
     self.assertEqual(head["name"], "Second context")
+    self.assertEqual(head["model_class"], "unknown")
+    self.assertEqual(head["targets"], ["CPU", "AMD"])
     self.assertEqual(head["sha256"], original.data["members"]["head"]["artifact"]["sha256"])
     self.assertNotIn("members", head)
     self.assertNotIn("documents", index)
@@ -68,6 +71,8 @@ class WorkbenchTests(unittest.TestCase):
     self.assertIn(catalog.revision, page)
     self.assertIn("composition request", page.lower())
     self.assertIn("<noscript>", page)
+    for control in ("component-class", "component-target", "clear-component-filters"):
+      self.assertIn(f'id="{control}"', page)
     self.assertNotIn("data-directory-entry", page)
     self.assertNotIn(recipe.manifest.raw, page)
     self.assertNotIn("/v1/compose", page)

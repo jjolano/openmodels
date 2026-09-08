@@ -25,6 +25,7 @@ SCRIPT = r"""<script>
 (async () => {
   const grid = document.querySelector('.model-grid'), nav = document.querySelector('#model-pages');
   const search = document.querySelector('#model-search'), kind = document.querySelector('#model-kind'), naming = document.querySelector('#model-naming');
+  const modelClass = document.querySelector('#model-class'), target = document.querySelector('#model-target');
   const status = document.querySelector('#model-load-status');
   const archive = grid.dataset.archive === 'true', size = 30;
   function pageFile(page) { return page === 1 ? (archive ? 'archive.html' : 'models.html') : (archive ? 'archive-' : 'models-') + page + '.html'; }
@@ -33,6 +34,8 @@ SCRIPT = r"""<script>
     search.value = params.get('q') || '';
     kind.value = params.get('kind') || '';
     naming.value = params.get('naming') || '';
+    modelClass.value = params.get('class') || '';
+    target.value = params.get('target') || '';
     if (naming.value) naming.closest('details').open = true;
     const pathPage = location.pathname.match(/(?:models|archive)-(\d+)\.html$/);
     const value = params.get('page') || (pathPage ? pathPage[1] : '1');
@@ -43,6 +46,8 @@ SCRIPT = r"""<script>
     if (search.value) params.set('q', search.value);
     if (kind.value) params.set('kind', kind.value);
     if (naming.value) params.set('naming', naming.value);
+    if (modelClass.value) params.set('class', modelClass.value);
+    if (target.value) params.set('target', target.value);
     if (page > 1) params.set('page', page);
     return pageFile(page) + (params.size ? '?' + params : '');
   }
@@ -51,7 +56,7 @@ SCRIPT = r"""<script>
     if (!loading) loading = fetch(grid.dataset.discovery).then(response => {
       if (!response.ok) throw Error('Discovery unavailable');
       return response.json();
-    }).then(data => { records = data.map(m => ({...m, search: [m.name, m.aliases, m.publisher, m.kind, m.family, m.formats, m.name_label, m.summary].join(' ').toLowerCase()})); }).catch(error => { loading = null; throw error; });
+    }).then(data => { records = data.map(m => ({...m, search: [m.name, m.aliases, m.publisher, m.kind, m.family, m.formats, m.name_label, m.summary, m.model_class, ...m.targets, ...m.hardware].join(' ').toLowerCase()})); }).catch(error => { loading = null; throw error; });
     return loading;
   }
   function element(tag, text, className) {
@@ -70,6 +75,10 @@ SCRIPT = r"""<script>
     identity.append(element('p', model.name_label, 'meta'));
     if (model.aliases) identity.append(element('p', 'Also listed as ' + model.aliases, 'meta'));
     facts.append(element('p', model.family + ' · ' + model.formats));
+    const badges = element('p', undefined, 'model-badges');
+    badges.append(element('span', 'Class: ' + model.class_label, 'fact-badge'), element('span', 'Target: ' + model.targets.map(t => t === 'unknown' ? 'Unrecorded' : t).join(', '), 'fact-badge'));
+    for (const hardware of model.hardware) badges.append(element('span', hardware + ' source recorded', 'fact-badge'));
+    facts.append(badges);
     facts.append(element('p', model.summary, 'meta'));
     const view = element('a', 'View model →', 'model-action'); view.href = model.href;
     node.append(identity, facts, view);
@@ -78,7 +87,8 @@ SCRIPT = r"""<script>
   function render(page, historyMode) {
     const query = search.value.toLowerCase();
     const found = records.filter(m => (!archive || m.archived) && (!kind.value || m.kind === kind.value) &&
-      (!naming.value || m.name_kind === naming.value) && m.search.includes(query));
+      (!naming.value || m.name_kind === naming.value) && (!modelClass.value || m.model_class === modelClass.value) &&
+      (!target.value || m.targets.includes(target.value)) && m.search.includes(query));
     const pages = Math.max(1, Math.ceil(found.length / size));
     page = Math.max(1, Math.min(page, pages));
     grid.replaceChildren(...found.slice((page - 1) * size, page * size).map(card));
@@ -112,7 +122,7 @@ SCRIPT = r"""<script>
     }
   }
   search.addEventListener('input', () => { clearTimeout(timer); ++request; timer = setTimeout(() => update(1), 200); });
-  for (const control of [kind, naming]) control.addEventListener('change', () => { clearTimeout(timer); update(1); });
+  for (const control of [kind, naming, modelClass, target]) control.addEventListener('change', () => { clearTimeout(timer); update(1); });
   nav.addEventListener('click', event => {
     const link = event.target.closest('a[data-page]');
     if (!link || event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || !records) return;
@@ -120,7 +130,7 @@ SCRIPT = r"""<script>
     document.querySelector('#model-count').scrollIntoView({block: 'start'});
   });
   window.addEventListener('popstate', () => { clearTimeout(timer); update(readState(), 'replace'); });
-  for (const control of [search, kind, naming]) control.disabled = false;
+  for (const control of [search, kind, naming, modelClass, target]) control.disabled = false;
   const page = readState();
   if (location.search) update(page, 'replace');
 })();
@@ -128,6 +138,11 @@ SCRIPT = r"""<script>
 """
 
 PAGE_SIZE = 30
+CLASS_LABELS = {'standard': 'Standard', 'big': 'Big', 'unknown': 'Unrecorded'}
+
+
+def badges(model_class, targets):
+  return f'<p class="model-badges"><span class="fact-badge">Class: {e(CLASS_LABELS[model_class])}</span><span class="fact-badge">Target: {e(", ".join("Unrecorded" if t == "unknown" else t for t in targets) or "Unrecorded")}</span></p>'
 
 
 def page_filename(page, archive=False):
@@ -140,6 +155,9 @@ def discovery(catalog):
     name_kind = model.get('name_kind', 'published')
     aliases = ', '.join(dict.fromkeys(n['name'] for n in model.get('names', []) if n['name'].casefold() != model['name'].casefold()))
     records.append({
+      'model_class': model.get('model_class', 'unknown'), 'class_label': CLASS_LABELS[model.get('model_class', 'unknown')],
+      'targets': sorted({t for v in model['variants'] for t in (v['targets'] or ['unknown'])}),
+      'hardware': sorted({h['name'] for v in model['variants'] for h in v.get('hardware', [])}),
       'name': model['name'], 'href': filename(model), 'publisher': model['publisher'], 'kind': model['kind'],
       'family': model['family'], 'formats': ', '.join(sorted({f for v in model['variants'] for f in v['formats']})).upper(),
       'aliases': aliases, 'name_kind': name_kind, 'name_label': NAME_KINDS[name_kind], 'archived': model['archived'],
@@ -153,7 +171,7 @@ def card(model):
     <h2><a href="{model['href']}">{e(model['name'])}</a></h2>
     <p class="meta">{e(model['name_label'])}</p>
     {f'<p class="meta">Also listed as {e(model["aliases"])}</p>' if model['aliases'] else ''}
-    </div><div class="model-facts"><p>{e(model['family'])} · {e(model['formats'])}</p><p class="meta">{e(model['summary'])}</p></div>
+    </div><div class="model-facts"><p>{e(model['family'])} · {e(model['formats'])}</p>{badges(model['model_class'], model['targets'])}{''.join(f'<span class="fact-badge">{e(h)} source recorded</span>' for h in model['hardware'])}<p class="meta">{e(model['summary'])}</p></div>
     <a class="model-action" href="{model['href']}">View model →</a></article>'''
 
 
@@ -169,11 +187,15 @@ def listing(catalog, shell, *, archive=False, page=1, records=None, discovery_ur
   title = 'Historical models' if archive else 'Models'
   intro = 'Models outside the current upstream tree, including published names and training runs.' if archive else 'Every model and source configuration in the catalog. Search by published name, alias, or generated label.'
   options = ''.join(f'<option value="{e(k, quote=True)}">{e(k.capitalize())}</option>' for k in sorted({m['kind'] for m in models}))
+  targets = ''.join(f'<option value="{e(t, quote=True)}">{e(t)}</option>' for t in sorted({t for m in models for t in m['targets']} - {'unknown'}))
   count = f'Showing {start + 1}–{min(start + PAGE_SIZE, len(models))} of {len(models)} models' if models else '0 models'
   return shell(title + f' — page {page} — openmodels', STYLE + f'''<main><section class="hero"><h1>{title}</h1><p>{intro}</p></section>
     <div class="filters"><label for="model-search">Search models<input disabled type="search" id="model-search" placeholder="Try Duck Amigo or North Dakota"></label>
     <label for="model-kind">Model type<select disabled id="model-kind"><option value="">All types</option>{options}</select></label>
+    <label for="model-class">Model class<select disabled id="model-class"><option value="">All classes</option><option value="standard">Standard</option><option value="big">Big</option><option value="unknown">Unrecorded</option></select></label>
+    <label for="model-target">Execution target<select disabled id="model-target"><option value="">All targets</option>{targets}<option value="unknown">Unrecorded</option></select></label>
     </div><details class="advanced-filters"><summary>Advanced filters</summary><label for="model-naming">Naming<select disabled id="model-naming"><option value="">All names and labels</option><option value="published">Published names</option><option value="source">Source-derived labels</option><option value="generated">Generated labels</option></select></label></details>
+    <p class="meta">Class describes the upstream model variant; target is the recorded execution backend. Chestnut labels identify source evidence for specific configurations, not device qualification.</p>
     <noscript>Search and filters require JavaScript. Browse every model using the page links below.</noscript>
     <p id="model-load-status" role="status"></p><p id="model-count" role="status">{count}</p>
     <p id="model-empty" {'' if not models else 'hidden'}>No models match. Clear your search or choose another type.</p>
@@ -203,8 +225,11 @@ def detail(catalog, model, shell, *, base_url=""):
           downloads.append(f'<a href="{e(url, quote=True)}">Download {e(role.replace("_", " "))} weights</a>')
           break
     names = sorted({x['name'] for x in catalog._data['entries'] if x['recipe'] == v['recipe']})
+    hardware = ''.join(f'<p><a href="{e(h["url"], quote=True)}">{e(h["name"])} source evidence</a> for this configuration. Source usage does not establish device qualification.</p>' for h in v.get('hardware', []) if urlparse(h['url']).scheme in ('https', 'http'))
     variants.append(f'''<section class="variant"><h3>{e(v['label'])}</h3>
-      <p>{e(', '.join(v['formats']).upper())} · {v['size'] / 1024**2:.1f} MiB · recorded backend: {e(', '.join(v['targets']) or 'unspecified')}</p>
+      {badges(v.get('model_class', model.get('model_class', 'unknown')), v['targets'])}
+      {hardware}
+      <p>{e(', '.join(v['formats']).upper())} · {v['size'] / 1024**2:.1f} MiB</p>
       <p>{' · '.join(downloads) or 'Weights are currently unavailable.'}</p>
       <div class="variant-actions"><a class="start-model" href="index.html?recipe={v['recipe']}">Use as starting point →</a><a href="recipes/{v['recipe']}.json" download>Download configuration for SDK</a></div>
       <details><summary>Integration details and original archive name</summary><p>{e(', '.join(names))}</p>

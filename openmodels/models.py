@@ -13,7 +13,9 @@ def models(catalog, *, include_archive=True, query="", kind=None, publisher=None
       "name": entry["name"], "family": " / ".join(sorted(members)),
       "description": "Publisher-submitted model package.", "links": [], "archived": False})
     identity = metadata["id"]
-    base = {**deepcopy(metadata), "publisher": entry["publisher"], "kind": entry["kind"]}
+    base = {**deepcopy(metadata), "model_class": metadata.get("model_class", "unknown"),
+            "publisher": entry["publisher"], "kind": entry["kind"]}
+    hardware = base.pop("hardware", [])
     if identity in groups and groups[identity][0] != base:
       raise ContractError(f"conflicting model metadata: {identity}")
     _, variants = groups.setdefault(identity, (base, {}))
@@ -21,8 +23,13 @@ def models(catalog, *, include_archive=True, query="", kind=None, publisher=None
     contexts = sorted({str(m["source"].get("commit") or m["source"].get("revision") or "unrecorded") for m in members.values()})
     targets = [set(m["targets"]) for m in members.values() if m["targets"]]
     artifacts = {m["artifact"]["sha256"]: m["artifact"] for m in members.values()}
+    member_artifacts = sorted([{"role": role, "sha256": member["artifact"]["sha256"]}
+                               for role, member in members.items()], key=lambda a: a["role"])
     variants[recipe.id] = {"recipe": recipe.id, "label": "Source " + ", ".join(c[:12] for c in contexts),
-      "profile": recipe.profile.id, "targets": sorted(set.intersection(*targets)) if targets else [],
+      "profile": recipe.profile.id, "model_class": base["model_class"],
+      "hardware": [{key: claim[key] for key in ("name", "url", "method")} for claim in hardware
+                   if contexts == [claim["context"]] and member_artifacts == sorted(claim["artifacts"], key=lambda a: a["role"])],
+      "targets": sorted(set.intersection(*targets)) if targets else [],
       "formats": sorted({a["format"] for a in artifacts.values()}), "size": sum(a["size"] for a in artifacts.values()),
       "available": all(catalog._data["locations"].get(a, {}).get("availability") == "available" and
                        catalog._data["locations"].get(a, {}).get("urls") for a in artifacts),
