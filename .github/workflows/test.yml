@@ -30,11 +30,9 @@ jobs:
           GOBIN="$RUNNER_TEMP/bin" go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
           "$RUNNER_TEMP/bin/actionlint"
       - name: Install test dependencies
-        run: |
-          python -m pip install '.[test]' numpy zstandard
-          TINYGRAD="$(python -c 'from openmodels.profiles import TINYGRAD_REVISION as r; print(r)')"
-          python -m pip install "tinygrad @ git+https://github.com/tinygrad/tinygrad.git@$TINYGRAD"
-      - name: Validate contracts, archive and compiler tooling
+        run: python -m pip install '.[test]'
+
+      - name: Validate contracts and archive tooling
         run: |
           python index/test_metadata.py
           python index/test_indexer.py

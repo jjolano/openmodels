@@ -1,7 +1,6 @@
 # Catalog contracts and integration
 
-This repository does two things: it keeps an append-only archive of comma
-(`commaai/openpilot`) models, and it precompiles the pinned stock model for comma 3X. The
+This repository keeps an append-only archive of comma (`commaai/openpilot`) models. The
 `openmodels` package is the client: a dependency-free reader for the published catalog and a
 verified downloader. It exposes no activation, scheduling or qualification.
 
@@ -23,7 +22,6 @@ Each document has `schema: 1` and one `type`:
 | --- | --- |
 | `profile` | Namespaced versioned name, permitted slot sets, connections, required settings, I/O semantics, state behavior, source revision |
 | `recipe` | Profile digest, role-to-member mapping, selected source context and configuration |
-| `build` | Recipe digest, runner identity, code digest, complete target, compiled artifact digests |
 
 Members include artifact SHA-256/size/format, source attribution, per-member configuration,
 missing source fields, ports, recorded hardware targets and data-only metadata. Ports carry
@@ -120,64 +118,8 @@ python -m openmodels --catalog catalog.json fetch RECIPE_ID --store ./models
   `contents: write`; pull-request jobs hold no publishing credentials. Pages deploys from a
   tested artifact.
 
-## Precompiled a630 builds
-
-Off-device compilation targets comma 3X (Qualcomm a630) from the pinned recipe and the exact
-ordinary stock artifact. It runs on Linux x86-64 with `qemu-user-static`, LLVM, and Tinygrad at
-the revision in `openmodels.profiles`:
-
-```bash
-python -m ci.builds compile --catalog https://jjolano.github.io/openmodels/catalog.json \
-  --store ./models --work ./builds --no-upload
-```
-
-Builds are published to the `builds-0001` Release as digest-addressed assets, and the site
-renders them from an aggregate `builds.json`:
-
-| Asset | Content |
-| --- | --- |
-| `model-<build_id>.pkl` | The compiled Tinygrad object; the `model.pkl` of a compile run |
-| `build-<build_id>.json` | One build record (shape below) |
-| `builds.json` | `{schema, generated_at, builds[]}`, sorted by `build_id` |
-
-`build_id` is the first 16 hex characters of the digest over the pinned recipe document, the
-source artifact digest, the compiler implementation digest and the pinned toolchain digest, so
-identical inputs always name the same asset and a changed input produces a new one. The
-implementation digest covers the compiler modules, the SDK, the Tinygrad source tree, Python,
-NumPy **and the host LLVM the CPU backend loaded**, because the same pinned revision, model and
-toolchain yields a different program set under a different LLVM. A same-name record is compared
-byte-for-byte and a difference raises rather than overwriting. `builds.json` is the only mutable
-asset and is replaced only when its bytes differ, which makes a repeated run upload nothing.
-
-```json
-{"schema":1,"build_id":"…16","inputs":"…64","recipe":"…64",
- "source":{"sha256":"659727c4…","size":60881999},
- "target":{"backend":"QCOM","hardware":"comma3x","os":"unvalidated","runtime":"tinygrad@138fb4a…",
-           "options":{"camera_width":1928,"camera_height":1208,"deadline_ms":50}},
- "artifact":{"name":"model-<build_id>.pkl","url":"https://github.com/<repo>/releases/download/builds-0001/model-<build_id>.pkl",
-             "sha256":"…","size":123},
- "compiler":{"implementation":"…","toolchain_sha256":"a9e8aa32…","cross_compiler_sha256":"…",
-             "host_target":"CPU:LLVM…","python":"3.12.x","host_llvm":"/usr/lib/…/libLLVM-18.so sha256:…",
-             "programs":77,"kernel_bytes":651024},
- "checks":["weighted-matmul-oracle","policy-and-warp-seeded-replay","pickle-round-trip","target-program-inspection"],
- "gpu_validated":false,"device_validated":false,"created_at":"…"}
-```
-
-A record is evidence of compilation, nothing more. The artifact was produced on x86-64 by
-executing each original kernel through a CPU LLVM shim while the a630 programs were captured;
-the shim and its original-kernel map stay outside the pickle. `checks` names the host-side
-oracles that ran: a weighted matrix multiplication against NumPy, seeded policy/warp replay,
-serialization round-trip, and inspection that the pickle contains exclusively compiled a630
-programs and no host buffers.
-
-`gpu_validated` and `device_validated` stay false. GPU numerical parity, target OS/runtime
-compatibility, memory use and timing need device evidence, which this repository does not
-produce. Consumers own selection, qualification, activation, scheduling and rollback.
-
 ## Licensing
 
 The archived model files are copied byte-for-byte from `commaai/openpilot` and remain the
-copyright of Comma.ai, Inc., distributed under openpilot's MIT license. The vendored
-compiler tooling in `ci/qcom/` is derived from openpilot at
-`555f48c5d28709f039b79f3f6105e51305edd4b5` under the same license, and compiled builds are
-derived works of those models. See [third-party notices](../THIRD_PARTY_NOTICES.md).
+copyright of Comma.ai, Inc., distributed under openpilot's MIT license. See
+[third-party notices](../THIRD_PARTY_NOTICES.md).
