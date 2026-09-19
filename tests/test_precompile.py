@@ -3,8 +3,11 @@ from copy import deepcopy
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
-from ci.builds import build_id, load_builds, manifest, needs_compile, stock_recipe_id
+from ci.builds import build_id, compile_build, load_builds, manifest, needs_compile, stock_recipe_id
+from ci.qcom.compile import TARGET as PINNED_TARGET
+from ci.qcom.toolchain import TOOLCHAIN_SHA256
 from openmodels.contracts import dumps, loads, sha256
 from openmodels.profiles import STOCK_SHA256
 from test_catalog import fixture
@@ -100,6 +103,30 @@ class PrecompileTests(unittest.TestCase):
         build(index, root / "public", "code", "archive", [record("9" * 64, "a" * 16, "1" * 64)])
       built = build(index, root / "public", "code", "archive", [])
       self.assertGreater(built.search()["total"], 0)
+
+
+class PublishedReuseTests(unittest.TestCase):
+  def test_a_publishing_run_reuses_published_builds(self):
+    """A fresh CI runner has no work directory: the Release must stop the recompile."""
+    recipe = stock_recipe_id()
+    identity = build_id(recipe, STOCK_SHA256, IMPLEMENTATION, TOOLCHAIN_SHA256, PINNED_TARGET)[1]
+    published = (dumps(record(recipe, identity, "1" * 64)) + "\n").encode()
+    stale = record(recipe, identity, "1" * 64)
+    stale["created_at"] = "2025-01-01T00:00:00Z"
+    with tempfile.TemporaryDirectory() as tmp:
+      work = Path(tmp) / "work"
+      work.mkdir()
+      # An earlier `--no-upload` run left a record that only differs in its wall-clock field.
+      (work / f"build-{identity}.json").write_text(dumps(stale) + "\n")
+      with mock.patch("ci.qcom.compile.implementation_digest", return_value=IMPLEMENTATION), \
+           mock.patch("ci.builds.published_build", return_value=(published, True)), \
+           mock.patch("shutil.which", return_value="/usr/bin/qemu-aarch64-static"):
+        reused, compiled = compile_build("file:///nonexistent/catalog.json", Path(tmp) / "store", work,
+                                         repo="example/repo", reuse_published=True)
+      # The only catalog URL that would fail is never read: nothing was compiled.
+      self.assertFalse(compiled)
+      self.assertEqual(reused, loads(published))
+      self.assertEqual((work / f"build-{identity}.json").read_bytes(), published)
 
 
 if __name__ == "__main__":
