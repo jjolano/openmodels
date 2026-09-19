@@ -7,8 +7,9 @@ in total size and bandwidth, and allow 2 GiB per asset — comfortably above the
 models.
 
 GitHub allows **1000 assets per release**, so blobs are sharded across `blobs-NNNN` releases.
-Which shard holds an oid is therefore not derivable from the oid: GitHub is the source of truth
-and each file's `release` tag is written back into the index so the API can build a redirect.
+Which shard holds an oid is therefore not derivable from the oid: GitHub is the source of
+truth, and each file's `release` tag is written back into the index so the static catalog can
+publish its download URL.
 
 Idempotent by construction — existing assets are listed first and never re-uploaded, so a run
 that dies halfway is safe to repeat.
@@ -165,8 +166,8 @@ def publish(index_path: Path, cache_dir: Path, repo: str, limit: int | None = No
     if fetched_now and not keep_blobs:
       blob.unlink(missing_ok=True)
 
-  # Write the shard back onto each file so the API can build a download URL. A file with no
-  # release is simply not downloadable yet — the API reports that rather than 302ing to a 404.
+  # Write the shard back onto each file so `index.registry` can publish its download URL. A
+  # file with no release remains pending rather than linking to a 404.
   for record in index["files"]:
     if tag := placed.get(record["oid"]):
       record["release"] = tag
