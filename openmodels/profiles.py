@@ -3,10 +3,6 @@ from .contracts import Manifest
 
 OPENPILOT_REVISION = "555f48c5d28709f039b79f3f6105e51305edd4b5"
 TINYGRAD_REVISION = "138fb4a783d82f4e877ad2fe3692aaf8d1de2e46"
-STOCK_SHA256 = "659727c4d4839adc4992a254409a54259a8756a743f2d567bf5fdc6579f8009b"
-STOCK_INPUT_SHAPES = {"img": [1, 12, 128, 256], "big_img": [1, 12, 128, 256],
-                      "features_buffer": [1, 24, 512], "desire_pulse": [1, 25, 8],
-                      "traffic_convention": [1, 2], "action_t": [1, 2]}
 STOCK_SLICES = {"meta": [0, 55, None], "desire_pred": [55, 87, None], "pose": [87, 99, None],
                 "wide_from_device_euler": [99, 105, None], "road_transform": [105, 117, None],
                 "lane_lines": [117, 645, None], "lane_lines_prob": [645, 653, None],

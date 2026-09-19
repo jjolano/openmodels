@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "openmodels"
 version = "0.1.0"
-description = "Comma model archive directory, precompiled a630 builds and a dependency-free client SDK"
+description = "Comma model archive directory and a dependency-free client SDK"
 license = "MIT"
 license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 requires-python = ">=3.11"

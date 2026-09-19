@@ -50,8 +50,7 @@ const path=location.pathname.split('/').pop();const active=(!path||path==='index
 </script></body></html>"""
 
 
-def render(index_path: Path, out_dir: Path, builds=()) -> int:
-  import ci.builds
+def render(index_path: Path, out_dir: Path) -> int:
   from index.registry import publish, atomic_write
 
   index = json.loads(index_path.read_text())
@@ -60,7 +59,6 @@ def render(index_path: Path, out_dir: Path, builds=()) -> int:
     recipe = catalog.resolve(entry["recipe"])
     atomic_write(out_dir / "recipes" / f"{recipe.id}.json", catalog.export(recipe))
   atomic_write(out_dir / STYLE_FILE, CSS)
-  atomic_write(out_dir / "builds.json", ci.builds.manifest(builds))
   from web.models import listing, detail, guide, filename, discovery, page_filename, PAGE_SIZE
   records = discovery(catalog)
   raw = dumps(records)
@@ -76,19 +74,17 @@ def render(index_path: Path, out_dir: Path, builds=()) -> int:
   atomic_write(out_dir / "integrate.html", guide(shell))
   models = catalog.models(include_archive=True)
   for model in models:
-    atomic_write(out_dir / filename(model), detail(catalog, model, shell, builds=builds))
+    atomic_write(out_dir / filename(model), detail(catalog, model, shell))
   atomic_write(out_dir / ".nojekyll", "")
   return 1 + listing_pages + len(models)
 
 
 def main() -> int:
-  from ci.builds import load_builds
   parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument("--index", default="data/index.json")
   parser.add_argument("--out", default="data/public")
-  parser.add_argument("--builds", help="builds.json manifest from ci.builds")
   args = parser.parse_args()
-  count = render(Path(args.index), Path(args.out), builds=load_builds(args.builds))
+  count = render(Path(args.index), Path(args.out))
   print(f"rendered {count} pages -> {args.out}")
   return 0
 

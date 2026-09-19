@@ -7,7 +7,6 @@ import subprocess
 import tempfile
 from urllib.parse import unquote, urlsplit
 
-from ci.builds import load_builds, manifest
 from index.registry import atomic_write
 from openmodels import Catalog, ContractError
 from openmodels.contracts import dumps, sha256
@@ -23,7 +22,7 @@ class Links(HTMLParser):
     self.links.extend(value for key, value in attrs if key in ('href', 'src') and value)
 
 
-def verify_site(root, builds=()):
+def verify_site(root):
   root = Path(root)
   catalog = Catalog.load(root / 'catalog.json')
   pinned = Catalog.load(root / 'snapshots' / f'{catalog.revision}.json')
@@ -36,11 +35,6 @@ def verify_site(root, builds=()):
     recipe = Catalog.load(root / 'recipes' / f'{entry["recipe"]}.json').resolve(entry['recipe'])
     if recipe != catalog.resolve(entry['recipe']):
       raise ValueError('Recipe export differs from catalog')
-  # A build record only means something if its recipe is in this exact snapshot.
-  for record in builds:
-    catalog.resolve(record['recipe'])
-  if builds and (root / 'builds.json').read_text() != manifest(builds):
-    raise ValueError('Rendered builds manifest differs from the supplied records')
   for page in root.rglob('*.html'):
     parser = Links()
     parser.feed(page.read_text())
@@ -56,13 +50,12 @@ def verify_site(root, builds=()):
   return catalog
 
 
-def build(index, out, code, archive, builds=None):
-  render(Path(index), Path(out), builds=builds or ())
-  catalog = verify_site(out, builds or ())
+def build(index, out, code, archive):
+  render(Path(index), Path(out))
+  catalog = verify_site(out)
   atomic_write(Path(out) / 'deployment.json', dumps({
     'schema': 1, 'code_revision': code, 'archive_revision': archive,
-    'catalog_revision': catalog.revision,
-    'builds_revision': sha256((Path(out) / 'builds.json').read_bytes()) if builds is not None else ''}))
+    'catalog_revision': catalog.revision}))
   return catalog
 
 
@@ -103,14 +96,12 @@ def main():
   build_cmd.add_argument('--out', default='data/public')
   build_cmd.add_argument('--code', required=True)
   build_cmd.add_argument('--archive', required=True)
-  build_cmd.add_argument('--builds', type=Path)
   keep = sub.add_parser('retain')
   keep.add_argument('--out', default='data/public')
   keep.add_argument('--repo', required=True)
   args = parser.parse_args()
   if args.command == 'build':
-    catalog = build(args.index, args.out, args.code, args.archive,
-                    load_builds(args.builds) if args.builds else None)
+    catalog = build(args.index, args.out, args.code, args.archive)
   else:
     catalog = retain(args.out, args.repo)
   print(f'catalog {catalog.revision}: {catalog.search()["total"]} recipes')

@@ -17,9 +17,6 @@ on:
       code_revision:
         description: 'Main-branch code commit for rollback; blank uses current code'
         type: string
-      builds_revision:
-        description: 'builds.json digest from deployment.json; blank downloads the current manifest'
-        type: string
 
 concurrency:
   group: pages-publication
@@ -56,18 +53,11 @@ jobs:
         env:
           REVISION: ${{ inputs.archive_revision }}
         run: python -m ci.archive restore --revision "$REVISION"
-      - name: Fetch any recorded precompiled builds
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          python -m ci.builds manifest --repo "$GITHUB_REPOSITORY" \
-            --out "$RUNNER_TEMP/builds.json" --sha256 "${{ inputs.builds_revision }}" --optional
       - name: Build and check publication
         env:
           ARCHIVE_REVISION: ${{ steps.archive.outputs.revision }}
         run: |
-          python -m ci.site build --code "$(git rev-parse HEAD)" --archive "$ARCHIVE_REVISION" \
-            --builds "$RUNNER_TEMP/builds.json"
+          python -m ci.site build --code "$(git rev-parse HEAD)" --archive "$ARCHIVE_REVISION"
           cat data/public/deployment.json >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

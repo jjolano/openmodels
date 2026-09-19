@@ -44,9 +44,6 @@ SCHEMAS = {
   "recipe": obj({"schema": {"const": 1}, "type": {"const": "recipe"}, "profile": DIGEST,
                  "members": {"type": "object", "minProperties": 1, "maxProperties": 32,
                              "additionalProperties": MEMBER}, "configuration": DATA}),
-  "build": obj({"schema": {"const": 1}, "type": {"const": "build"}, "recipe": DIGEST,
-                "runner": TEXT, "implementation": DIGEST, "target": TARGET,
-                "artifacts": {"type": "object", "minProperties": 1, "additionalProperties": ARTIFACT}}),
   "snapshot": obj({"schema": {"const": 1}, "generated_at": TEXT, "sources": DATA,
                    "documents": {"type": "object", "additionalProperties": {"type": "string"}},
                    "entries": array(obj({"name": TEXT, "publisher": TEXT, "kind": TEXT,
@@ -154,7 +151,7 @@ class Manifest:
 
   def __post_init__(self):
     data = loads(self.raw)
-    if not isinstance(data, dict) or data.get("type") not in ("recipe", "profile", "build"):
+    if not isinstance(data, dict) or data.get("type") not in ("recipe", "profile"):
       raise ContractError("unknown manifest type")
     validate(data, SCHEMAS[data["type"]])
 

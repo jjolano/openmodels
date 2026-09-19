@@ -4,19 +4,18 @@ This is an independent Git project. When working in the containing workspace,
 also follow `../AGENTS.md` if present. The sibling moonpilot project owns model
 admission and activation; changes to this archive do not grant consumer authority.
 
-Read [the catalog contract](docs/catalog.md) before changing manifests, publication,
-downloads or compiled builds. The first release uses schema 1 and package version 0.1.0.
+Read [the catalog contract](docs/catalog.md) before changing manifests, publication or downloads.
+The first release uses schema 1 and package version 0.1.0.
 
 ## Scope and verification
 
 - `openmodels/` owns the shared contracts, the SDK and the pinned profile/recipe.
-  `index/` owns archive discovery, metadata, lineage and blob publication.
-  `ci/qcom/` owns off-device a630 compilation, and `web/` renders the static directory.
-  There is no server: the published catalog is a static snapshot.
-- Use [README.md](README.md#check-changes) and `.github/workflows/test.yml` for
-  dependency setup and checks. Importer changes use `python index/test_indexer.py`;
-  metadata parsing uses `python index/test_metadata.py`. SDK, site and build changes
-  use `python -m unittest discover -s tests -v`. Browser behaviour uses
+  `index/` owns archive discovery, metadata, lineage and blob publication, and `web/` renders
+  the static directory. There is no server: the published catalog is a static snapshot.
+- Use [README.md](README.md#check-changes) and `.github/workflows/test.yml` for dependency setup
+  and checks. Importer changes use `python index/test_indexer.py`; metadata parsing uses
+  `python index/test_metadata.py`.
+- SDK and site changes use `python -m unittest discover -s tests -v`. Browser behaviour uses
   `python -m ci.browser`. Hardware parity and timing require separate device evidence.
 - Keep `CLAUDE.md` as a relative symlink to this file. Preserve these contracts
   when updating workflow guidance.
@@ -75,22 +74,3 @@ downloads or compiled builds. The first release uses schema 1 and package versio
   history. Keep immutable catalog release assets; Actions artifacts alone expire.
 - Keep read-only metadata inspection separate from publishing credentials. Before changing CI
   or deployment, read [deployment operations](docs/deployment.md), including synchronization and rollback.
-
-## Precompiled a630 builds
-
-- Compile only the pinned stock recipe, its exact artifact `659727c4…f8009b`, and the one
-  recorded target. `ci/qcom/compile.py:check_target` is the only door; there is no CPU fallback
-  and no other profile.
-- Pin the toolchain by URL and SHA-256 in `ci/qcom/toolchain.py`, and keep the host LLVM
-  version pinned by the `precompile` job. If upstream moves the toolchain, or the job's LLVM
-  path changes, update the constants and the job together. Never fetch an unpinned compiler.
-- The implementation digest includes the host LLVM by content, not by path. A different host
-  LLVM must produce a different build, never a silently different artifact under the same id.
-- Build identity covers the recipe document, the source artifact, the implementation digest and
-  the toolchain digest. Never overwrite a release asset with different bytes: a differing
-  same-name record raises, and only `builds.json` may be replaced in place.
-- Keep `gpu_validated` and `device_validated` false until device evidence exists. Off-device
-  compilation is not parity, timing or device qualification, and no record may imply otherwise.
-- Vendored semantics must match the attributed pinned upstream sources; keep the derivation and
-  the compiled-output note in `THIRD_PARTY_NOTICES.md`, and the drift check in
-  `tests/check_reference.py`. Deserialize only artifacts this repository compiled.

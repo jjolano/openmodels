@@ -5,7 +5,7 @@
 #
 # Detection is pure git (anonymous ls-remote + blobless fetch) and LFS blobs need no auth, so
 # GITHUB_TOKEN is only ever required to *publish* — which is the public instance's job. Indexing
-# needs nothing but git; only `python -m ci.builds compile` needs the pinned Tinygrad and qemu.
+# needs nothing but git.
 
 services:
   indexer:

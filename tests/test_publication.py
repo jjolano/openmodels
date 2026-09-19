@@ -8,8 +8,7 @@ from unittest.mock import patch
 
 from ci import archive
 from ci.site import build, verify_site
-from openmodels.contracts import dumps, loads
-
+from openmodels.contracts import dumps
 
 def source():
   return {'schema': 1, 'generated_at': '2026-09-07T00:00:00Z', 'upstream_head': 'commit',
@@ -73,7 +72,6 @@ class PublicationTests(unittest.TestCase):
           self.assertEqual(file.read_bytes(), (root / 'two' / file.relative_to(root / 'one')).read_bytes())
       info = json.loads((root / 'one/deployment.json').read_text())
       self.assertEqual(info['catalog_revision'], first.revision)
-      self.assertEqual(info['builds_revision'], '')
       home = (root / 'one/index.html').read_text()
       self.assertIn('data-model', home)
       self.assertIn('Stock supercombo (555f48c5)', home)
@@ -81,7 +79,7 @@ class PublicationTests(unittest.TestCase):
       self.assertTrue((root / 'one/archive.html').is_file())
       self.assertFalse((root / 'one/compose.html').exists())
       self.assertFalse((root / 'one/models.html').exists())
-      self.assertEqual(loads((root / 'one/builds.json').read_text())['builds'], [])
+      self.assertFalse((root / 'one/builds.json').exists())
       (root / 'one/index.html').write_text('<a href="/catalog.json">broken project path</a>')
       with self.assertRaisesRegex(ValueError, 'project Pages'):
         verify_site(root / 'one')
