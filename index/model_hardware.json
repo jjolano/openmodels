@@ -1,0 +1,14 @@
+{
+  "records": [
+    {
+      "bundle_id": "79e5072e87f927f0",
+      "name": "Chestnut",
+      "method": "source",
+      "context": "c51e3e5a71d6ea25e59c0683d683c1092c7c3f69",
+      "url": "https://github.com/commaai/openpilot/blob/c51e3e5a71d6ea25e59c0683d683c1092c7c3f69/openpilot/selfdrive/modeld/SConscript#L76-L85",
+      "artifacts": [
+        {"role": "supercombo", "sha256": "e8d821733be15ebe9e27498bc27ad8bbbd741980ece37d77f377294010b8ff28"}
+      ]
+    }
+  ]
+}

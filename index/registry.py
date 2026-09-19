@@ -1,4 +1,4 @@
-"""Convert the comma archive and reviewed publisher snapshots to the universal directory."""
+"""Convert the comma archive plus the pinned recipe into the catalog snapshot."""
 from __future__ import annotations
 
 import argparse
@@ -7,8 +7,11 @@ from pathlib import Path
 import tempfile
 
 from index.lineage import seam_width
+from index.names import model_metadata
 from openmodels import Catalog, ContractError, Manifest
 from openmodels.contracts import SCHEMAS, dumps, loads, schema
+
+PINNED = Path(__file__).with_name("stock-supercombo.json")
 
 
 def archive_profile(bundle):
@@ -39,7 +42,11 @@ def convert(index, *, blob_base=None):
       urls = [f"https://github.com/{repo}/releases/download/{record['release']}/{oid}.onnx"]
     gone = oid in index.get("mirror_unavailable", [])
     result["locations"][oid] = {"urls": urls, "availability": "available" if urls else "gone" if gone else "pending"}
+  naming = loads(Path(__file__).with_name("model_names.json").read_bytes())
+  hardware = loads(Path(__file__).with_name("model_hardware.json").read_bytes())
   for bundle in index["bundles"]:
+    model = model_metadata(bundle, naming["records"], hardware["records"])
+
     profile = archive_profile(bundle)
     result["documents"][profile.id] = profile.raw
     contexts = bundle.get("host_contexts") or [{
@@ -76,7 +83,7 @@ def convert(index, *, blob_base=None):
                                 "members": members, "configuration": configuration})
       result["documents"][recipe.id] = recipe.raw
       result["entries"].append({"name": bundle["name"], "publisher": "commaai", "kind": bundle["kind"],
-                                "recipe": recipe.id, "occurrences": bundle["occurrences"]})
+                                "recipe": recipe.id, "occurrences": bundle["occurrences"], "model": model})
     artifacts = sorted(f["oid"] for f in bundle["files"])
     if len(artifacts) > 1 and any(o["status"] in ("merged", "reverted") for o in bundle["occurrences"]):
       result["evidence"].append({"kind": "upstream_pairing", "source": {
@@ -85,18 +92,15 @@ def convert(index, *, blob_base=None):
   return result
 
 
-def merge_publishers(snapshot, directory):
-  for path in sorted(Path(directory).glob("*/*.json")):
-    submission = Catalog.load(path).data
-    if any(e["publisher"] != path.parent.name for e in submission["entries"]):
-      raise ContractError(f"publisher namespace does not match directory: {path}")
-    for key in ("documents", "locations", "sources"):
-      for identity, value in submission[key].items():
-        if identity in snapshot[key] and snapshot[key][identity] != value:
-          raise ContractError(f"publisher submission conflicts with existing {key}: {identity}")
-        snapshot[key][identity] = value
-    snapshot["entries"].extend(submission["entries"])
-    snapshot["evidence"].extend(submission["evidence"])
+def merge_pinned(snapshot):
+  submission = Catalog.load(PINNED).data
+  for key in ("documents", "locations", "sources"):
+    for identity, value in submission[key].items():
+      if identity in snapshot[key] and snapshot[key][identity] != value:
+        raise ContractError(f"pinned recipe conflicts with existing {key}: {identity}")
+      snapshot[key][identity] = value
+  snapshot["entries"].extend(submission["entries"])
+  snapshot["evidence"].extend(submission["evidence"])
   return snapshot
 
 
@@ -112,10 +116,9 @@ def atomic_write(path, raw):
     staged.unlink(missing_ok=True)
 
 
-def publish(index, out, *, publishers=None, blob_base=None):
+def publish(index, out, *, blob_base=None):
   snapshot = convert(index, blob_base=blob_base)
-  if publishers:
-    merge_publishers(snapshot, publishers)
+  merge_pinned(snapshot)
   raw = dumps(snapshot)
   catalog = Catalog(raw)  # Validate the complete graph before publishing any discovery file.
   out = Path(out)
@@ -124,6 +127,7 @@ def publish(index, out, *, publishers=None, blob_base=None):
   for name in SCHEMAS:
     atomic_write(out / "schemas" / f"{name}.json", dumps(schema(name)))
   atomic_write(out / "snapshots" / f"{catalog.revision}.json", raw)
+  atomic_write(out / "models.json", dumps({"schema": 1, "revision": catalog.revision, "models": catalog.models(include_archive=True)}))
   atomic_write(out / "catalog.json", raw)
   return catalog
 
@@ -132,11 +136,10 @@ def main():
   parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument("--index", default="data/index.json")
   parser.add_argument("--out", default="data/public")
-  parser.add_argument("--publishers", default="publishers")
   parser.add_argument("--blob-base")
   args = parser.parse_args()
   index = loads(Path(args.index).read_bytes(), 64 * 1024 * 1024)
-  catalog = publish(index, args.out, publishers=args.publishers, blob_base=args.blob_base)
+  catalog = publish(index, args.out, blob_base=args.blob_base)
   print(f"catalog {catalog.revision}: {catalog.search()['total']} recipes")
 
 

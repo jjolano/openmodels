@@ -1,5 +1,5 @@
 # Derived from commaai/openpilot at 555f48c5d28709f039b79f3f6105e51305edd4b5.
-# Copyright comma.ai. MIT; see LICENSE.openpilot.
+# Copyright comma.ai. MIT; see THIRD_PARTY_NOTICES.md.
 # Only load artifacts compiled locally and verified by Runner.open.
 import io
 import pickle

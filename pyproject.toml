@@ -5,16 +5,18 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "openmodels"
 version = "0.1.0"
-description = "Universal model directory, composition contracts and dependency-free client SDK"
+description = "Comma model archive directory, precompiled a630 builds and a dependency-free client SDK"
 license = "MIT"
 license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
-server = ["fastapi==0.141.1", "uvicorn[standard]==0.52.4"]
-test = ["httpx", "jsonschema"]
+test = ["jsonschema"]
 # index/ deliberately has no third-party deps: it must run on any CI runner.
 
 [tool.setuptools]
-packages = ["openmodels", "index", "api"]
+packages = ["openmodels", "index"]
+
+[tool.setuptools.package-data]
+index = ["model_names.json", "model_hardware.json", "stock-supercombo.json"]

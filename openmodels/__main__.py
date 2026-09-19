@@ -1,10 +1,8 @@
-"""Small SDK CLI: browse, export, compose and download without activating anything."""
+"""Small SDK CLI: browse, export and download without activating anything."""
 import argparse
-from pathlib import Path
-import sys
 
 from . import Catalog, ModelStore
-from .contracts import dumps, loads
+from .contracts import dumps
 
 
 def main():
@@ -18,8 +16,6 @@ def main():
   search.add_argument("--limit", type=int, default=100)
   resolve = commands.add_parser("export")
   resolve.add_argument("reference")
-  compose = commands.add_parser("compose")
-  compose.add_argument("request", help="JSON request matching /v1/compose")
   fetch = commands.add_parser("fetch")
   fetch.add_argument("reference")
   fetch.add_argument("--store", required=True)
@@ -29,10 +25,6 @@ def main():
     print(dumps(cat.search(query=args.query, offset=args.offset, limit=args.limit)))
   elif args.command == "export":
     print(cat.export(cat.resolve(args.reference)))
-  elif args.command == "compose":
-    recipe, report = cat.compose(**loads(Path(args.request).read_bytes()))
-    print(dumps(report), file=sys.stderr)
-    print(cat.export(recipe))
   else:
     print(ModelStore(args.store, cat).fetch(cat.resolve(args.reference)).path)
 

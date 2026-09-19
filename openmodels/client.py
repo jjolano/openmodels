@@ -1,4 +1,4 @@
-"""Offline/HTTP catalog, pure composition, and a verified store. No activation API."""
+"""Offline/HTTP catalog browsing and a verified store. No activation API."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -87,6 +87,16 @@ class Catalog:
     return {"revision": self.revision, "generated_at": self._data["generated_at"],
             "total": len(entries), "offset": offset, "entries": loads(dumps(entries[offset:offset + limit]))}
 
+  def models(self, *, include_archive=True, query="", kind=None, publisher=None):
+    from .models import models
+    return models(self, include_archive=include_archive, query=query, kind=kind, publisher=publisher)
+
+  def model(self, identity):
+    for model in self.models(include_archive=True):
+      if model["id"] == identity:
+        return model
+    raise ContractError(f"unknown model: {identity}")
+
   def resolve(self, reference):
     if not isinstance(reference, str) or not reference:
       raise ContractError("recipe reference must be a nonempty string")
@@ -100,37 +110,6 @@ class Catalog:
     if manifest.data["type"] != "recipe":
       raise ContractError("reference is not a recipe")
     return Recipe(manifest, self.manifest(manifest.data["profile"]))
-
-  def compose(self, profile, selection, *, configuration=None):
-    request = {"profile": profile, "selection": selection}
-    if configuration is not None:
-      request["configuration"] = configuration
-    validate(request, SCHEMAS["compose"])
-    members = {}
-    for role, choice in sorted(selection.items()):
-      source = self.resolve(choice["recipe"]).data
-      if choice["slot"] != role:
-        raise ContractError("a component cannot be relabelled as another role")
-      try:
-        members[role] = source["members"][choice["slot"]]
-      except KeyError as exc:
-        raise ContractError("unknown source slot") from exc
-    # Only unanimous recorded values become defaults. Explicit choices stay in the recipe ID.
-    configs = [m["configuration"] for m in members.values()]
-    agreed = {k: v for k, v in configs[0].items()
-              if v is not None and all(k in c and dumps(c[k]) == dumps(v) for c in configs[1:])}
-    agreed.update(configuration or {})
-    recipe = Recipe(Manifest.create({"schema": 1, "type": "recipe", "profile": profile,
-                                    "members": members, "configuration": agreed}), self.manifest(profile))
-    report = recipe.check()
-    selected = {m["artifact"]["sha256"] for m in members.values()}
-    report["evidence"] = [e for e in self._data["evidence"] if set(e["artifacts"]) <= selected]
-    report["upstream_pairing"] = any(e["kind"] == "upstream_pairing" and set(e["artifacts"]) == selected
-                                     for e in report["evidence"])
-    report["composition_attested"] = False
-    if len(members) > 1 and not report["upstream_pairing"]:
-      report["findings"].append({"code": "cross_lineage_or_unknown", "detail": "No upstream pairing recorded"})
-    return recipe, report
 
   def export(self, recipe):
     """A self-contained snapshot: profile, recipe, locations, and relevant evidence."""
@@ -164,21 +143,33 @@ def verify_file(path, artifact):
       raise ContractError("artifact size or digest mismatch")
 
 
+class DownloadCancelled(Exception):
+  """The consumer cancelled an installation; no partial package is installed."""
+
+
+def check_cancelled(cancelled):
+  if cancelled is not None and cancelled():
+    raise DownloadCancelled("download cancelled")
+
+
 class ModelStore:
   def __init__(self, root, catalog):
     self.root, self.catalog = Path(root), catalog
 
-  def fetch(self, recipe, *, on_progress=None):
+  def fetch(self, recipe, *, on_progress=None, cancelled=None):
     """Stage a whole package and rename atomically. Existing packages are reverified."""
+    check_cancelled(cancelled)
     self.root.mkdir(parents=True, exist_ok=True)
     final = self.root / recipe.id
     package = Package(recipe, final)
     if final.exists():
       package.verify()
+      check_cancelled(cancelled)
       return package
     staging = Path(tempfile.mkdtemp(prefix=".download-", dir=self.root))
     try:
       for member in recipe.data["members"].values():
+        check_cancelled(cancelled)
         artifact = member["artifact"]
         destination = staging / artifact["sha256"]
         if destination.exists():
@@ -193,13 +184,19 @@ class ModelStore:
           raise ContractError(f"artifact {location.get('availability', 'unknown')}: {artifact['sha256']}")
         failure = None
         for url in location["urls"]:
+          check_cancelled(cancelled)
           try:
             url = urljoin(self.catalog.base_url, url)
             if urlparse(url).scheme not in ("https", "http"):
               raise ContractError("artifact URL needs an HTTP(S) origin")
             digest, received = hashlib.sha256(), 0
             with urlopen(url, timeout=30) as response, destination.open("wb") as handle:
-              while chunk := response.read(min(1024 * 1024, artifact["size"] - received + 1)):
+              while True:
+                check_cancelled(cancelled)
+                chunk = response.read(min(1024 * 1024, artifact["size"] - received + 1))
+                check_cancelled(cancelled)
+                if not chunk:
+                  break
                 received += len(chunk)
                 if received > artifact["size"]:
                   raise ContractError("artifact exceeds declared size")
@@ -207,6 +204,7 @@ class ModelStore:
                 handle.write(chunk)
                 if on_progress:
                   on_progress(artifact["sha256"], received, artifact["size"])
+                check_cancelled(cancelled)
             if received != artifact["size"] or digest.hexdigest() != artifact["sha256"]:
               raise ContractError("artifact size or digest mismatch")
             failure = None
@@ -216,6 +214,7 @@ class ModelStore:
             destination.unlink(missing_ok=True)
         if failure:
           raise ContractError(f"artifact download failed: {failure}") from failure
+        check_cancelled(cancelled)
         cached.parent.mkdir(exist_ok=True)
         try:
           os.link(destination, cached)
@@ -224,6 +223,7 @@ class ModelStore:
       (staging / "recipe.json").write_text(recipe.manifest.raw, encoding="utf-8")
       (staging / "profile.json").write_text(recipe.profile.raw, encoding="utf-8")
       Package(recipe, staging).verify()
+      check_cancelled(cancelled)
       try:
         staging.rename(final)
       except OSError:

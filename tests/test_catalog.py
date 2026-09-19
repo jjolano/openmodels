@@ -1,6 +1,5 @@
 """Runnable contract and transport checks: python -m unittest discover -s tests."""
 from contextlib import contextmanager
-from copy import deepcopy
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 import tempfile
@@ -59,7 +58,7 @@ def server(payloads):
     thread.join()
 
 
-class UniversalTests(unittest.TestCase):
+class CatalogTests(unittest.TestCase):
   def test_identity_and_immutable_data(self):
     data, recipe, _ = fixture()
     for field in ("configuration", "artifact", "source"):
@@ -102,47 +101,22 @@ class UniversalTests(unittest.TestCase):
     with self.assertRaisesRegex(ContractError, "conflicting descriptions"):
       Catalog(dumps(data))
 
-  def test_compose_context_semantics_and_conflicts(self):
-    data, recipe, _ = fixture()
-    altered = recipe.data
-    altered["members"]["head"]["configuration"]["scale"] = 2
-    altered["members"]["head"]["inputs"]["latent"]["semantics"] = "example/latent-b/v1"
-    other = Manifest.create(altered)
-    data["documents"][other.id] = other.raw
-    cat = Catalog(dumps(data))
-    selection = {"encoder": {"recipe": recipe.id, "slot": "encoder"}, "head": {"recipe": other.id, "slot": "head"}}
-    result, report = cat.compose(recipe.profile.id, selection)
-    self.assertNotIn("scale", result.data["configuration"])
-    codes = {f["code"] for f in report["findings"]}
-    self.assertTrue({"configuration_unresolved", "semantics_unverified", "cross_lineage_or_unknown"} <= codes)
-    self.assertFalse(report["composition_attested"])
-    resolved, _ = cat.compose(recipe.profile.id, selection, configuration={"scale": 3})
-    self.assertEqual(resolved.data["configuration"], {"scale": 3})
-    self.assertNotEqual(result.id, resolved.id)
-    altered["members"]["head"]["inputs"]["latent"]["shape"] = [8]
-    with self.assertRaises(ContractError):
-      Recipe(Manifest.create(altered), recipe.profile)
-    altered = recipe.data
-    altered["members"]["head"]["targets"] = ["QCOM"]
-    with self.assertRaises(ContractError):
-      Recipe(Manifest.create(altered), recipe.profile)
-
-  def test_export_and_publisher_ingestion(self):
-    from index.registry import merge_publishers
+  def test_export_and_pinned_recipe_merge(self):
+    from index.registry import PINNED, merge_pinned
     data, recipe, _ = fixture()
     exported = loads(Catalog(dumps(data)).export(recipe))
     exported["entries"] = data["entries"]
-    with tempfile.TemporaryDirectory() as root:
-      path = Path(root) / "example" / "segmentation.json"
-      path.parent.mkdir()
-      path.write_text(dumps(exported))
-      empty = {**data, "entries": [], "documents": {}, "sources": {}, "locations": {}, "evidence": []}
-      merged = Catalog(dumps(merge_publishers(empty, root)))
-      self.assertEqual(merged.resolve("Example segmentation").id, recipe.id)
-      exported["entries"][0]["publisher"] = "impersonated"
-      path.write_text(dumps(exported))
-      with self.assertRaises(ContractError):
-        merge_publishers(empty, root)
+    self.assertEqual(Catalog(dumps(exported)).resolve("Example segmentation"), recipe)
+    empty = {**data, "entries": [], "documents": {}, "sources": {}, "locations": {}, "evidence": []}
+    merged = Catalog(dumps(merge_pinned(empty)))
+    pinned = Catalog.load(PINNED)
+    stock = pinned.resolve("Stock supercombo (555f48c5)")
+    self.assertEqual(merged.resolve("Stock supercombo (555f48c5)"), stock)
+    self.assertLessEqual(set(pinned.data["documents"]), set(merged.data["documents"]))
+    digest = next(iter(pinned.data["documents"]))
+    conflicted = {**empty, "documents": {digest: pinned.data["documents"][digest] + " "}}
+    with self.assertRaises(ContractError):
+      merge_pinned(conflicted)
 
   def test_snapshots_pagination_and_downloads(self):
     data, recipe, blobs = fixture()
@@ -181,33 +155,6 @@ class UniversalTests(unittest.TestCase):
           store.fetch(recipe)
         self.assertFalse((Path(root) / recipe.id).exists())
         self.assertEqual(list(Path(root).glob(".download-*")), [])
-
-  def test_http_api_is_identical_to_offline_composition(self):
-    from fastapi.testclient import TestClient
-    from api.main import app
-    data, recipe, _ = fixture()
-    request = {"profile": recipe.profile.id, "selection": {
-      role: {"recipe": recipe.id, "slot": role} for role in ("head", "encoder")}}
-    cat = Catalog(dumps(data))
-    expected, report = cat.compose(**request)
-    with patch("api.main.catalog", return_value=cat), TestClient(app) as client:
-      self.assertEqual(client.get("/v1/catalog").content, cat.raw.encode())
-      response = client.post("/v1/compose", json=request)
-      self.assertEqual(response.status_code, 200, response.text)
-      self.assertEqual(response.json()["id"], expected.id)
-      self.assertEqual(response.json()["report"], report)
-      redeemed = Catalog(dumps(response.json()["snapshot"])).resolve(expected.id)
-      self.assertEqual(redeemed, expected)
-      self.assertEqual(client.get(f"/v1/manifests/{recipe.id}").content, recipe.manifest.raw.encode())
-      self.assertEqual(client.get("/v1/models?kind=segmentation").json()["total"], 1)
-      self.assertEqual(client.get("/v1/manifests/unknown").status_code, 404)
-      self.assertEqual(client.post("/v1/compose", json={**request, "execute": "evil"}).status_code, 422)
-      self.assertEqual(client.post("/v1/compose", content=b"x" * 65537).status_code, 413)
-      description = client.get("/openapi.json").json()
-      self.assertEqual(description["info"]["version"], "0.1.0")
-      self.assertEqual(set(description["paths"]), {
-        "/v1/catalog", "/v1/models", "/v1/manifests/{digest}", "/v1/profiles",
-        "/v1/artifacts/{digest}", "/v1/schemas/{name}", "/v1/status", "/v1/compose"})
 
   def test_schemas_match_actual_documents(self):
     from jsonschema import Draft202012Validator
@@ -259,10 +206,12 @@ class UniversalTests(unittest.TestCase):
       render(source, output)
       self.assertEqual(loads(source.read_text()), archive)
       self.assertFalse((output / "index.json").exists())
-      page = (output / "index.html").read_text()
+      page = "".join(path.read_text() for path in output.glob("model-*.html"))
       self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", page)
       self.assertNotIn("<script>alert(1)</script>", page)
-      self.assertEqual([p.name for p in output.glob("*.html")], ["index.html"])
+      self.assertTrue({"index.html", "archive.html", "integrate.html"} <= {p.name for p in output.glob("*.html")})
+      self.assertFalse((output / "compose.html").exists())
+      self.assertFalse((output / "models.html").exists())
       cat = Catalog.load(output / "catalog.json")
       for entry in cat.data["entries"]:
         exported = Catalog.load(output / "recipes" / f"{entry['recipe']}.json")

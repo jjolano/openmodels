@@ -8,8 +8,7 @@ from unittest.mock import patch
 
 from ci import archive
 from ci.site import build, verify_site
-from openmodels import Catalog
-from openmodels.contracts import dumps
+from openmodels.contracts import dumps, loads
 
 
 def source():
@@ -60,7 +59,7 @@ class PublicationTests(unittest.TestCase):
         self.assertEqual(json.loads(Path('rollback.json').read_text()), source())
         self.assertEqual(archive.remote_head(), second)
 
-  def test_real_publishers_and_repeatable_site(self):
+  def test_pinned_recipe_and_repeatable_site(self):
     with tempfile.TemporaryDirectory() as root:
       root = Path(root)
       index = root / 'index.json'
@@ -74,6 +73,15 @@ class PublicationTests(unittest.TestCase):
           self.assertEqual(file.read_bytes(), (root / 'two' / file.relative_to(root / 'one')).read_bytes())
       info = json.loads((root / 'one/deployment.json').read_text())
       self.assertEqual(info['catalog_revision'], first.revision)
+      self.assertEqual(info['builds_revision'], '')
+      home = (root / 'one/index.html').read_text()
+      self.assertIn('data-model', home)
+      self.assertIn('Stock supercombo (555f48c5)', home)
+      self.assertIn('href="archive.html"', home)
+      self.assertTrue((root / 'one/archive.html').is_file())
+      self.assertFalse((root / 'one/compose.html').exists())
+      self.assertFalse((root / 'one/models.html').exists())
+      self.assertEqual(loads((root / 'one/builds.json').read_text())['builds'], [])
       (root / 'one/index.html').write_text('<a href="/catalog.json">broken project path</a>')
       with self.assertRaisesRegex(ValueError, 'project Pages'):
         verify_site(root / 'one')
@@ -111,21 +119,6 @@ class PublicationTests(unittest.TestCase):
         assets[uploads[0]] += b' '
         with self.assertRaises(ContractError):
           retain(root / 'public', 'owner/repo')
-
-  def test_api_catalog_precondition(self):
-    from fastapi.testclient import TestClient
-    from api.main import app
-    from test_universal import fixture
-    data, recipe, _ = fixture()
-    catalog = Catalog(dumps(data))
-    request = {'profile': recipe.profile.id, 'selection': {
-      role: {'recipe': recipe.id, 'slot': role} for role in ('head', 'encoder')}}
-    with patch('api.main.catalog', return_value=catalog), TestClient(app) as client:
-      self.assertEqual(client.post('/v1/compose', json=request,
-        headers={'If-Match': '"' + '0' * 64 + '"'}).status_code, 412)
-      self.assertEqual(client.post('/v1/compose', json=request,
-        headers={'If-Match': f'"{catalog.revision}"'}).status_code, 200)
-      self.assertEqual(client.post('/v1/compose', json=request).status_code, 200)
 
 
 if __name__ == '__main__':
