@@ -68,7 +68,7 @@ def render(index_path: Path, out_dir: Path, builds=()) -> int:
   atomic_write(out_dir / discovery_url, raw)
   listing_pages = 0
   for archive in (False, True):
-    count = sum(not archive or m["archived"] for m in records)
+    count = sum(m["archived"] == archive for m in records)
     for page in range(1, max(1, (count + PAGE_SIZE - 1) // PAGE_SIZE) + 1):
       atomic_write(out_dir / page_filename(page, archive), listing(catalog, shell, archive=archive, page=page,
                                                                  records=records, discovery_url=discovery_url))

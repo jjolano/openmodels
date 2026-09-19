@@ -32,19 +32,25 @@ def main():
     from web.render import shell
     catalog = Catalog.load(root / 'openmodels/catalog.json')
     stock = catalog.models()[0]
-    models = [stock] + [{**deepcopy(stock), 'id': f'example/page-{i}', 'name': f'Pagination model {i}',
-                         'names': [], 'name_kind': 'generated'} for i in range(1, 61)]
-    models[-1]['names'] = [{'name': 'Distant alias'}]
-    for i, model in enumerate(models[1:], 1):
+    stock['archived'] = False
+    current = [stock] + [{**deepcopy(stock), 'id': f'example/page-{i}', 'name': f'Pagination model {i}',
+                          'names': [], 'name_kind': 'generated', 'archived': False} for i in range(1, 61)]
+    current[-1]['names'] = [{'name': 'Distant alias'}]
+    for i, model in enumerate(current[1:], 1):
       model['model_class'] = 'standard' if i <= 30 else 'big' if i < 60 else 'unknown'
       for variant in model['variants']:
         variant['targets'] = ['QCOM' if i <= 30 else 'AMD']
+    archived = [{**deepcopy(model), 'id': f'example/archive-{i}', 'name': f'Historical model {i}',
+                 'names': [], 'name_kind': 'generated', 'archived': True}
+                for i, model in enumerate(current)]
+    models = current + archived
     fixture_catalog = SimpleNamespace(models=lambda **kwargs: models)
     records = discovery(fixture_catalog)
     (root / 'openmodels/discovery-test.json').write_text(json.dumps(records))
-    for page in (1, 2, 3):
-      (root / 'openmodels' / page_filename(page)).write_text(listing(
-        fixture_catalog, shell, page=page, records=records, discovery_url='discovery-test.json'))
+    for archive in (False, True):
+      for page in (1, 2, 3):
+        (root / 'openmodels' / page_filename(page, archive)).write_text(listing(
+          fixture_catalog, shell, archive=archive, page=page, records=records, discovery_url='discovery-test.json'))
     server = subprocess.Popen([sys.executable, '-c', '''
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -72,7 +78,7 @@ ThreadingHTTPServer(('127.0.0.1', int(sys.argv[1])), partial(Handler, directory=
           time.sleep(0.1)
       browser('open', page_origin + '/openmodels/index.html')
       browser('snapshot', '-i')
-      browser('eval', "if (document.querySelectorAll('[data-model]').length !== 30) throw Error('Initial page is not bounded')")
+      browser('wait', '--fn', 'document.querySelectorAll("[data-model]").length === 30 && document.querySelector("#model-count").textContent.includes("of 61")')
       browser('eval', 'Array.from(document.querySelectorAll("#model-pages [data-page]")).find(a=>a.dataset.page==="2").click()')
       browser('wait', '--fn', 'location.pathname.endsWith("index-2.html") && document.querySelectorAll("[data-model]").length === 30')
       browser('eval', 'history.back()')
@@ -126,6 +132,9 @@ ThreadingHTTPServer(('127.0.0.1', int(sys.argv[1])), partial(Handler, directory=
       browser('wait', '--fn', 'document.querySelector("#model-load-status").textContent.includes("Search is unavailable.")')
       browser('eval', 'if (document.querySelectorAll("[data-model]").length !== 30 || !document.querySelector("#model-pages a[href]")) throw Error("Failed discovery removed static browsing")')
       (root / 'openmodels/discovery-unavailable.json').rename(root / 'openmodels/discovery-test.json')
+      browser('open', page_origin + '/openmodels/archive.html')
+      browser('wait', '--fn', 'document.querySelectorAll("[data-model]").length === 30 && document.querySelector("#model-count").textContent.includes("of 61")')
+      browser('eval', 'if (!document.querySelector(".model-card h2").textContent.includes("Historical model")) throw Error("Archive contains current models")')
       browser('open', page_origin + '/openmodels/index.html')
       browser('set', 'viewport', '390', '844')
       browser('eval', "if (document.documentElement.scrollWidth > innerWidth) throw Error('Model mobile overflow')")

@@ -1,6 +1,6 @@
 # Model names and evidence
 
-Every model appears in the main directory, whether or not a published nickname is known.
+Every model appears in either the current directory or historical archive, whether or not a published nickname is known.
 Historical status describes absence from the current upstream tree; it is independent of
 naming. The SDK and API include historical models by default. Consumers still apply their
 own support policies and select exact recipe IDs.

@@ -87,7 +87,7 @@ SCRIPT = r"""<script>
   }
   function render(page, historyMode) {
     const query = search.value.toLowerCase();
-    const found = records.filter(m => (!archive || m.archived) && (!kind.value || m.kind === kind.value) &&
+    const found = records.filter(m => (archive ? m.archived : !m.archived) && (!kind.value || m.kind === kind.value) &&
       (!naming.value || m.name_kind === naming.value) && (!modelClass.value || m.model_class === modelClass.value) &&
       (!target.value || m.targets.includes(target.value)) && m.search.includes(query));
     const pages = Math.max(1, Math.ceil(found.length / size));
@@ -178,31 +178,31 @@ def card(model):
 
 def listing(catalog, shell, *, archive=False, page=1, records=None, discovery_url='discovery.json'):
   records = discovery(catalog) if records is None else records
-  models = [m for m in records if not archive or m['archived']]
+  models = [m for m in records if m['archived'] == archive]
   pages = max(1, (len(models) + PAGE_SIZE - 1) // PAGE_SIZE)
   page = max(1, min(page, pages))
   start = (page - 1) * PAGE_SIZE
   cards = ''.join(card(m) for m in models[start:start + PAGE_SIZE])
   links = ''.join(f'<a href="{page_filename(i, archive)}" data-page="{i}" aria-label="Page {i}"' +
                   (' aria-current="page"' if i == page else '') + f'>{i}</a>' for i in range(1, pages + 1))
-  title = 'Historical models' if archive else 'Models'
-  intro = 'Models outside the current upstream tree, including published names and training runs.' if archive else 'Every model and source configuration in the catalog. Search by published name, alias, or generated label.'
+  title = 'Historical models' if archive else 'Current models'
+  intro = 'Models outside the current upstream tree, including published names and training runs.' if archive else 'Models currently present in the upstream tree, including published names and source configurations.'
   options = ''.join(f'<option value="{e(k, quote=True)}">{e(k.capitalize())}</option>' for k in sorted({m['kind'] for m in models}))
   targets = ''.join(f'<option value="{e(t, quote=True)}">{e(t)}</option>' for t in sorted({t for m in models for t in m['targets']} - {'unknown'}))
   count = f'Showing {start + 1}–{min(start + PAGE_SIZE, len(models))} of {len(models)} models' if models else '0 models'
   return shell(title + f' — page {page} — openmodels', STYLE + f'''<main><section class="hero"><h1>{title}</h1><p>{intro}</p></section>
-    <div class="filters"><label for="model-search">Search models<input disabled type="search" id="model-search" placeholder="Try Duck Amigo or North Dakota"></label>
+    <div class="filters"><label for="model-search">Search models<input disabled type="search" id="model-search" placeholder="Search {'historical' if archive else 'current'} models by name or alias"></label>
     <label for="model-kind">Model type<select disabled id="model-kind"><option value="">All types</option>{options}</select></label>
     <label for="model-class">Model class<select disabled id="model-class"><option value="">All classes</option><option value="standard">Standard</option><option value="big">Big</option><option value="unknown">Unrecorded</option></select></label>
     <label for="model-target">Execution target<select disabled id="model-target"><option value="">All targets</option>{targets}<option value="unknown">Unrecorded</option></select></label>
     </div><details class="advanced-filters"><summary>Advanced filters</summary><label for="model-naming">Naming<select disabled id="model-naming"><option value="">All names and labels</option><option value="published">Published names</option><option value="source">Source-derived labels</option><option value="generated">Generated labels</option></select></label></details>
     <p class="meta">Class describes the upstream model variant; target is the recorded execution backend. Chestnut labels identify source evidence for specific configurations, not device qualification.</p>
-    <noscript>Search and filters require JavaScript. Browse every model using the page links below.</noscript>
+    <noscript>Search and filters require JavaScript. Browse {'historical' if archive else 'current'} models using the page links below.</noscript>
     <p id="model-load-status" role="status"></p><p id="model-count" role="status">{count}</p>
     <p id="model-empty" {'' if not models else 'hidden'}>No models match. Clear your search or choose another type.</p>
     <div class="model-grid" data-archive="{str(archive).lower()}" data-discovery="{e(discovery_url, quote=True)}">{cards}</div>
     <nav id="model-pages" aria-label="Model pages">{links}</nav>
-    <p>{'All models are in the <a href="index.html">model directory</a>.' if archive else 'Browse <a href="archive.html">historical models</a>. Generated labels identify weights without claiming a published nickname.'}</p></main>''' + SCRIPT)
+    <p>{'Browse <a href="index.html">current models</a>.' if archive else 'Browse <a href="archive.html">historical models</a>. Generated labels identify weights without claiming a published nickname.'}</p></main>''' + SCRIPT)
 
 
 BUILD_NOTICE = ("Compiled off-device with qemu + LLVM. GPU parity, device execution and timing "

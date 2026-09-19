@@ -151,11 +151,12 @@ class ModelTests(unittest.TestCase):
 
     data, _, _ = fixture()
     model = Catalog(dumps(data)).models()[0]
-    models = [{**deepcopy(model), 'id': f'example/model-{i}', 'name': f'Model {i}', 'archived': True}
-              for i in range(61)]
+    models = [{**deepcopy(model), 'id': f'example/model-{i}', 'name': f'Model {i}',
+               'archived': i >= 61}
+              for i in range(122)]
     catalog = SimpleNamespace(models=lambda **kwargs: models)
     records = discovery(catalog)
-    self.assertEqual(len(records), 61)
+    self.assertEqual(len(records), 122)
     self.assertNotIn('variants', records[0])
     self.assertNotIn('recipes', records[0])
     for archive in (False, True):
