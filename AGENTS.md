@@ -62,6 +62,9 @@ downloads or compiled builds. The first release uses schema 1 and package versio
   historical entries. Missing extraction must remain visible.
 - Blob release tags are recorded data, not derivable from a digest. Publish only recorded release
   URLs or verified local mirror paths; report unavailable and pending artifacts explicitly.
+- Upstream LFS hosting moves: `index/lfs.py:BATCH_URL` mirrors openpilot's `.lfsconfig`
+  (Hugging Face since 2026-09-09). Newly discovered blobs that 404 are a stale endpoint until
+  that file says otherwise.
 - Fetch blobs on demand and delete after upload. Serve blobs directly through storage/Caddy, not
   through Python.
 - `archive-state` contains durable importer checkpoints. Save validated discoveries before

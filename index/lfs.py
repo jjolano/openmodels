@@ -1,9 +1,13 @@
 """Fetch LFS blobs from comma's public store.
 
-openpilot's .lfsconfig points at gitlab.com/commaai/openpilot-lfs, whose batch API answers
+openpilot's .lfsconfig points at huggingface.co/commaai/openpilot-lfs, whose batch API answers
 unauthenticated. That is the load-bearing fact behind this whole archive: the entire model
 history is reachable without credentials, and pointers give us oid+size up front so nothing is
 downloaded twice.
+
+comma moved hosting off gitlab.com on 2026-09-09 (openpilot #38824, reapplied #38841), so an
+oid recorded after that date only resolves here. This URL mirrors upstream `.lfsconfig`; when
+newly discovered models come back 404, diff that file before assuming the blob is gone.
 
 Blobs are verified on arrival. The oid *is* the sha256, so a mismatch is free to detect and
 must always abort — this is the same check the reference client performs.
@@ -17,7 +21,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
-BATCH_URL = "https://gitlab.com/commaai/openpilot-lfs.git/info/lfs/objects/batch"
+BATCH_URL = "https://huggingface.co/commaai/openpilot-lfs.git/info/lfs/objects/batch"
 LFS_CONTENT_TYPE = "application/vnd.git-lfs+json"
 CHUNK = 1 << 20
 
