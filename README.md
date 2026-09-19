@@ -72,7 +72,7 @@ python -m pip install "tinygrad @ git+https://github.com/tinygrad/tinygrad.git@$
 python index/test_metadata.py
 python index/test_indexer.py
 python -m unittest discover -s tests -v
-python -m ci.browser   # needs npm install --global agent-browser
+python -m ci.browser   # needs npm install --global agent-browser, then agent-browser install --with-deps
 ```
 
 Vendored compiler semantics can be checked against a pinned upstream checkout with

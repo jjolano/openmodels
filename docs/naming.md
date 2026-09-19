@@ -2,7 +2,7 @@
 
 Every model appears in either the current directory or historical archive, whether or not a published nickname is known.
 Historical status describes absence from the current upstream tree; it is independent of
-naming. The SDK and API include historical models by default. Consumers still apply their
+naming. The SDK includes historical models by default. Consumers still apply their
 own support policies and select exact recipe IDs.
 
 ## Name selection
