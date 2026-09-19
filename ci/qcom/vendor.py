@@ -1,5 +1,5 @@
 # Derived from commaai/openpilot at 555f48c5d28709f039b79f3f6105e51305edd4b5.
-# Copyright comma.ai. MIT; see LICENSE.openpilot.
+# Copyright comma.ai. MIT; see THIRD_PARTY_NOTICES.md.
 import math
 import os
 import tempfile
@@ -258,4 +258,3 @@ def compile_jit(jit, make_random_inputs, input_keys, make_queues):
   random_inputs_run(jit, SEED, test_val, test_buffers, expect_match=True)
   random_inputs_run(jit, SEED+1, test_val, test_buffers, expect_match=False)
   return jit
-

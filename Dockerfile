@@ -8,20 +8,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends git ca-certific
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir fastapi==0.141.1 "uvicorn[standard]==0.52.4"
-
 COPY index/ index/
-COPY api/ api/
 COPY web/ web/
 COPY ci/ ci/
 COPY openmodels/ openmodels/
-COPY publishers/ publishers/
 COPY AGENTS.md ./
 COPY LICENSE THIRD_PARTY_NOTICES.md ./
 
 RUN useradd --create-home --uid 10001 openmodels \
     && mkdir -p /data \
-    && chown openmodels:openmodels /data
+    && chown openmodels:openmodels /data \
+    && chmod +x ci/selfhost.sh
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -32,4 +29,4 @@ ENV GIT_LFS_SKIP_SMUDGE=1
 
 EXPOSE 8000
 USER openmodels
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/app/ci/selfhost.sh"]

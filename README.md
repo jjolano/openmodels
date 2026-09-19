@@ -1,74 +1,88 @@
 # OpenModels
 
-A universal model directory, recipe composer, API and Python SDK, with an automatically
-preserved archive of models from `commaai/openpilot`. Publishers can submit other model
-families using the same contracts.
+An archive of [comma](https://github.com/commaai/openpilot) models, precompiled for comma 3X
+hardware, plus a static directory site and a dependency-free Python SDK for verified downloads.
 
-This is the first release: package version **0.1.0**, **schema 1**, and **`/v1`** HTTP endpoints.
-Recipes preserve exact artifacts, source context and execution settings. Identity and
+Daily CI discovers comma models in `commaai/openpilot` and mirrors the blobs into `blobs-NNNN`
+Releases, checkpointing importer state so reverted and never-merged models stay reachable. The
+same pipeline compiles the pinned stock supercombo off-device for Qualcomm a630 and publishes
+it to a `builds-0001` Release. This is package version **0.1.0** and **schema 1**. Identity and
 provenance are separate from execution support and consumer qualification.
 
-## Use the SDK
-
-The base SDK has no third-party dependencies. Install from this checkout:
+## Browse and download
 
 ```bash
 python -m pip install .
-python -m openmodels --catalog https://jjolano.github.io/openmodels/catalog.json list
+python -m openmodels --catalog https://jjolano.github.io/openmodels/catalog.json list --query supercombo
 python -m openmodels --catalog catalog.json export RECIPE_ID > selected.json
 python -m openmodels --catalog catalog.json fetch RECIPE_ID --store ./models
 ```
 
-See [contracts and integration](docs/universal.md) for Python composition, offline snapshots,
-verified downloads and the optional runner contract. Consumers own scheduling, qualification,
-activation and output publication. The separate `openmodels-runner-tinygrad` package implements
-a pinned stock supercombo profile for QCOM/comma 3X; device compilation, output parity and
-timing qualification still require hardware validation.
+```python
+from pathlib import Path
+from openmodels import Catalog, ModelStore
 
-## Publish and serve
-
-```bash
-python -m pip install '.[server]'
-python -m index.indexer --repo /path/to/openpilot --out data/index.json
-python web/render.py --index data/index.json --out data/public
-uvicorn api.main:app --host 127.0.0.1 --port 8000
+catalog = Catalog.load("https://jjolano.github.io/openmodels/catalog.json")
+package = ModelStore(Path("./models"), catalog).fetch(catalog.resolve("Stock supercombo (555f48c5)"))
+package.verify()
 ```
 
-`index.html` browses every model in 30-item pages, `archive.html` filters historical models, and
-`compose.html` is the advanced composer. `catalog.json` is the complete SDK snapshot;
-`manifests/`, `recipes/` and `schemas/` contain downloadable contracts. Importer state lives
-on the `archive-state` branch (locally, `data/index.json`) so it survives website rollback.
-[Publisher submissions](publishers/README.md) enter through reviewed JSON files.
+Downloads verify the declared size and SHA-256 and rename into place atomically, so an
+interrupted download never becomes installed. See
+[the catalog contract](docs/catalog.md) for document identity, the CLI, cancellation and the
+published guarantees. Consumers own selection, scheduling, qualification, activation and
+output publication.
 
-The API exposes `/v1/catalog`, `/v1/models`, `/v1/models/{identity}`, `/v1/profiles`, `/v1/manifests/{digest}`,
-`/v1/artifacts/{digest}`, `/v1/schemas/{name}`, `/v1/status` and `POST /v1/compose`.
-Interactive documentation is at `/docs`. Browser composition calls the same SDK validation
-through this API; static-only mirrors support recipe downloads and SDK composition.
-Set `OPENMODELS_API_BASE` when rendering against a separately hosted API.
+## Build and serve the site
 
-`compose.yaml` runs the API, static server and scheduled local importer. `OPENMODELS_DATA`
-selects the data directory. Model blobs are served directly by Caddy or GitHub Releases.
-Actions checkpoints discoveries before mirroring, retains immutable catalog snapshots in
-Releases, and deploys Pages from a tested artifact. Archives are append-only; release locations
-come from recorded mirror metadata. See [CI and deployment](docs/deployment.md) for bootstrap,
-API synchronization, configuration and rollback.
+```bash
+python -m index.indexer --repo /path/to/openpilot --out data/index.json
+python web/render.py --index data/index.json --out data/public --builds data/builds/builds.json
+```
+
+`index.html` is page one of the directory, `archive.html` lists historical models, and
+`integrate.html` documents the downloads and SDK. `catalog.json` is the complete SDK snapshot;
+`manifests/`, `recipes/` and `schemas/` contain the downloadable contracts; `builds.json` lists
+recorded precompiled builds. Importer state lives on the `archive-state` branch (locally,
+`data/index.json`) so it survives website rollback.
+
+`compose.yaml` runs a self-hosted indexer plus Caddy over the static output. Model blobs are
+served directly by Caddy or GitHub Releases, never through Python. See
+[CI and deployment](docs/deployment.md) for bootstrap, precompilation, configuration and
+rollback.
+
+## Precompile
+
+```bash
+python -m ci.builds compile --catalog https://jjolano.github.io/openmodels/catalog.json \
+  --store ./models --work ./builds --no-upload
+```
+
+Requires Linux x86-64 with `qemu-user-static`, LLVM, and Tinygrad at the revision in
+`openmodels.profiles`. Only the pinned stock recipe and artifact compile, and only for the one
+recorded a630 target. Builds are evidence of compilation: GPU parity, device execution and
+timing remain unverified, and every record says so.
 
 ## Check changes
 
 ```bash
-python -m pip install '.[server,test]' numpy
-python -m pip install --no-deps ./runners/tinygrad
+python -m pip install '.[test]' numpy zstandard
+TINYGRAD="$(python -c 'from openmodels.profiles import TINYGRAD_REVISION as r; print(r)')"
+python -m pip install "tinygrad @ git+https://github.com/tinygrad/tinygrad.git@$TINYGRAD"
 python index/test_metadata.py
 python index/test_indexer.py
 python -m unittest discover -s tests -v
+python -m ci.browser   # needs npm install --global agent-browser
 ```
 
-The [integration guide](docs/universal.md) also describes pinned reference checks and the
-remaining device validation. Archived comma models retain the upstream MIT license; see
+Vendored compiler semantics can be checked against a pinned upstream checkout with
+`DEV=CPU WARP_DEV=CPU python tests/check_reference.py --openpilot /path/to/openpilot`. Hardware
+parity and timing require separate device evidence.
+
+Archived comma models retain the upstream MIT license; see
 [third-party notices](THIRD_PARTY_NOTICES.md).
 
-## Build a model switcher
-
-Browse named models and their exact source configurations on the [directory](https://jjolano.github.io/openmodels/). Use `Catalog.models()` and `ModelSwitcher` to apply your fork’s support policy, download with progress and cancellation, and prepare through a runner. See [the integration guide](docs/switcher.md) and run `python examples/switcher.py --demo`. Static `models.json` offers the same discovery view to other languages; the complete catalog provides immutable manifests and artifact locations.
-
-Names come from comma’s introducing commits, pinned community-wiki references and Sunnypilot’s catalog, matched to exact commits and complete artifact sets in `index/model_names.json`. Attributed aliases remain searchable. Unnamed models receive source-derived or generated labels and remain in the main directory. See [naming evidence and policy](docs/naming.md); a name never establishes runtime support or equivalent fork tuning.
+Names come from comma's introducing commits, pinned community-wiki references and Sunnypilot's
+catalog, matched to exact commits and complete artifact sets in `index/model_names.json`.
+Attributed aliases remain searchable, and unnamed models receive source-derived or generated labels. They appear in the current directory or historical archive according to upstream status. See [naming evidence and policy](docs/naming.md); a name never
+establishes runtime support or equivalent fork tuning.
