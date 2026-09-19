@@ -84,6 +84,5 @@ Archived comma models retain the upstream MIT license; see
 
 Names come from comma's introducing commits, pinned community-wiki references and Sunnypilot's
 catalog, matched to exact commits and complete artifact sets in `index/model_names.json`.
-Attributed aliases remain searchable, unnamed models receive source-derived or generated labels
-and stay in the directory. See [naming evidence and policy](docs/naming.md); a name never
+Attributed aliases remain searchable, and unnamed models receive source-derived or generated labels. They appear in the current directory or historical archive according to upstream status. See [naming evidence and policy](docs/naming.md); a name never
 establishes runtime support or equivalent fork tuning.
