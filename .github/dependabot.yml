@@ -4,6 +4,11 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    groups:
+      # init and analyze must carry one version; a split bump fails its own CodeQL check.
+      codeql-action:
+        patterns:
+          - "github/codeql-action*"
   - package-ecosystem: docker
     directory: /
     schedule:
