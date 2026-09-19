@@ -62,8 +62,10 @@ python -m ci.builds compile --repo OWNER/REPO --catalog https://jjolano.github.i
 `builds-0001` release is created on first upload with `THIRD_PARTY_NOTICES.md` as its notes.
 Repeating a compile with unchanged inputs logs `unchanged build <id>` and uploads nothing: the
 build identity covers the recipe document, the source artifact, the implementation digest and
-the toolchain digest. Never overwrite a release asset with different bytes; a differing record
-is a hard error.
+the toolchain digest. A publishing run consults the Release before compiling, so a refresh on a
+runner with no work directory neither recompiles nor re-records a published build; `--no-upload`
+never contacts the Release and stays a purely local build. Never overwrite a release asset with
+different bytes; a differing record is a hard error.
 
 Records keep `gpu_validated: false` and `device_validated: false`. Compilation on x86-64 is
 not device evidence, and no pipeline here claims it.

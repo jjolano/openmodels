@@ -70,11 +70,12 @@ def load_builds(path):
   return [] if path is None else loads(Path(path).read_bytes())["builds"]
 
 
-def compile_build(catalog_url, store, work, *, repo=""):
+def compile_build(catalog_url, store, work, *, repo="", reuse_published=False):
   """Compile the pinned stock recipe for a630 into `work`; returns (record, compiled).
 
-  `compiled` is False when `work` already holds this exact build, which is what makes a
-  repeated run cheap and silent about uploads.
+  `compiled` is False when `work`, or the build Release, already holds this exact build, which
+  is what makes a repeated run cheap and silent about uploads. `reuse_published` also lets a
+  run with an empty `work` reuse the published build, which is what a fresh CI runner has.
   """
   if platform.system() != "Linux" or platform.machine() != "x86_64" or not shutil.which("qemu-aarch64-static"):
     raise ContractError("off-device compilation requires Linux x86-64 with qemu-aarch64-static")
@@ -87,17 +88,25 @@ def compile_build(catalog_url, store, work, *, repo=""):
   os.environ.update(DEV="QCOM;CPU:LLVM", WARP_DEV="QCOM", BEAM="0", IMAGE="0", JIT_BATCH_SIZE="0",
                     PYTHONDONTWRITEBYTECODE="1")
   implementation = implementation_digest()  # Enforces the installed Tinygrad Git pin.
-  import tinygrad
-  # The ARM Python in the upstream compiler sysroot must import this exact Tinygrad.
-  os.environ["PYTHONPATH"] = str(Path(tinygrad.__file__).parent.parent)
 
   recipe_id = stock_recipe_id()
   inputs, identity = build_id(recipe_id, STOCK_SHA256, implementation, TOOLCHAIN_SHA256, TARGET)
   work = Path(work)
   work.mkdir(parents=True, exist_ok=True)
   record_path = work / f"build-{identity}.json"
-  if record_path.is_file():
+  published, artifact_published = published_build(repo, identity) if reuse_published else (None, False)
+  if published is not None:
+    # The Release wins over any local record: `upload` byte-compares this file, and a published
+    # build is never recompiled or re-minted.
+    record_path.write_bytes(published)
+    if artifact_published:
+      return loads(published), False
+  elif record_path.is_file():
     return loads(record_path.read_bytes()), False
+
+  import tinygrad
+  # The ARM Python in the upstream compiler sysroot must import this exact Tinygrad.
+  os.environ["PYTHONPATH"] = str(Path(tinygrad.__file__).parent.parent)
 
   catalog = Catalog.load(catalog_url)
   package = ModelStore(store, catalog).fetch(catalog.resolve(recipe_id))
@@ -129,7 +138,12 @@ def compile_build(catalog_url, store, work, *, repo=""):
       os.replace(artifact, work / "model.pkl")
       (work / "target.json").write_text(dumps(TARGET) + "\n")
       (work / "report.json").write_text(dumps(record) + "\n")
-      record_path.write_text(dumps(record) + "\n")
+      if published is None:
+        record_path.write_text(dumps(record) + "\n")
+      else:
+        # Already published: this compile only restored its missing artifact, so the record
+        # stays the released one rather than a new spelling of the same inputs.
+        record = loads(published)
       return record, True
   finally:
     # Stop ARM Python before its sysroot TemporaryDirectory is cleaned up.
@@ -168,6 +182,24 @@ def ensure_release(repo):
 
 def asset_names(repo):
   return gh("api", f"repos/{repo}/releases/tags/{RELEASE_TAG}", "--jq", ".assets[].name").splitlines()
+
+
+def published_build(repo, identity):
+  """The published record bytes and whether its artifact is published too.
+
+  Nothing published — no `gh`, no Release, no record under this identity — means "compile as
+  usual". A publishing run has no work directory to inherit, so the Release is the only place
+  that says this exact build already exists.
+  """
+  if shutil.which("gh") is None or not gh_ok("api", f"repos/{repo}/releases/tags/{RELEASE_TAG}"):
+    return None, False
+  names = asset_names(repo)
+  if needs_compile(names, identity):
+    return None, False
+  with tempfile.TemporaryDirectory() as tmp:
+    gh("release", "download", RELEASE_TAG, "--repo", repo, "--pattern", f"build-{identity}.json", "--dir", tmp)
+    raw = (Path(tmp) / f"build-{identity}.json").read_bytes()
+  return raw, loads(raw)["artifact"]["name"] in names
 
 
 def download_manifest(repo, out, expected_sha256=None, optional=False):
@@ -245,7 +277,8 @@ def main():
   manifest_cmd.add_argument("--optional", action="store_true")
   args = parser.parse_args()
   if args.command == "compile":
-    record, compiled = compile_build(args.catalog, args.store, args.work, repo=args.repo)
+    record, compiled = compile_build(args.catalog, args.store, args.work, repo=args.repo,
+                                     reuse_published=not args.no_upload)
     print(dumps(record) if compiled else f"unchanged build {record['build_id']}")
     if args.no_upload:
       (args.work / "builds.json").write_text(manifest([record]))
