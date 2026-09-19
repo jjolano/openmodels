@@ -47,6 +47,10 @@ jobs:
           git clone --filter=blob:none --no-checkout https://github.com/commaai/openpilot upstream
           git -C upstream fetch --prune --filter=blob:none origin '+refs/pull/*/head:refs/remotes/pr/*'
           git -C upstream fetch --prune --filter=blob:none origin '+refs/heads/*:refs/remotes/origin/*'
+      - name: Verify the upstream LFS store is the one we fetch from
+        run: |
+          git -C upstream show origin/master:.lfsconfig \
+            | python -c 'import sys; from index.lfs import check_lfsconfig; print("LFS store:", check_lfsconfig(sys.stdin.read()))'
       - name: Discover models
         env:
           GH_TOKEN: ${{ github.token }}
