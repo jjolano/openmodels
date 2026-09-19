@@ -21,6 +21,16 @@ downloads or compiled builds. The first release uses schema 1 and package versio
 - Keep `CLAUDE.md` as a relative symlink to this file. Preserve these contracts
   when updating workflow guidance.
 
+## Pull requests
+
+- `main` is protected: direct pushes are rejected and the required checks are strict. Land
+  every change on a branch through a pull request, and squash-merge it once the `test` and
+  CodeQL checks pass (`gh pr merge --squash --delete-branch`).
+- A Dependabot pull request keeps its own branch: land a superseding change in your pull
+  request and close the stale one.
+- `github/codeql-action/init` and `github/codeql-action/analyze` share one version and move
+  together; a split bump fails its own CodeQL check.
+
 ## Contracts and execution
 
 - Identity and provenance are facts, not driving qualification. Equal tensor dimensions do
