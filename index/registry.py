@@ -1,4 +1,4 @@
-"""Convert the comma archive and reviewed publisher snapshots to the universal directory."""
+"""Convert the comma archive plus the pinned recipe into the catalog snapshot."""
 from __future__ import annotations
 
 import argparse
@@ -10,6 +10,8 @@ from index.lineage import seam_width
 from index.names import model_metadata
 from openmodels import Catalog, ContractError, Manifest
 from openmodels.contracts import SCHEMAS, dumps, loads, schema
+
+PINNED = Path(__file__).with_name("stock-supercombo.json")
 
 
 def archive_profile(bundle):
@@ -90,18 +92,15 @@ def convert(index, *, blob_base=None):
   return result
 
 
-def merge_publishers(snapshot, directory):
-  for path in sorted(Path(directory).glob("*/*.json")):
-    submission = Catalog.load(path).data
-    if any(e["publisher"] != path.parent.name for e in submission["entries"]):
-      raise ContractError(f"publisher namespace does not match directory: {path}")
-    for key in ("documents", "locations", "sources"):
-      for identity, value in submission[key].items():
-        if identity in snapshot[key] and snapshot[key][identity] != value:
-          raise ContractError(f"publisher submission conflicts with existing {key}: {identity}")
-        snapshot[key][identity] = value
-    snapshot["entries"].extend(submission["entries"])
-    snapshot["evidence"].extend(submission["evidence"])
+def merge_pinned(snapshot):
+  submission = Catalog.load(PINNED).data
+  for key in ("documents", "locations", "sources"):
+    for identity, value in submission[key].items():
+      if identity in snapshot[key] and snapshot[key][identity] != value:
+        raise ContractError(f"pinned recipe conflicts with existing {key}: {identity}")
+      snapshot[key][identity] = value
+  snapshot["entries"].extend(submission["entries"])
+  snapshot["evidence"].extend(submission["evidence"])
   return snapshot
 
 
@@ -117,10 +116,9 @@ def atomic_write(path, raw):
     staged.unlink(missing_ok=True)
 
 
-def publish(index, out, *, publishers=None, blob_base=None):
+def publish(index, out, *, blob_base=None):
   snapshot = convert(index, blob_base=blob_base)
-  if publishers:
-    merge_publishers(snapshot, publishers)
+  merge_pinned(snapshot)
   raw = dumps(snapshot)
   catalog = Catalog(raw)  # Validate the complete graph before publishing any discovery file.
   out = Path(out)
@@ -138,11 +136,10 @@ def main():
   parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument("--index", default="data/index.json")
   parser.add_argument("--out", default="data/public")
-  parser.add_argument("--publishers", default="publishers")
   parser.add_argument("--blob-base")
   args = parser.parse_args()
   index = loads(Path(args.index).read_bytes(), 64 * 1024 * 1024)
-  catalog = publish(index, args.out, publishers=args.publishers, blob_base=args.blob_base)
+  catalog = publish(index, args.out, blob_base=args.blob_base)
   print(f"catalog {catalog.revision}: {catalog.search()['total']} recipes")
 
 

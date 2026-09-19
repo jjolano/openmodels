@@ -3,7 +3,7 @@ name: Publish Pages
 on:
   push:
     branches: [main]
-    paths: ['web/**', 'openmodels/**', 'api/**', 'index/**', 'ci/**', 'publishers/**', 'pyproject.toml', '.github/workflows/**']
+    paths: ['web/**', 'openmodels/**', 'index/**', 'ci/**', 'pyproject.toml', '.github/workflows/**']
   workflow_call:
     inputs:
       archive_revision:
@@ -17,8 +17,8 @@ on:
       code_revision:
         description: 'Main-branch code commit for rollback; blank uses current code'
         type: string
-      api_base:
-        description: 'API origin override for rollback; blank uses repository variable'
+      builds_revision:
+        description: 'builds.json digest from deployment.json; blank downloads the current manifest'
         type: string
 
 concurrency:
@@ -56,12 +56,18 @@ jobs:
         env:
           REVISION: ${{ inputs.archive_revision }}
         run: python -m ci.archive restore --revision "$REVISION"
+      - name: Fetch any recorded precompiled builds
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python -m ci.builds manifest --repo "$GITHUB_REPOSITORY" \
+            --out "$RUNNER_TEMP/builds.json" --sha256 "${{ inputs.builds_revision }}" --optional
       - name: Build and check publication
         env:
-          OPENMODELS_API_BASE: ${{ inputs.api_base || vars.OPENMODELS_API_BASE }}
           ARCHIVE_REVISION: ${{ steps.archive.outputs.revision }}
         run: |
-          python -m ci.site build --code "$(git rev-parse HEAD)" --archive "$ARCHIVE_REVISION"
+          python -m ci.site build --code "$(git rev-parse HEAD)" --archive "$ARCHIVE_REVISION" \
+            --builds "$RUNNER_TEMP/builds.json"
           cat data/public/deployment.json >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

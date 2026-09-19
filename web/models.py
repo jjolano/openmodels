@@ -17,6 +17,7 @@ STYLE = '''<style>
 .filters{display:flex;gap:16px;flex-wrap:wrap;align-items:end}.filters label{display:grid;gap:6px;flex:1;min-width:160px}.advanced-filters{margin:14px 0}.advanced-filters label{display:grid;gap:6px;max-width:300px;margin-top:12px}
 input,select{font:inherit;padding:10px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:5px}a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:4px}summary{cursor:pointer}
 .variant{padding:20px 0;border-top:1px solid var(--line);overflow-wrap:anywhere}.variant h3{margin:0 0 10px}.variant summary{padding:12px 0}.variant-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}.variant-actions a{display:inline-block;padding:10px 14px;border:1px solid var(--line);border-radius:5px;text-decoration:none}.variant-actions .start-model{color:var(--bg);background:var(--accent);border-color:var(--accent);font-weight:600}
+.build{margin:12px 0;padding:14px;background:var(--panel);border:1px solid var(--line);border-radius:5px}.build h4{margin:0 0 8px;font-size:14px}.build p{margin:4px 0;font-size:13px}
 pre{background:var(--code);padding:18px;overflow:auto}.provenance{margin-top:24px;border-top:1px solid var(--line);padding-top:20px}.provenance>summary{font-weight:600;padding:10px 0}
 #model-pages{display:flex;gap:8px;flex-wrap:wrap;margin-top:24px}#model-pages a{min-width:44px;min-height:44px;padding:8px 12px;text-align:center;border:1px solid var(--line);border-radius:5px}#model-pages [aria-current]{background:var(--accent);color:var(--bg);font-weight:600}
 @media(max-width:650px){.model-card{grid-template-columns:minmax(0,1fr) auto;gap:8px}.model-card .model-facts{grid-column:1}.model-card .model-action{grid-column:2;grid-row:1 / 3}.variant-actions{align-items:stretch}.variant-actions a{width:100%}}
@@ -28,7 +29,7 @@ SCRIPT = r"""<script>
   const modelClass = document.querySelector('#model-class'), target = document.querySelector('#model-target');
   const status = document.querySelector('#model-load-status');
   const archive = grid.dataset.archive === 'true', size = 30;
-  function pageFile(page) { return page === 1 ? (archive ? 'archive.html' : 'models.html') : (archive ? 'archive-' : 'models-') + page + '.html'; }
+  function pageFile(page) { return page === 1 ? (archive ? 'archive.html' : 'index.html') : (archive ? 'archive-' : 'index-') + page + '.html'; }
   function readState() {
     const params = new URLSearchParams(location.search);
     search.value = params.get('q') || '';
@@ -37,7 +38,7 @@ SCRIPT = r"""<script>
     modelClass.value = params.get('class') || '';
     target.value = params.get('target') || '';
     if (naming.value) naming.closest('details').open = true;
-    const pathPage = location.pathname.match(/(?:models|archive)-(\d+)\.html$/);
+    const pathPage = location.pathname.match(/(?:index|archive)-(\d+)\.html$/);
     const value = params.get('page') || (pathPage ? pathPage[1] : '1');
     return /^\d+$/.test(value) && Number.isSafeInteger(Number(value)) ? Math.max(1, Number(value)) : 1;
   }
@@ -146,7 +147,7 @@ def badges(model_class, targets):
 
 
 def page_filename(page, archive=False):
-  return ('archive.html' if archive else 'models.html') if page == 1 else f"{'archive' if archive else 'models'}-{page}.html"
+  return ('archive.html' if archive else 'index.html') if page == 1 else f"{'archive' if archive else 'index'}-{page}.html"
 
 
 def discovery(catalog):
@@ -201,10 +202,25 @@ def listing(catalog, shell, *, archive=False, page=1, records=None, discovery_ur
     <p id="model-empty" {'' if not models else 'hidden'}>No models match. Clear your search or choose another type.</p>
     <div class="model-grid" data-archive="{str(archive).lower()}" data-discovery="{e(discovery_url, quote=True)}">{cards}</div>
     <nav id="model-pages" aria-label="Model pages">{links}</nav>
-    <p>{'All models are in the <a href="models.html">model directory</a>.' if archive else 'Browse <a href="archive.html">historical models</a>. Generated labels identify weights without claiming a published nickname.'}</p></main>''' + SCRIPT)
+    <p>{'All models are in the <a href="index.html">model directory</a>.' if archive else 'Browse <a href="archive.html">historical models</a>. Generated labels identify weights without claiming a published nickname.'}</p></main>''' + SCRIPT)
 
 
-def detail(catalog, model, shell, *, base_url=""):
+BUILD_NOTICE = ("Compiled off-device with qemu + LLVM. GPU parity, device execution and timing "
+                "are unverified; no device validation is claimed.")
+
+
+def precompiled(record):
+  target, artifact = record['target'], record['artifact']
+  checks = ' · '.join(e(check.replace('-', ' ')) for check in record['checks'])
+  return f'''<section class="build"><h4>Precompiled a630 build (off-device)</h4>
+      <p>Target <code>{e(target['backend'])} / {e(target['hardware'])}</code> · runtime <code>{e(target['runtime'])}</code></p>
+      <p><a href="{e(artifact['url'], quote=True)}" download>{e(artifact['name'])}</a> · {artifact['size'] / 1024**2:.1f} MiB</p>
+      <p>SHA-256 <code>{e(artifact['sha256'])}</code></p>
+      <p class="meta">Checks: {checks}. {BUILD_NOTICE}</p></section>'''
+
+
+def detail(catalog, model, shell, *, base_url="", builds=()):
+  built = {record['recipe']: record for record in builds}
   links = ''.join(f'<li><a href="{e(url, quote=True)}">Source {i + 1}</a></li>' for i, url in enumerate(model['links']) if urlparse(url).scheme in ('https', 'http'))
   claims = []
   for claim in model.get('names', []):
@@ -231,38 +247,33 @@ def detail(catalog, model, shell, *, base_url=""):
       {hardware}
       <p>{e(', '.join(v['formats']).upper())} · {v['size'] / 1024**2:.1f} MiB</p>
       <p>{' · '.join(downloads) or 'Weights are currently unavailable.'}</p>
-      <div class="variant-actions"><a class="start-model" href="index.html?recipe={v['recipe']}">Use as starting point →</a><a href="recipes/{v['recipe']}.json" download>Download configuration for SDK</a></div>
+      {precompiled(built[v['recipe']]) if v['recipe'] in built else ''}
+      <div class="variant-actions"><a href="recipes/{v['recipe']}.json" download>Download configuration for SDK</a></div>
       <details><summary>Integration details and original archive name</summary><p>{e(', '.join(names))}</p>
       <p>Recipe ID: <code>{v['recipe']}</code></p><p>Profile: <a href="manifests/{recipe.profile.id}.json">{e(recipe.profile.data['name'])}</a></p>
       <p><a href="manifests/{v['recipe']}.json">View exact configuration and provenance</a></p></details></section>''')
-  return shell(model['name'] + ' — openmodels', STYLE + f'''<main><a href="models.html">← All models</a>
+  return shell(model['name'] + ' — openmodels', STYLE + f'''<main><a href="index.html">← All models</a>
     <section class="hero"><p>{e(model['publisher'])} · {e(model['kind'])} · {e(model['family'])}</p><h1>{e(model['name'])}</h1><p>{e(model['description'])}</p></section>
     <h2>Available configurations</h2><p>Each configuration preserves a specific source context. Your fork decides which configurations it supports and how to activate them. <a href="integrate.html">Integration guide</a></p>
     {''.join(variants)}<details class="provenance"><summary>Names, aliases and provenance</summary>{naming}<h3>Source references</h3><ul>{links}</ul></details></main>''')
 
 
 def guide(shell):
-  return shell('Developers — openmodels', STYLE + '''<main><section class="hero"><h1>Developers</h1><p>Compose a model configuration or integrate a model switcher using the same static catalog and Python SDK.</p></section>
-  <h2>From workbench to recipe</h2><p>The <a href="index.html">workbench</a> exports a <strong>Composition request</strong> as <code>selection.json</code>. It records the profile, contextual component selections and your explicit settings overrides. The SDK checks the request, reports unresolved structure or semantics, and creates the recipe identity.</p>
-  <p>Use the workbench’s generated command and Python example: both pin the exact catalog snapshot displayed when you composed the request. The CLI writes findings to stderr and an installable recipe snapshot to stdout:</p>
-  <pre><code>python -m openmodels --catalog catalog.json --sha256 CATALOG_SHA256 compose selection.json &gt; composed.json</code></pre>
-  <p>Replace <code>CATALOG_SHA256</code> with the displayed snapshot digest, or copy the ready-to-run command from the workbench. Preserve recorded source settings; missing values remain unknown until explicitly supplied. Review SDK findings before adopting a composition.</p>
-  <h2>Build a model switcher</h2><p>One static catalog, named models, and exact configurations. No hosted API required.</p>
-  <ol><li>Load the catalog from this site or a pinned local snapshot.</li><li>Provide your fork’s support policy and show the resulting models and variants.</li><li>Install the selected recipe with progress and cancellation.</li><li>Prepare it with your runner, then activate it through your fork’s existing model manager.</li></ol>
-  <pre><code>from openmodels import Catalog, ModelSwitcher
+  return shell('Developers — openmodels', STYLE + '''<main><section class="hero"><h1>Downloads and SDK</h1><p>One static catalog of comma models: browse it, pin a snapshot, and install verified weights with the dependency-free Python SDK.</p></section>
+  <h2>Install a configuration</h2><p>Model pages list every recorded source configuration. Each one is a recipe: an immutable document binding an exact artifact digest, its source commit, and the settings that commit used. <a href="catalog.json">catalog.json</a> carries those documents verbatim, and <a href="models.json">models.json</a> offers the same discovery view to other languages.</p>
+  <pre><code>from pathlib import Path
+
+from openmodels import Catalog, ModelStore
 
 catalog = Catalog.load("https://jjolano.github.io/openmodels/catalog.json")
-# approved_recipe_ids comes from your fork's tested model policy.
-switcher = ModelSwitcher(catalog, "./model-store", support=lambda recipe:
-    None if recipe.id in approved_recipe_ids else "Not supported by this fork")
-models = switcher.list_models()
-# Render model["name"] and its variants; retain variant["recipe"] as the selection.
-package = switcher.install(selected_recipe_id,
-    on_progress=lambda digest, received, total: update_progress(received, total),
-    cancelled=lambda: cancel_requested)
-# package.verify() has already passed. Activation belongs to your fork.</code></pre>
-  <h2>Try the complete flow</h2><p>Clone the repository and run the self-contained demo. It serves synthetic weights locally, lists the model, installs it, and verifies its contents.</p>
-  <pre><code>python examples/switcher.py --demo</code></pre>
-  <p><a href="https://github.com/jjolano/openmodels/blob/main/docs/switcher.md">SDK installation, support policies and runner preparation</a> · <a href="https://github.com/jjolano/openmodels/blob/main/examples/switcher.py">Example switcher source</a></p>
-  <h2>Other languages</h2><p><a href="models.json">models.json</a> provides display names and exact selectable recipe IDs. Load <a href="catalog.json">catalog.json</a> for their manifests, artifact locations and provenance. Verify every download against its declared size and SHA-256 before installation.</p>
-  <p>Changing a selection never activates a model on a device. Keep your existing download worker, restart rules, rollback and driving-state checks in the consumer.</p></main>''')
+recipe = catalog.resolve("Stock supercombo (555f48c5)")
+package = ModelStore(Path("./models"), catalog).fetch(recipe)
+package.verify()  # size and SHA-256 of every artifact, already checked before install</code></pre>
+  <p>Pass the digest from a reviewed <code>deployment.json</code> record as <code>expected_sha256</code> to pin the exact snapshot. Downloads stage into a temporary directory, verify the declared size and SHA-256, and rename into place, so an interrupted download never becomes an installed package. Verified artifacts are cached by digest and hard-linked between recipes.</p>
+  <pre><code>python -m openmodels --catalog https://jjolano.github.io/openmodels/catalog.json fetch "Stock supercombo (555f48c5)" --store ./models
+python -m openmodels --catalog catalog.json list --query supercombo
+python -m openmodels --catalog catalog.json export RECIPE_ID &gt; selected.json</code></pre>
+  <h2>Precompiled a630 builds</h2><p>Some model configurations also ship a build compiled off-device for comma 3X (Qualcomm a630). Model pages show the artifact name, size, SHA-256 and download URL; <a href="builds.json">builds.json</a> lists every record with its compiler identity and target.</p>
+  <p>These builds are evidence of compilation only. They were produced with <code>qemu</code> and LLVM on x86-64, and GPU parity, device execution and timing remain unverified: every record carries <code>gpu_validated: false</code> and <code>device_validated: false</code>. Verify the artifact digest against <code>builds.json</code> before use, and treat qualification as your own responsibility.</p>
+  <h2>What the catalog guarantees</h2><p>It asserts blob identity and upstream provenance. Every artifact digest, source commit and recorded host constant comes from the archive import; blobs in Releases are append-only, and each publication is retained once as <code>catalog-DIGEST</code> so older snapshots stay usable after the site moves on.</p>
+  <p>Changing a selection never activates a model on a device. Scheduling, camera buffers, calibration, output publication, qualification, activation and rollback stay in the consumer. Archived comma models remain under the upstream MIT license; see <a href="https://github.com/jjolano/openmodels/blob/main/THIRD_PARTY_NOTICES.md">third-party notices</a>.</p></main>''')
