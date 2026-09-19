@@ -6,8 +6,8 @@ history is reachable without credentials, and pointers give us oid+size up front
 downloaded twice.
 
 comma moved hosting off gitlab.com on 2026-09-09 (openpilot #38824, reapplied #38841), so an
-oid recorded after that date only resolves here. This URL mirrors upstream `.lfsconfig`; when
-newly discovered models come back 404, diff that file before assuming the blob is gone.
+oid recorded after that date only resolves here. `check_lfsconfig` compares this constant with
+upstream's own `.lfsconfig` on every scan; update both together when the store moves.
 
 Blobs are verified on arrival. The oid *is* the sha256, so a mismatch is free to detect and
 must always abort — this is the same check the reference client performs.
@@ -37,6 +37,33 @@ class VerificationError(LFSError):
 def verified(path: Path, oid: str) -> bool:
   with open(path, "rb") as handle:
     return hashlib.file_digest(handle, "sha256").hexdigest() == oid
+
+
+def check_lfsconfig(text: str, expected: str = BATCH_URL) -> str:
+  """Fail loudly when upstream's `.lfsconfig` no longer points at the store we fetch from.
+
+  The scan job pipes upstream's own configuration through this before discovery, so the next
+  hosting move breaks the refresh instead of quietly marking every new blob unavailable — which
+  is how the gitlab.com move went unnoticed for ten days.
+  """
+  url, section = None, ""
+  for raw in text.splitlines():
+    line = raw.strip()
+    if not line or line[0] in "#;":
+      continue
+    if line.startswith("["):
+      section = line.strip("[]").strip().casefold()
+      continue
+    if section == "lfs" and "=" in line:
+      key, _, value = line.partition("=")
+      if key.strip().casefold() == "url":
+        url = value.strip().strip('"')
+  if not url:
+    raise LFSError("upstream .lfsconfig has no lfs.url")
+  found = url.rstrip("/") + "/objects/batch"
+  if found != expected:
+    raise LFSError(f"upstream LFS store moved: .lfsconfig says {found}, this module fetches {expected}")
+  return found
 
 
 def resolve(oids: list[tuple[str, int]], batch_url: str = BATCH_URL,

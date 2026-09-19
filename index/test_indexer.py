@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from index.constants import extract_from_source  # noqa: E402
 from index import lfs  # noqa: E402
+from index.lfs import LFSError  # noqa: E402
 from index.indexer import (  # noqa: E402
   attach_metadata, fetch_from_releases, index_repo, merge_previous, read_pointer,
 )
@@ -295,6 +296,27 @@ def test_in_head_uses_bundle_identity_not_oid_alone():
   assert len(catalog["bundles"]) == 1
   assert catalog["bundles"][0]["in_head"] is False
   assert all(f["host_contexts"] for f in catalog["files"])
+
+
+def test_lfsconfig_drift_is_caught_offline():
+  from index.lfs import check_lfsconfig
+  huggingface = "[lfs]\n\turl = https://huggingface.co/commaai/openpilot-lfs.git/info/lfs\n\tpushurl = https://huggingface.co/commaai/openpilot-lfs.git/info/lfs\n"
+  assert check_lfsconfig(huggingface).endswith("/objects/batch")
+  # The exact file shape that silently cost ten days of mirroring.
+  gitlab = "[lfs]\n\turl = https://gitlab.com/commaai/openpilot-lfs.git/info/lfs\n"
+  try:
+    check_lfsconfig(gitlab)
+    raise AssertionError("a moved store must fail the scan, not pass quietly")
+  except LFSError as exc:
+    assert "gitlab.com" in str(exc) and "huggingface" in str(exc)
+  for text in ("[lfs]\npushurl = https://example.invalid\n", "[lfs]\n", ""):
+    try:
+      check_lfsconfig(text)
+      raise AssertionError("a config without lfs.url must fail")
+    except LFSError:
+      pass
+  # Quoted values and a trailing slash are the same store.
+  assert check_lfsconfig('[lfs]\nurl = "https://huggingface.co/commaai/openpilot-lfs.git/info/lfs/"\n').endswith("/objects/batch")
 
 
 def test_publisher_distinguishes_gone_blobs_from_pending_backfill():
