@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from urllib.parse import urlsplit
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -308,7 +309,9 @@ def test_lfsconfig_drift_is_caught_offline():
     check_lfsconfig(gitlab)
     raise AssertionError("a moved store must fail the scan, not pass quietly")
   except LFSError as exc:
-    assert "gitlab.com" in str(exc) and "huggingface" in str(exc)
+    moved = str(exc).partition(".lfsconfig says ")[2]
+    assert urlsplit(moved.partition(", ")[0]).netloc == "gitlab.com"
+    assert urlsplit(str(exc).partition("this module fetches ")[2]).netloc == "huggingface.co"
   for text in ("[lfs]\npushurl = https://example.invalid\n", "[lfs]\n", ""):
     try:
       check_lfsconfig(text)
