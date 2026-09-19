@@ -21,3 +21,14 @@ copyright of Comma.ai, Inc. They are distributed under openpilot's MIT license:
 > OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 Source: https://github.com/commaai/openpilot/blob/master/LICENSE
+
+## Vendored compiler tooling
+
+`ci/qcom/vendor.py`, `ci/qcom/compile.py` and `ci/qcom/serialization.py` are derived from
+`commaai/openpilot` at commit `555f48c5d28709f039b79f3f6105e51305edd4b5` (MIT, copyright
+Comma.ai, Inc.), and the a630 toolchain they fetch is pinned by URL and SHA-256 in
+`ci/qcom/toolchain.py`. Compiled build artifacts published from this repository are derived
+works of the archived MIT-licensed models above.
+
+Source: https://github.com/commaai/openpilot/tree/555f48c5d28709f039b79f3f6105e51305edd4b5
+

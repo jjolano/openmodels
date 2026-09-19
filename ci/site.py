@@ -2,12 +2,12 @@
 import argparse
 from html.parser import HTMLParser
 import json
-import os
 from pathlib import Path
 import subprocess
 import tempfile
 from urllib.parse import unquote, urlsplit
 
+from ci.builds import load_builds, manifest
 from index.registry import atomic_write
 from openmodels import Catalog, ContractError
 from openmodels.contracts import dumps, sha256
@@ -23,7 +23,7 @@ class Links(HTMLParser):
     self.links.extend(value for key, value in attrs if key in ('href', 'src') and value)
 
 
-def verify_site(root):
+def verify_site(root, builds=()):
   root = Path(root)
   catalog = Catalog.load(root / 'catalog.json')
   pinned = Catalog.load(root / 'snapshots' / f'{catalog.revision}.json')
@@ -36,6 +36,11 @@ def verify_site(root):
     recipe = Catalog.load(root / 'recipes' / f'{entry["recipe"]}.json').resolve(entry['recipe'])
     if recipe != catalog.resolve(entry['recipe']):
       raise ValueError('Recipe export differs from catalog')
+  # A build record only means something if its recipe is in this exact snapshot.
+  for record in builds:
+    catalog.resolve(record['recipe'])
+  if builds and (root / 'builds.json').read_text() != manifest(builds):
+    raise ValueError('Rendered builds manifest differs from the supplied records')
   for page in root.rglob('*.html'):
     parser = Links()
     parser.feed(page.read_text())
@@ -45,21 +50,19 @@ def verify_site(root):
         continue
       if url.path.startswith('/'):
         raise ValueError(f'Root-relative link breaks project Pages: {link}')
-      if url.path == 'docs':  # Self-hosted API documentation, not a static file.
-        continue
       target = (page.parent / unquote(url.path)).resolve()
       if not target.is_relative_to(root.resolve()) or not target.is_file():
         raise ValueError(f'Broken site link: {link}')
   return catalog
 
 
-def build(index, out, code, archive):
-  render(Path(index), Path(out))
-  catalog = verify_site(out)
+def build(index, out, code, archive, builds=None):
+  render(Path(index), Path(out), builds=builds or ())
+  catalog = verify_site(out, builds or ())
   atomic_write(Path(out) / 'deployment.json', dumps({
     'schema': 1, 'code_revision': code, 'archive_revision': archive,
     'catalog_revision': catalog.revision,
-    'api_base': os.environ.get('OPENMODELS_API_BASE', '').rstrip('/')}))
+    'builds_revision': sha256((Path(out) / 'builds.json').read_bytes()) if builds is not None else ''}))
   return catalog
 
 
@@ -100,21 +103,16 @@ def main():
   build_cmd.add_argument('--out', default='data/public')
   build_cmd.add_argument('--code', required=True)
   build_cmd.add_argument('--archive', required=True)
+  build_cmd.add_argument('--builds', type=Path)
   keep = sub.add_parser('retain')
   keep.add_argument('--out', default='data/public')
   keep.add_argument('--repo', required=True)
-  sync = sub.add_parser('sync')
-  sync.add_argument('--url', required=True)
-  sync.add_argument('--sha256')
-  sync.add_argument('--data', default=os.environ.get('OPENMODELS_DATA', 'data'))
   args = parser.parse_args()
   if args.command == 'build':
-    catalog = build(args.index, args.out, args.code, args.archive)
-  elif args.command == 'retain':
-    catalog = retain(args.out, args.repo)
+    catalog = build(args.index, args.out, args.code, args.archive,
+                    load_builds(args.builds) if args.builds else None)
   else:
-    catalog = Catalog.load(args.url, expected_sha256=args.sha256)
-    atomic_write(Path(args.data) / 'public' / 'catalog.json', catalog.raw)
+    catalog = retain(args.out, args.repo)
   print(f'catalog {catalog.revision}: {catalog.search()["total"]} recipes')
 
 

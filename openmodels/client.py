@@ -1,4 +1,4 @@
-"""Offline/HTTP catalog, pure composition, and a verified store. No activation API."""
+"""Offline/HTTP catalog browsing and a verified store. No activation API."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -110,37 +110,6 @@ class Catalog:
     if manifest.data["type"] != "recipe":
       raise ContractError("reference is not a recipe")
     return Recipe(manifest, self.manifest(manifest.data["profile"]))
-
-  def compose(self, profile, selection, *, configuration=None):
-    request = {"profile": profile, "selection": selection}
-    if configuration is not None:
-      request["configuration"] = configuration
-    validate(request, SCHEMAS["compose"])
-    members = {}
-    for role, choice in sorted(selection.items()):
-      source = self.resolve(choice["recipe"]).data
-      if choice["slot"] != role:
-        raise ContractError("a component cannot be relabelled as another role")
-      try:
-        members[role] = source["members"][choice["slot"]]
-      except KeyError as exc:
-        raise ContractError("unknown source slot") from exc
-    # Only unanimous recorded values become defaults. Explicit choices stay in the recipe ID.
-    configs = [m["configuration"] for m in members.values()]
-    agreed = {k: v for k, v in configs[0].items()
-              if v is not None and all(k in c and dumps(c[k]) == dumps(v) for c in configs[1:])}
-    agreed.update(configuration or {})
-    recipe = Recipe(Manifest.create({"schema": 1, "type": "recipe", "profile": profile,
-                                    "members": members, "configuration": agreed}), self.manifest(profile))
-    report = recipe.check()
-    selected = {m["artifact"]["sha256"] for m in members.values()}
-    report["evidence"] = [e for e in self._data["evidence"] if set(e["artifacts"]) <= selected]
-    report["upstream_pairing"] = any(e["kind"] == "upstream_pairing" and set(e["artifacts"]) == selected
-                                     for e in report["evidence"])
-    report["composition_attested"] = False
-    if len(members) > 1 and not report["upstream_pairing"]:
-      report["findings"].append({"code": "cross_lineage_or_unknown", "detail": "No upstream pairing recorded"})
-    return recipe, report
 
   def export(self, recipe):
     """A self-contained snapshot: profile, recipe, locations, and relevant evidence."""

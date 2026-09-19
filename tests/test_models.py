@@ -3,7 +3,7 @@ from copy import deepcopy
 import unittest
 from openmodels import Catalog, ContractError, Manifest
 from openmodels.contracts import dumps
-from test_universal import fixture
+from test_catalog import fixture
 
 
 class ModelTests(unittest.TestCase):
@@ -167,7 +167,7 @@ class ModelTests(unittest.TestCase):
       self.assertFalse(links[0] & links[1] or links[1] & links[2] or links[0] & links[2])
       html = listing(catalog, lambda title, body: body, archive=archive, records=records)
       self.assertIn(f'href="{page_filename(2, archive=archive)}"', html)
-    self.assertEqual(page_filename(1), 'models.html')
-    self.assertEqual(page_filename(2), 'models-2.html')
+    self.assertEqual(page_filename(1), 'index.html')
+    self.assertEqual(page_filename(2), 'index-2.html')
     self.assertEqual(page_filename(1, archive=True), 'archive.html')
     self.assertEqual(page_filename(2, archive=True), 'archive-2.html')
