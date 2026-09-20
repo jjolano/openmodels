@@ -151,7 +151,7 @@ def page_filename(page, archive=False):
 
 def discovery(catalog):
   records = []
-  for model in catalog.models(include_archive=True):
+  for model in catalog.models(include_archive=True, publisher="commaai"):
     name_kind = model.get('name_kind', 'published')
     aliases = ', '.join(dict.fromkeys(n['name'] for n in model.get('names', []) if n['name'].casefold() != model['name'].casefold()))
     records.append({

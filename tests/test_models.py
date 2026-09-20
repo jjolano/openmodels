@@ -83,6 +83,19 @@ class ModelTests(unittest.TestCase):
     data['entries'][1]['model']['name'] = 'Conflicting name'
     with self.assertRaises(ContractError):
       Catalog(dumps(data)).models(include_archive=True)
+  def test_models_sort_groups_by_latest_occurrence(self):
+    data, recipe, _ = fixture()
+    data['entries'][0].update(
+      {'model': {'id': 'example/old', 'name': 'Old model', 'family': 'segmentation',
+                 'description': 'Example.', 'links': [], 'archived': False, 'name_kind': 'published'},
+       'occurrences': [{'date': '2024-01-01'}]})
+    data['entries'].append(
+      {'name': 'Generated model', 'publisher': 'example', 'kind': 'segmentation', 'recipe': recipe.id,
+       'occurrences': [{'date': '2025-01-01'}],
+       'model': {'id': 'example/new', 'name': 'Generated model', 'family': 'segmentation',
+                 'description': 'Example.', 'links': [], 'archived': False, 'name_kind': 'generated'}})
+    models = Catalog(dumps(data)).models()
+    self.assertEqual([model['id'] for model in models], ['example/new', 'example/old'])
 
   def test_naming_evidence_and_fallbacks_do_not_change_recipes(self):
     from index.names import model_metadata, source_label

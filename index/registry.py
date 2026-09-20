@@ -127,7 +127,7 @@ def publish(index, out, *, blob_base=None):
   for name in SCHEMAS:
     atomic_write(out / "schemas" / f"{name}.json", dumps(schema(name)))
   atomic_write(out / "snapshots" / f"{catalog.revision}.json", raw)
-  atomic_write(out / "models.json", dumps({"schema": 1, "revision": catalog.revision, "models": catalog.models(include_archive=True)}))
+  atomic_write(out / "models.json", dumps({"schema": 1, "revision": catalog.revision, "models": catalog.models(include_archive=True, publisher="commaai")}))
   atomic_write(out / "catalog.json", raw)
   return catalog
 
