@@ -72,7 +72,7 @@ def render(index_path: Path, out_dir: Path) -> int:
                                                                  records=records, discovery_url=discovery_url))
       listing_pages += 1
   atomic_write(out_dir / "integrate.html", guide(shell))
-  models = catalog.models(include_archive=True)
+  models = catalog.models(include_archive=True, publisher="commaai")
   for model in models:
     atomic_write(out_dir / filename(model), detail(catalog, model, shell))
   atomic_write(out_dir / ".nojekyll", "")

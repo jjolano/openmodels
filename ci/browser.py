@@ -23,16 +23,15 @@ def main():
                                                 'upstream_head': 'fixture', 'files': [], 'bundles': []}))
     subprocess.run([sys.executable, '-m', 'ci.site', 'build', '--index', str(root / 'index.json'),
                     '--out', str(root / 'openmodels'), '--code', 'fixture', '--archive', 'fixture'], check=True, env=env)
-    # Keep the real pinned recipe and its model page; add enough discovery records to
-    # exercise every pagination boundary without synthetic manifests.
+    # Use synthetic comma models for pagination; the pinned recipe remains an SDK-only fixture.
     from copy import deepcopy
     from types import SimpleNamespace
     from openmodels import Catalog
-    from web.models import discovery, listing, page_filename
+    from web.models import detail, discovery, filename, listing, page_filename
     from web.render import shell
     catalog = Catalog.load(root / 'openmodels/catalog.json')
-    stock = catalog.models()[0]
-    stock['archived'] = False
+    stock = {**catalog.models()[0], 'id': 'commaai/browser-model', 'name': 'Browse fixture',
+             'publisher': 'commaai', 'archived': False, 'names': [], 'name_kind': 'published'}
     current = [stock] + [{**deepcopy(stock), 'id': f'example/page-{i}', 'name': f'Pagination model {i}',
                           'names': [], 'name_kind': 'generated', 'archived': False} for i in range(1, 61)]
     current[-1]['names'] = [{'name': 'Distant alias'}]
@@ -44,8 +43,10 @@ def main():
                  'names': [], 'name_kind': 'generated', 'archived': True}
                 for i, model in enumerate(current)]
     models = current + archived
-    fixture_catalog = SimpleNamespace(models=lambda **kwargs: models)
+    fixture_catalog = SimpleNamespace(models=lambda **kwargs: [model for model in models
+                                                               if kwargs.get('publisher') in (None, model['publisher'])])
     records = discovery(fixture_catalog)
+    (root / 'openmodels' / filename(stock)).write_text(detail(catalog, stock, shell))
     (root / 'openmodels/discovery-test.json').write_text(json.dumps(records))
     for archive in (False, True):
       for page in (1, 2, 3):
