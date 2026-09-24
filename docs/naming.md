@@ -38,7 +38,9 @@ pages. Original source titles and exact configurations remain available undernea
   a comma endorsement.
 - **Sunnypilot:** [pinned catalog](https://raw.githubusercontent.com/sunnypilot/sunnypilot-models/947018e4697e2f68c898438c5aa7597bab651335/docs/driving_models_v18.json).
   Names associate an exact upstream commit and artifact bundle with a listing. Compiled
-  packages and tuning overrides are separate from the original ONNX configurations.
+  packages and tuning overrides are separate from the original ONNX configurations. The same
+  pinned manifest supplies a folder and short code, carried verbatim and subject to the same
+  commit+artifact evidence check.
 
 The checked [FrogPilot v17 catalog](https://raw.githubusercontent.com/FrogAi/FrogPilot-Resources/09f1cccd16e3d463e84776c7e2a8aaa690b4c78c/model_names_v17.json)
 contains names, IDs and runtime versions, but no source commits or artifact hashes. Its

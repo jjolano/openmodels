@@ -162,6 +162,14 @@ class CatalogTests(unittest.TestCase):
     for name in SCHEMAS:
       Draft202012Validator.check_schema(schema(name))
     Draft202012Validator(schema("snapshot")).validate(data)
+    data['entries'][0]['model'] = {
+      'id': 'example/model', 'name': 'Named model', 'family': 'segmentation', 'model_class': 'standard',
+      'description': 'Example.', 'links': [], 'archived': False}
+    Draft202012Validator(schema("snapshot")).validate(data)
+    Catalog(dumps(data))
+    data['entries'][0]['model'].update({'short_name': 'OPM10V3', 'folder': '2026 World Models'})
+    Draft202012Validator(schema("snapshot")).validate(data)
+    Catalog(dumps(data))
     Draft202012Validator(schema("recipe")).validate(recipe.data)
     Draft202012Validator(schema("profile")).validate(recipe.profile.data)
 

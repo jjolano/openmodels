@@ -3,6 +3,8 @@
     {
       "name": "LAv2 (January 24, 2024)",
       "ref": "f9d5fc7dd9b763356a1201d96c6953ed4562226e",
+      "short_name": "LAV2",
+      "folder": "Legacy Models",
       "bundle_id": "e300288c246199d9",
       "artifacts": [
         {
@@ -17,6 +19,8 @@
     {
       "name": "Certified Herbalist v2 (February 19, 2024)",
       "ref": "a4d53d378d4331dc7780e5e60845ea1731c48341",
+      "short_name": "CHV2",
+      "folder": "Legacy Models",
       "bundle_id": "2597abcdbc9346ce",
       "artifacts": [
         {
@@ -31,6 +35,8 @@
     {
       "name": "Recertified Herbalist (March 01, 2024)",
       "ref": "063623602c9a3cefe70d2c661b40ef7a15f73d43",
+      "short_name": "RH",
+      "folder": "Legacy Models",
       "bundle_id": "e23a56be9f20a65e",
       "artifacts": [
         {
@@ -45,6 +51,8 @@
     {
       "name": "Duck Amigo (March 18, 2024)",
       "ref": "5f3960a3a7689903a4da5e80b7e70cf0056acad3",
+      "short_name": "DA",
+      "folder": "Legacy Models",
       "bundle_id": "86d7d891b159dfb8",
       "artifacts": [
         {
@@ -59,6 +67,8 @@
     {
       "name": "WD40 (April 09, 2024)",
       "ref": "9691393bde34efb8be6fccef497d6d17758c209c",
+      "short_name": "WD40",
+      "folder": "Legacy Models",
       "bundle_id": "6fd36846264d7f3b",
       "artifacts": [
         {
@@ -73,6 +83,8 @@
     {
       "name": "North Dakota v2 (April 29, 2024)",
       "ref": "375978d40b976bf9e82ab74f267846a56b7656a6",
+      "short_name": "NDV2",
+      "folder": "Legacy Models",
       "bundle_id": "344a6a5c6acdd11d",
       "artifacts": [
         {
@@ -87,6 +99,8 @@
     {
       "name": "Notre Dame (July 01, 2024)",
       "ref": "e0c89a36da8e6a06ab85c4e74c44f70dd910e1fe",
+      "short_name": "ND",
+      "folder": "Legacy Models",
       "bundle_id": "1e4cf6aa8a8667f9",
       "artifacts": [
         {
@@ -101,6 +115,8 @@
     {
       "name": "Filet o Fish (March 07, 2025)",
       "ref": "d807b5c476658dba7760d30949baa619074c4a4e",
+      "short_name": "FOF",
+      "folder": "Release Models",
       "bundle_id": "e8732fbed7891495",
       "artifacts": [
         {
@@ -119,6 +135,8 @@
     {
       "name": "SP Vikander Model (May 03, 2025)",
       "ref": "d134fdd7d51ba84848866c0265e37508c38f9366",
+      "short_name": "SPVM",
+      "folder": "Custom Merge Models",
       "bundle_id": "8c9aa91457a5894e",
       "artifacts": [
         {
@@ -137,6 +155,8 @@
     {
       "name": "Tomb Raider 7 (May 07, 2025)",
       "ref": "0fb4aafa35896e831bd58a636a9a1bb4a1442743",
+      "short_name": "TR7",
+      "folder": "2025 Pre World Models",
       "bundle_id": "9a7114db7689742d",
       "artifacts": [
         {
@@ -155,6 +175,8 @@
     {
       "name": "Secret Good Openpilot (May 16, 2025)",
       "ref": "80a636e4952633886c65973d3323e58ec87ed320",
+      "short_name": "SGO",
+      "folder": "2025 Pre World Models",
       "bundle_id": "cfae60ba86ba2839",
       "artifacts": [
         {
@@ -173,6 +195,8 @@
     {
       "name": "Kerrygold Driving (June 08, 2025)",
       "ref": "dc7a92ea630e4f6053082fc25eca83938927b91e",
+      "short_name": "KD",
+      "folder": "2025 Pre World Models",
       "bundle_id": "78494323c2b95097",
       "artifacts": [
         {
@@ -191,6 +215,8 @@
     {
       "name": "Liquid Crystal Driving (June 21, 2025)",
       "ref": "b55af0de7fecdb4af073c01b77b04b8306a4e92d",
+      "short_name": "LCD",
+      "folder": "2025 Pre World Models",
       "bundle_id": "db384d1ab9f28d5a",
       "artifacts": [
         {
@@ -209,6 +235,8 @@
     {
       "name": "Vegetarian Filet o Fish (June 21, 2025)",
       "ref": "c790d3f58ad32cf15f384e6018d942b2348f0c5b",
+      "short_name": "VFOF",
+      "folder": "2025 Pre World Models",
       "bundle_id": "d0baaa5c88666c77",
       "artifacts": [
         {
@@ -227,6 +255,8 @@
     {
       "name": "Aggressive TR (June 28, 2025)",
       "ref": "d54a5888cf6165b30e4bdda514ab9057473cd7f8",
+      "short_name": "ATR",
+      "folder": "2025 Pre World Models",
       "bundle_id": "e1715b1f29377e74",
       "artifacts": [
         {
@@ -245,6 +275,8 @@
     {
       "name": "Simple Plan Driving (July 07, 2025)",
       "ref": "f523f104eafc49dccb447aea4f7c3f666ef5626c",
+      "short_name": "SPD",
+      "folder": "2025 Pre World Models",
       "bundle_id": "f6f9ed75a8595699",
       "artifacts": [
         {
@@ -263,6 +295,8 @@
     {
       "name": "Down to Ride v5 (July 08, 2025)",
       "ref": "5b405920ec9511e146432de08171d6f93295248b",
+      "short_name": "DTRV5",
+      "folder": "2025 Pre World Models",
       "bundle_id": "20e91489529b8ced",
       "artifacts": [
         {
@@ -281,6 +315,8 @@
     {
       "name": "Tomb Raider 15 (July 11, 2025)",
       "ref": "ed38ca8cc998f0a2b47cde29da11b782e4551e8b",
+      "short_name": "TR15",
+      "folder": "2025 Pre World Models",
       "bundle_id": "ce9678d909ae90d2",
       "artifacts": [
         {
@@ -299,6 +335,8 @@
     {
       "name": "Le Tomb Raider 14 (July 14, 2025)",
       "ref": "c2fa07b82c2e09964e4b6dccb3e4465a2e4ad138",
+      "short_name": "LTR14",
+      "folder": "2025 Pre World Models",
       "bundle_id": "a0fe5ccded48af11",
       "artifacts": [
         {
@@ -317,6 +355,8 @@
     {
       "name": "Tomb Raider 16 (July 21, 2025)",
       "ref": "e4b6a2736580dc427473bcf8a6e3b08eb352edd4",
+      "short_name": "TR16",
+      "folder": "2025 Pre World Models",
       "bundle_id": "e9b973cce43b2209",
       "artifacts": [
         {
@@ -335,6 +375,8 @@
     {
       "name": "Space Lab 2 (July 26, 2025)",
       "ref": "d3a0378ae601f61307a53d1173c251ee36c56317",
+      "short_name": "SL2",
+      "folder": "Release Models",
       "bundle_id": "4eb3bcf8c5734740",
       "artifacts": [
         {
@@ -353,6 +395,8 @@
     {
       "name": "Space Lab 3 (August 08, 2025)",
       "ref": "659898d553eb68c981036811e1b92f6557d4e494",
+      "short_name": "SL3",
+      "folder": "Master Models",
       "bundle_id": "4d294e58724a4c64",
       "artifacts": [
         {
@@ -371,6 +415,8 @@
     {
       "name": "Down to Ride v6 (August 12, 2025)",
       "ref": "a6cf39c07a67dbc346af03010093fe4788c402d0",
+      "short_name": "DTRV6",
+      "folder": "Master Models",
       "bundle_id": "704696bfbb6ef49c",
       "artifacts": [
         {
@@ -389,6 +435,8 @@
     {
       "name": "UV + DTR Model (August 13, 2025)",
       "ref": "079d0461604632719e73dc5b6a5eb9897c624da2",
+      "short_name": "UVDTRM",
+      "folder": "2025 World Models",
       "bundle_id": "7cf5543f97e388d5",
       "artifacts": [
         {
@@ -407,6 +455,8 @@
     {
       "name": "Steam Powered Model (August 16, 2025)",
       "ref": "f1b8f510b2c554191ca15cebe35f2c5b304cf23c",
+      "short_name": "SPM",
+      "folder": "Master Models",
       "bundle_id": "7d26202ce8cd0765",
       "artifacts": [
         {
@@ -425,6 +475,8 @@
     {
       "name": "gWM Model v3 (August 22, 2025)",
       "ref": "93b26a91a62b69b809162ad2bf65e36be2158dc1",
+      "short_name": "GMV3",
+      "folder": "2025 World Models",
       "bundle_id": "9b37e90f8b520317",
       "artifacts": [
         {
@@ -443,6 +495,8 @@
     {
       "name": "Firehose Model (August 31, 2025)",
       "ref": "b74f5189a74446015c0cf78a4a9f0134a347ae3b",
+      "short_name": "FM",
+      "folder": "Master Models",
       "bundle_id": "c3c6849dba0147e2",
       "artifacts": [
         {
@@ -461,6 +515,8 @@
     {
       "name": "Fly By Wire (September 04, 2025)",
       "ref": "c4488e3411285f6fc3d008bca885e05731fd75c2",
+      "short_name": "FBW",
+      "folder": "2025 World Models",
       "bundle_id": "a060a1230d05e93c",
       "artifacts": [
         {
@@ -479,6 +535,8 @@
     {
       "name": "Nevada Model (September 07, 2025)",
       "ref": "3193eac5e385aa010694a8ac192ff38ffe000193",
+      "short_name": "NM",
+      "folder": "Master Models",
       "bundle_id": "70e62d012af62cd4",
       "artifacts": [
         {
@@ -497,6 +555,8 @@
     {
       "name": "gWM v5 (September 09, 2025)",
       "ref": "e3ee440f7d5ac12c50db6381e292a55a69b745a7",
+      "short_name": "GWMV5",
+      "folder": "2025 World Models",
       "bundle_id": "d8f692403bf7777e",
       "artifacts": [
         {
@@ -515,6 +575,8 @@
     {
       "name": "gWM v6 (September 20, 2025)",
       "ref": "91a1cea814f76d605d5b15de9634a3c8f79df509",
+      "short_name": "GWMV6",
+      "folder": "2025 World Models",
       "bundle_id": "e2257b6ca638ca77",
       "artifacts": [
         {
@@ -533,6 +595,8 @@
     {
       "name": "gWM v8 (September 28, 2025)",
       "ref": "96e7b310b164b55fb73abdd505b66fb36630718e",
+      "short_name": "GWMV8",
+      "folder": "2025 World Models",
       "bundle_id": "25a6b9806ee061d0",
       "artifacts": [
         {
@@ -551,6 +615,8 @@
     {
       "name": "The Cool Peoples Model (October 03, 2025)",
       "ref": "5306f07d05a4f84a632ce908ec5ce34993e73693",
+      "short_name": "TCPM",
+      "folder": "2025 World Models",
       "bundle_id": "5a58f85cd26483b0",
       "artifacts": [
         {
@@ -569,6 +635,8 @@
     {
       "name": "North Nevada Model (October 07, 2025)",
       "ref": "74d156ee827863aa02567228a4a48931e604a41c",
+      "short_name": "NNM",
+      "folder": "2025 World Models",
       "bundle_id": "43198d1b021bd6a7",
       "artifacts": [
         {
@@ -587,6 +655,8 @@
     {
       "name": "North Nevada Model V2 (October 08, 2025)",
       "ref": "83b81b83cdf76a577946a1567f4644e1a018443c",
+      "short_name": "NNMV2",
+      "folder": "Release Models",
       "bundle_id": "29ac2fd8c7a42379",
       "artifacts": [
         {
@@ -605,6 +675,8 @@
     {
       "name": "Nuggets in Digon (October 09, 2025)",
       "ref": "13e79e9fad60c19e751e4f9ab0538d39f1bb54dd",
+      "short_name": "NID",
+      "folder": "2025 World Models",
       "bundle_id": "c0c1be51654603eb",
       "artifacts": [
         {
@@ -623,6 +695,8 @@
     {
       "name": "The Cool Peoples Model v2 (October 09, 2025)",
       "ref": "19084132cd3956413a0fdfcdc18971a55df5e0ff",
+      "short_name": "TCPMV2",
+      "folder": "2025 World Models",
       "bundle_id": "b62d34057854ff1a",
       "artifacts": [
         {
@@ -641,6 +715,8 @@
     {
       "name": "The Cool Peoples Model v3 (October 10, 2025)",
       "ref": "5eb912c025a2207c7d428deee74ded49e5905527",
+      "short_name": "TCPMV3",
+      "folder": "Release Models",
       "bundle_id": "c33975a474468b72",
       "artifacts": [
         {
@@ -659,6 +735,8 @@
     {
       "name": "GWM V9 (October 21, 2025)",
       "ref": "f2413040a8560c0c17c18353a3c75124a2f09d17",
+      "short_name": "GWMV9",
+      "folder": "2025 World Models",
       "bundle_id": "07271c40b94f12ac",
       "artifacts": [
         {
@@ -677,6 +755,8 @@
     {
       "name": "Dark Souls Model (December 03, 2025)",
       "ref": "ba783b9f913de089816598aa367a30499727a0ce",
+      "short_name": "DSM",
+      "folder": "Master Models",
       "bundle_id": "91790f5d82e23bb9",
       "artifacts": [
         {
@@ -695,6 +775,8 @@
     {
       "name": "Planplus v2 (December 11, 2025)",
       "ref": "50c78a9dd670a305ca898b96245cadbc2ecdc1a6",
+      "short_name": "PLANPLUS",
+      "folder": "2025 World Models",
       "bundle_id": "53c7613ddd8ccd17",
       "artifacts": [
         {
@@ -713,6 +795,8 @@
     {
       "name": "Dark Souls Model v2 (December 11, 2025)",
       "ref": "5ff0e48f90d662d8c9d5061adc63e90c198c9b81",
+      "short_name": "DSMV2",
+      "folder": "Master Models",
       "bundle_id": "ddab5843391b2a5b",
       "artifacts": [
         {
@@ -731,6 +815,8 @@
     {
       "name": "Macrostiff (January 01, 2026)",
       "ref": "d70b13931793bc0e4d8efd36128dd66f227a3f81",
+      "short_name": "MACROSTI",
+      "folder": "2026 World Models",
       "bundle_id": "e9c12bdf77d0ead8",
       "artifacts": [
         {
@@ -749,6 +835,8 @@
     {
       "name": "WMI V9 (January 07, 2026)",
       "ref": "8950897d7e4d2ba2426b2b31cf29f25e87a3d4ba",
+      "short_name": "WMIV9",
+      "folder": "2026 World Models",
       "bundle_id": "dd6ba542985db207",
       "artifacts": [
         {
@@ -767,6 +855,8 @@
     {
       "name": "SC Model (January 08, 2026)",
       "ref": "e4a4b4b1adf2d19fedab4d195faa382b061fa754",
+      "short_name": "SCM",
+      "folder": "2026 World Models",
       "bundle_id": "f0fe98fde8404a9e",
       "artifacts": [
         {
@@ -785,6 +875,8 @@
     {
       "name": "WMI V12 (January 13, 2026)",
       "ref": "7e3fd7a63c5a09c3fabe108b1b62bba3cf684878",
+      "short_name": "WMIV12",
+      "folder": "Master Models",
       "bundle_id": "c0b520fd05689a71",
       "artifacts": [
         {
@@ -803,6 +895,8 @@
     {
       "name": "CD210 Model (February 03, 2026)",
       "ref": "5b6436a90cf6902b8aaa71c2b6f3d7164d8ae391",
+      "short_name": "C210M",
+      "folder": "Release Models",
       "bundle_id": "ca840c7058d05baa",
       "artifacts": [
         {
@@ -821,6 +915,8 @@
     {
       "name": "Pop Model (March 20, 2026)",
       "ref": "6f71783a8a8faa07ddaeef5bbb6809b4f4f44a15",
+      "short_name": "PM",
+      "folder": "2026 World Models",
       "bundle_id": "18aa1df78e746d36",
       "artifacts": [
         {
@@ -839,6 +935,8 @@
     {
       "name": "Pop Model v2 (March 24, 2026)",
       "ref": "62bf6fb072880905a4c490f0f4f4a6b3c23346ec",
+      "short_name": "PMV2",
+      "folder": "2026 World Models",
       "bundle_id": "65d2a2d53d03cf47",
       "artifacts": [
         {
@@ -857,6 +955,8 @@
     {
       "name": "OP Model (April 01, 2026)",
       "ref": "cb327933002bc1a00bf60a3c20af2eb7a5f653e5",
+      "short_name": "OPM",
+      "folder": "Master Models",
       "bundle_id": "85eac660818d9f92",
       "artifacts": [
         {
@@ -879,6 +979,8 @@
     {
       "name": "OP Model 7 (April 03, 2026)",
       "ref": "052692b25d63c5ddda276b5c2271383b6aff129f",
+      "short_name": "OPM7",
+      "folder": "Master Models",
       "bundle_id": "20e160696e74f6fb",
       "artifacts": [
         {
@@ -901,6 +1003,8 @@
     {
       "name": "OP Model 16 Deep (June 03, 2026)",
       "ref": "f02d134f40f5e7be22b182af21b438915a47600e",
+      "short_name": "OPM16D",
+      "folder": "Master Models",
       "bundle_id": "c18ada67b18ebbff",
       "artifacts": [
         {
@@ -923,6 +1027,8 @@
     {
       "name": "Rebel Legion Model (July 22, 2026)",
       "ref": "2895346746634d7eec0ee749f946c87039948a25",
+      "short_name": "RLM",
+      "folder": "Master Models",
       "bundle_id": "82dd11227e065a4d",
       "artifacts": [
         {
@@ -937,6 +1043,8 @@
     {
       "name": "Get Your Hopes Up Model (July 25, 2026)",
       "ref": "574735edc6e1aafdc2a69395f9a32e7f5cc4b62b",
+      "short_name": "GYHUM",
+      "folder": "2026 Deep RL Models",
       "bundle_id": "8e4506069a139fa0",
       "artifacts": [
         {
@@ -951,6 +1059,8 @@
     {
       "name": "Rebellious Hope Model (July 27, 2026)",
       "ref": "93f5aa469a72b7621aef7da7901c100e0113e4d9",
+      "short_name": "RHM",
+      "folder": "Master Models",
       "bundle_id": "304f351e997c2963",
       "artifacts": [
         {
@@ -965,6 +1075,8 @@
     {
       "name": "RDF Model (August 05, 2026)",
       "ref": "a95e2c25cae5fbf1afba7628bfb7acc4af59e0cc",
+      "short_name": "RDFM",
+      "folder": "2026 Deep RL Models",
       "bundle_id": "4fd5083653095414",
       "artifacts": [
         {
