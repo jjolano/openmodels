@@ -143,6 +143,27 @@ class ModelTests(unittest.TestCase):
     self.assertIn('Fork alias', page)
     self.assertIn('https://example.com/upstream', page)
 
+  def test_sunnypilot_presentation_claims_follow_winning_name(self):
+    from index.names import model_metadata
+    bundle = {'bundle_id': 'abcdefgh12345678', 'kind': 'driving', 'variant': 'standard', 'family': 'supercombo',
+              'name': 'weights', 'occurrences': [{'commit': 'one'}],
+              'files': [{'role': 'supercombo', 'oid': 'a' * 64, 'filename': 'supercombo.onnx', 'size': 1}]}
+    base = {'bundle_id': bundle['bundle_id'], 'ref': 'one',
+            'artifacts': [{'role': 'supercombo', 'sha256': 'a' * 64}], 'method': 'published'}
+    sunny = {**base, 'name': 'Fork alias', 'source': 'sunnypilot', 'url': 'https://example.com/fork',
+             'short_name': 'OPM10V3', 'folder': '2026 World Models'}
+    model = model_metadata(bundle, [sunny])
+    self.assertEqual(model['short_name'], 'OPM10V3')
+    self.assertEqual(model['folder'], '2026 World Models')
+    self.assertEqual(model['names'], [{k: sunny[k] for k in ('name', 'source', 'url', 'method')}])
+    unclaimed = model_metadata(bundle, [])
+    self.assertNotIn('short_name', unclaimed)
+    self.assertNotIn('folder', unclaimed)
+    official = {**base, 'name': 'Official Name', 'source': 'comma', 'url': 'https://example.com/upstream'}
+    preferred = model_metadata(bundle, [sunny, official])
+    self.assertNotIn('short_name', preferred)
+    self.assertNotIn('folder', preferred)
+
   def test_static_pagination_covers_every_model_once(self):
     from html.parser import HTMLParser
     from types import SimpleNamespace

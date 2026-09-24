@@ -52,6 +52,7 @@ SCHEMAS = {
                                                        "description": TEXT, "links": array(TEXT),
                                                        "archived": {"type": "boolean"},
                                                        "model_class": {"enum": ["standard", "big", "unknown"]},
+                                                       "short_name": TEXT, "folder": TEXT,
                                                        "hardware": array(obj({"name": TEXT, "url": TEXT,
                                                                               "method": {"const": "source"}, "context": TEXT,
                                                                               "artifacts": array(obj({"role": TEXT, "sha256": DIGEST}))})),

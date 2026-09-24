@@ -50,7 +50,12 @@ the recipe digest, the source occurrences and a display model group.
 
 `entries[].model` groups configurations. `model_class` (`standard`, `big`, `unknown`) comes
 from the recorded importer variant; missing class stays unknown and is never inferred from
-AMD/QCOM targets. Each variant's `hardware` list contains reviewed source attributions
+AMD/QCOM targets.
+
+Optional `short_name` and `folder` are attributed presentation claims from a pinned published
+source, never a qualification; they are absent when no reviewed record carries them.
+
+Each variant's `hardware` list contains reviewed source attributions
 (`name`, `url`, `method: "source"`) that appear only when both the recipe's source context and
 its complete role/artifact digest set match a reviewed record in
 [`index/model_hardware.json`](../index/model_hardware.json). Those records note upstream use,

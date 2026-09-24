@@ -23,7 +23,8 @@ def source_label(title):
 
 
 def model_metadata(bundle, records, hardware_records=()):
-  claims = []
+  """Build evidence-backed metadata; folders and short names are attributed pinned-source presentation claims, never qualification."""
+  attributed = []
   artifacts = sorted([{"role": f["role"], "sha256": f["oid"]} for f in bundle["files"]], key=lambda a: a["role"])
   commits = {o["commit"] for o in bundle["occurrences"]}
   hardware = []
@@ -39,9 +40,13 @@ def model_metadata(bundle, records, hardware_records=()):
     if sorted(record["artifacts"], key=lambda a: a["role"]) != artifacts or record["ref"] not in commits:
       raise ContractError("named model source no longer matches archived artifacts")
     claim = {k: record[k] for k in ("name", "source", "url", "method")}
-    if claim not in claims:
-      claims.append(claim)
-  claims.sort(key=lambda c: (PRIORITY.get(c["source"], 99), c["name"], c["url"]))
+    if not any(claim == existing for existing, _ in attributed):
+      presentation = ({k: record[k] for k in ("short_name", "folder") if k in record}
+                      if record["source"] == "sunnypilot" else {})
+      attributed.append((claim, presentation))
+  attributed.sort(key=lambda item: (PRIORITY.get(item[0]["source"], 99),
+                                    item[0]["name"], item[0]["url"]))
+  claims = [claim for claim, _ in attributed]
   introduced = bundle.get("introduced_by", {})
   commit = introduced.get("commit")
   occurrence = next((o for o in bundle["occurrences"] if o["commit"] == commit), {})
@@ -59,8 +64,9 @@ def model_metadata(bundle, records, hardware_records=()):
   links = list(dict.fromkeys(c["url"] for c in claims))
   if commit and not claims:
     links.append("https://github.com/commaai/openpilot/commit/" + commit)
+  presentation = attributed[0][1] if attributed else {}
   return {"id": "commaai/" + bundle["bundle_id"], "name": claims[0]["name"] if claims else fallback,
-          "name_kind": claims[0]["method"] if claims else "generated", "names": claims,
+          "name_kind": claims[0]["method"] if claims else "generated", **presentation, "names": claims,
           "family": family, "model_class": model_class, "archived": not bundle.get("in_head", False),
           "description": "Original upstream weights and source configurations. Fork naming references do not imply equivalent compiled packages or tuning.",
           "links": links, "hardware": hardware}
